@@ -352,6 +352,7 @@ export interface AuditLogEntry {
   entityId: string;
   ipAddress: string;
   status: "SUCCESS" | "FAILED" | "WARNING";
+  metadata?: Record<string, any>;
 }
 
 export interface NotificationItem {
@@ -410,5 +411,15 @@ export interface PlatformReport {
   totalOrdersCount: number;
   successfulTxCount: number;
   failedTxCount: number;
+}
+
+export interface ServiceCategoryRecord {
+  id: string;
+  name: string;
+  code: string;
+  description: string;
+  activeOfferings: number;
+  status: "ACTIVE" | "INACTIVE";
+  sortOrder: number;
 }
 

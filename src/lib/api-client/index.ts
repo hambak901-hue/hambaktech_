@@ -24,8 +24,88 @@ import {
   PaymentAttempt,
   CMSPage,
   BlogPost,
+  ServiceCategoryRecord,
 } from "@/types/platform";
+import { ServiceCategory } from "@/types/service";
+import { servicesData } from "@/data/servicesData";
 import { companyConfig } from "@/data/companyConfig";
+
+const INITIAL_SERVICES: ServiceCategory[] = [...servicesData];
+
+const INITIAL_CATEGORIES: ServiceCategoryRecord[] = [
+  {
+    id: "cat-vtu",
+    name: "Telecom VTU & Utility Payments",
+    code: "VTU",
+    description: "Airtime top-up, data bundles, electricity disco tokens, and cable TV subscriptions.",
+    activeOfferings: 18,
+    status: "ACTIVE",
+    sortOrder: 1,
+  },
+  {
+    id: "cat-biz",
+    name: "Business Centre & Secretarial",
+    code: "BUSINESS_CENTRE",
+    description: "Photocopying, typesetting, high-res scanning, lamination, and spiral binding in Ibeju-Lekki.",
+    activeOfferings: 8,
+    status: "ACTIVE",
+    sortOrder: 2,
+  },
+  {
+    id: "cat-print",
+    name: "Printing & PVC Card Production",
+    code: "PRINTING",
+    description: "Plastic NIN card prints, official staff ID cards, promotional flyers, banners, and brochures.",
+    activeOfferings: 12,
+    status: "ACTIVE",
+    sortOrder: 3,
+  },
+  {
+    id: "cat-graph",
+    name: "Graphics & Visual Design",
+    code: "GRAPHICS",
+    description: "Brand identity, logos, event flyers, corporate profiles, and digital advertising collateral.",
+    activeOfferings: 6,
+    status: "ACTIVE",
+    sortOrder: 4,
+  },
+  {
+    id: "cat-web",
+    name: "Web & Software Engineering",
+    code: "SOFTWARE",
+    description: "Responsive websites, custom portal development, database systems, and office IT automation.",
+    activeOfferings: 5,
+    status: "ACTIVE",
+    sortOrder: 5,
+  },
+  {
+    id: "cat-nin",
+    name: "NIN Identity Operations",
+    code: "NIN_ID",
+    description: "NIN verification, premium slip reprints, data modification assistance, and PVC issuance.",
+    activeOfferings: 4,
+    status: "ACTIVE",
+    sortOrder: 6,
+  },
+  {
+    id: "cat-cac",
+    name: "CAC Corporate Liaison",
+    code: "CAC_REG",
+    description: "Business name reservations, corporate registration, annual returns, and post-incorporation filing.",
+    activeOfferings: 4,
+    status: "ACTIVE",
+    sortOrder: 7,
+  },
+  {
+    id: "cat-acad",
+    name: "Computer Training Academy",
+    code: "ACADEMY",
+    description: "Vocational computer literacy, desktop publishing, graphics, web design, and digital literacy.",
+    activeOfferings: 7,
+    status: "ACTIVE",
+    sortOrder: 8,
+  },
+];
 
 // Default seed users
 const INITIAL_USERS: User[] = [
@@ -598,6 +678,8 @@ const INITIAL_BLOG_POSTS: BlogPost[] = [
 class PlatformStore {
   private user: User = INITIAL_CUSTOMER;
   private users: User[] = INITIAL_USERS;
+  private services: ServiceCategory[] = INITIAL_SERVICES;
+  private categories: ServiceCategoryRecord[] = INITIAL_CATEGORIES;
   private wallet: Wallet = INITIAL_WALLET;
   private transactions: Transaction[] = INITIAL_TRANSACTIONS;
   private orders: Order[] = INITIAL_ORDERS;
@@ -613,6 +695,7 @@ class PlatformStore {
   private paymentAttempts: PaymentAttempt[] = INITIAL_PAYMENT_ATTEMPTS;
   private cmsPages: CMSPage[] = INITIAL_CMS_PAGES;
   private blogPosts: BlogPost[] = INITIAL_BLOG_POSTS;
+  private userWallets: Record<string, Wallet> = {};
 
   constructor() {
     if (typeof window !== "undefined") {
@@ -624,6 +707,15 @@ class PlatformStore {
     try {
       const savedUser = localStorage.getItem("ht_current_user");
       if (savedUser) this.user = JSON.parse(savedUser);
+
+      const savedUsers = localStorage.getItem("ht_users");
+      if (savedUsers) this.users = JSON.parse(savedUsers);
+
+      const savedServices = localStorage.getItem("ht_services");
+      if (savedServices) this.services = JSON.parse(savedServices);
+
+      const savedCategories = localStorage.getItem("ht_categories");
+      if (savedCategories) this.categories = JSON.parse(savedCategories);
 
       const savedWallet = localStorage.getItem("ht_wallet");
       if (savedWallet) this.wallet = JSON.parse(savedWallet);
@@ -645,6 +737,33 @@ class PlatformStore {
 
       const savedTkt = localStorage.getItem("ht_tickets");
       if (savedTkt) this.tickets = JSON.parse(savedTkt);
+
+      const savedPriceRules = localStorage.getItem("ht_price_rules");
+      if (savedPriceRules) this.priceRules = JSON.parse(savedPriceRules);
+
+      const savedProviders = localStorage.getItem("ht_providers");
+      if (savedProviders) this.providers = JSON.parse(savedProviders);
+
+      const savedAnn = localStorage.getItem("ht_announcements");
+      if (savedAnn) this.announcements = JSON.parse(savedAnn);
+
+      const savedNotifs = localStorage.getItem("ht_notifications");
+      if (savedNotifs) this.notifications = JSON.parse(savedNotifs);
+
+      const savedPayments = localStorage.getItem("ht_payment_attempts");
+      if (savedPayments) this.paymentAttempts = JSON.parse(savedPayments);
+
+      const savedPages = localStorage.getItem("ht_cms_pages");
+      if (savedPages) this.cmsPages = JSON.parse(savedPages);
+
+      const savedPosts = localStorage.getItem("ht_blog_posts");
+      if (savedPosts) this.blogPosts = JSON.parse(savedPosts);
+
+      const savedAudit = localStorage.getItem("ht_audit_logs");
+      if (savedAudit) this.auditLogs = JSON.parse(savedAudit);
+
+      const savedUserWallets = localStorage.getItem("ht_user_wallets");
+      if (savedUserWallets) this.userWallets = JSON.parse(savedUserWallets);
     } catch {
       // ignore storage errors
     }
@@ -654,6 +773,9 @@ class PlatformStore {
     if (typeof window === "undefined") return;
     try {
       localStorage.setItem("ht_current_user", JSON.stringify(this.user));
+      localStorage.setItem("ht_users", JSON.stringify(this.users));
+      localStorage.setItem("ht_services", JSON.stringify(this.services));
+      localStorage.setItem("ht_categories", JSON.stringify(this.categories));
       localStorage.setItem("ht_wallet", JSON.stringify(this.wallet));
       localStorage.setItem("ht_transactions", JSON.stringify(this.transactions));
       localStorage.setItem("ht_orders", JSON.stringify(this.orders));
@@ -661,6 +783,15 @@ class PlatformStore {
       localStorage.setItem("ht_cac", JSON.stringify(this.cacRequests));
       localStorage.setItem("ht_enrollments", JSON.stringify(this.enrollments));
       localStorage.setItem("ht_tickets", JSON.stringify(this.tickets));
+      localStorage.setItem("ht_price_rules", JSON.stringify(this.priceRules));
+      localStorage.setItem("ht_providers", JSON.stringify(this.providers));
+      localStorage.setItem("ht_announcements", JSON.stringify(this.announcements));
+      localStorage.setItem("ht_notifications", JSON.stringify(this.notifications));
+      localStorage.setItem("ht_payment_attempts", JSON.stringify(this.paymentAttempts));
+      localStorage.setItem("ht_cms_pages", JSON.stringify(this.cmsPages));
+      localStorage.setItem("ht_blog_posts", JSON.stringify(this.blogPosts));
+      localStorage.setItem("ht_audit_logs", JSON.stringify(this.auditLogs));
+      localStorage.setItem("ht_user_wallets", JSON.stringify(this.userWallets));
     } catch {
       // storage unavailable
     }
@@ -1494,11 +1625,50 @@ class PlatformStore {
     return list;
   }
 
+  getUserById(id: string): User | undefined {
+    return this.users.find((u) => u.id === id);
+  }
+
+  createUser(data: Omit<User, "id" | "createdAt"> & { id?: string }): User {
+    const newUser: User = {
+      id: data.id || `usr-${Date.now().toString(36)}`,
+      createdAt: new Date().toISOString(),
+      ...data,
+    };
+    this.users = [newUser, ...this.users];
+    this.saveToStorage();
+    this.logAuditEvent("CREATE", "USER", newUser.id, "SUCCESS", `Created user ${newUser.fullName} (${newUser.role})`);
+    return newUser;
+  }
+
+  updateUser(id: string, data: Partial<User>): User | null {
+    const idx = this.users.findIndex((u) => u.id === id);
+    if (idx === -1) return null;
+    this.users[idx] = { ...this.users[idx], ...data };
+    this.saveToStorage();
+    this.logAuditEvent("UPDATE", "USER", id, "SUCCESS", `Updated user ${this.users[idx].fullName}`);
+    return this.users[idx];
+  }
+
+  deleteUser(id: string): boolean {
+    const target = this.users.find((u) => u.id === id);
+    if (!target) return false;
+    // Protect system master admin
+    if (target.email === "admin@hambaktech.com.ng") {
+      throw new Error("Cannot delete primary system administrator account.");
+    }
+    this.users = this.users.filter((u) => u.id !== id);
+    this.saveToStorage();
+    this.logAuditEvent("DELETE", "USER", id, "SUCCESS", `Deleted user ${target.fullName}`);
+    return true;
+  }
+
   updateUserStatus(id: string, status: UserStatus): User | null {
     const idx = this.users.findIndex((u) => u.id === id);
     if (idx === -1) return null;
     this.users[idx] = { ...this.users[idx], status };
     this.saveToStorage();
+    this.logAuditEvent("UPDATE_STATUS", "USER", id, "SUCCESS", `Changed status to ${status}`);
     return this.users[idx];
   }
 
@@ -1507,26 +1677,649 @@ class PlatformStore {
     if (idx === -1) return null;
     this.users[idx] = { ...this.users[idx], role };
     this.saveToStorage();
+    this.logAuditEvent("UPDATE_ROLE", "USER", id, "SUCCESS", `Changed role to ${role}`);
     return this.users[idx];
+  }
+
+  // --- Services Management ---
+  getServices(filter?: { status?: string; search?: string }): ServiceCategory[] {
+    let list = [...this.services];
+    if (filter?.status && filter.status !== "ALL") {
+      list = list.filter((s) => s.status === filter.status);
+    }
+    if (filter?.search) {
+      const q = filter.search.toLowerCase();
+      list = list.filter(
+        (s) =>
+          s.title.toLowerCase().includes(q) ||
+          s.shortDescription.toLowerCase().includes(q) ||
+          s.slug.toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }
+
+  getServiceById(id: string): ServiceCategory | undefined {
+    return this.services.find((s) => s.id === id || s.slug === id);
+  }
+
+  createService(data: Omit<ServiceCategory, "id"> & { id?: string }): ServiceCategory {
+    const newService: ServiceCategory = {
+      id: data.id || data.slug || `srv-${Date.now().toString(36)}`,
+      ...data,
+    };
+    this.services = [...this.services, newService];
+    this.saveToStorage();
+    this.logAuditEvent("CREATE", "SERVICE", newService.id, "SUCCESS", `Created service ${newService.title}`);
+    return newService;
+  }
+
+  updateService(id: string, updates: Partial<ServiceCategory>): ServiceCategory | null {
+    const idx = this.services.findIndex((s) => s.id === id || s.slug === id);
+    if (idx === -1) return null;
+    this.services[idx] = { ...this.services[idx], ...updates };
+    this.saveToStorage();
+    this.logAuditEvent("UPDATE", "SERVICE", id, "SUCCESS", `Updated service ${this.services[idx].title}`);
+    return this.services[idx];
+  }
+
+  deleteService(id: string): boolean {
+    const exists = this.services.find((s) => s.id === id || s.slug === id);
+    if (!exists) return false;
+    this.services = this.services.filter((s) => s.id !== id && s.slug !== id);
+    this.saveToStorage();
+    this.logAuditEvent("DELETE", "SERVICE", id, "SUCCESS", `Deleted service ${exists.title}`);
+    return true;
+  }
+
+  toggleServiceStatus(id: string): ServiceCategory | null {
+    const idx = this.services.findIndex((s) => s.id === id || s.slug === id);
+    if (idx === -1) return null;
+    const current = this.services[idx].status;
+    const nextStatus = current === "available" ? "coming_soon" : "available";
+    this.services[idx].status = nextStatus;
+    this.saveToStorage();
+    return this.services[idx];
+  }
+
+  toggleServiceFeatured(id: string): ServiceCategory | null {
+    const idx = this.services.findIndex((s) => s.id === id || s.slug === id);
+    if (idx === -1) return null;
+    this.services[idx].featured = !this.services[idx].featured;
+    this.saveToStorage();
+    return this.services[idx];
+  }
+
+  // --- Service Categories Management ---
+  getCategories(filter?: { status?: string; search?: string }): ServiceCategoryRecord[] {
+    let list = [...this.categories];
+    if (filter?.status && filter.status !== "ALL") {
+      list = list.filter((c) => c.status === filter.status);
+    }
+    if (filter?.search) {
+      const q = filter.search.toLowerCase();
+      list = list.filter(
+        (c) =>
+          c.name.toLowerCase().includes(q) ||
+          c.code.toLowerCase().includes(q) ||
+          c.description.toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }
+
+  getCategoryById(id: string): ServiceCategoryRecord | undefined {
+    return this.categories.find((c) => c.id === id || c.code === id);
+  }
+
+  createCategory(data: Omit<ServiceCategoryRecord, "id"> & { id?: string }): ServiceCategoryRecord {
+    const newCat: ServiceCategoryRecord = {
+      id: data.id || `cat-${Date.now().toString(36)}`,
+      ...data,
+    };
+    this.categories = [...this.categories, newCat];
+    this.saveToStorage();
+    this.logAuditEvent("CREATE", "CATEGORY", newCat.id, "SUCCESS", `Created category ${newCat.name}`);
+    return newCat;
+  }
+
+  updateCategory(id: string, updates: Partial<ServiceCategoryRecord>): ServiceCategoryRecord | null {
+    const idx = this.categories.findIndex((c) => c.id === id || c.code === id);
+    if (idx === -1) return null;
+    this.categories[idx] = { ...this.categories[idx], ...updates };
+    this.saveToStorage();
+    this.logAuditEvent("UPDATE", "CATEGORY", id, "SUCCESS", `Updated category ${this.categories[idx].name}`);
+    return this.categories[idx];
+  }
+
+  deleteCategory(id: string): boolean {
+    const exists = this.categories.find((c) => c.id === id || c.code === id);
+    if (!exists) return false;
+    this.categories = this.categories.filter((c) => c.id !== id && c.code !== id);
+    this.saveToStorage();
+    this.logAuditEvent("DELETE", "CATEGORY", id, "SUCCESS", `Deleted category ${exists.name}`);
+    return true;
+  }
+
+  toggleCategoryStatus(id: string): ServiceCategoryRecord | null {
+    const idx = this.categories.findIndex((c) => c.id === id || c.code === id);
+    if (idx === -1) return null;
+    this.categories[idx].status = this.categories[idx].status === "ACTIVE" ? "INACTIVE" : "ACTIVE";
+    this.saveToStorage();
+    return this.categories[idx];
+  }
+
+  // --- Orders Management ---
+  createManualOrder(orderData: Partial<Order>): Order {
+    const orderNum = `HT-ORD-${Math.floor(100000 + Math.random() * 900000)}`;
+    const now = new Date().toISOString();
+    const newOrder: Order = {
+      id: orderData.id || `ord-${Date.now().toString(36)}`,
+      orderNumber: orderNum,
+      userId: orderData.userId || this.user.id,
+      userName: orderData.userName || this.user.fullName,
+      userEmail: orderData.userEmail || this.user.email,
+      userPhone: orderData.userPhone || this.user.phone,
+      serviceCategorySlug: orderData.serviceCategorySlug || "general",
+      serviceCategoryName: orderData.serviceCategoryName || "General Service",
+      serviceTitle: orderData.serviceTitle || "Custom Service Request",
+      status: orderData.status || "PROCESSING",
+      paymentStatus: orderData.paymentStatus || "PAID",
+      paymentMethod: orderData.paymentMethod || "MANUAL_ADMIN",
+      totalAmount: orderData.totalAmount || 0,
+      feeAmount: orderData.feeAmount || 0,
+      currency: "NGN",
+      items: orderData.items || [
+        {
+          title: orderData.serviceTitle || "Manual Admin Order",
+          quantity: 1,
+          unitPrice: orderData.totalAmount || 0,
+        },
+      ],
+      statusTimeline: [
+        {
+          status: orderData.status || "PROCESSING",
+          timestamp: now,
+          note: orderData.notes || "Order logged manually by HambakTech Administrator.",
+        },
+      ],
+      notes: orderData.notes,
+      deliveryType: orderData.deliveryType || "PHYSICAL_PICKUP",
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    this.orders = [newOrder, ...this.orders];
+    this.saveToStorage();
+    this.logAuditEvent("CREATE", "ORDER", newOrder.id, "SUCCESS", `Created manual order ${orderNum}`);
+    return newOrder;
+  }
+
+  updateOrder(id: string, updates: Partial<Order>): Order | null {
+    const idx = this.orders.findIndex((o) => o.id === id || o.orderNumber === id);
+    if (idx === -1) return null;
+    const oldOrder = this.orders[idx];
+    const now = new Date().toISOString();
+    
+    // If status changed, push to timeline
+    const timeline = [...(oldOrder.statusTimeline || [])];
+    if (updates.status && updates.status !== oldOrder.status) {
+      timeline.push({
+        status: updates.status,
+        timestamp: now,
+        note: updates.notes || `Order status updated to ${updates.status} by Admin`,
+      });
+    }
+
+    this.orders[idx] = {
+      ...oldOrder,
+      ...updates,
+      statusTimeline: timeline,
+      updatedAt: now,
+    };
+    this.saveToStorage();
+    this.logAuditEvent("UPDATE", "ORDER", id, "SUCCESS", `Updated order ${oldOrder.orderNumber}`);
+    return this.orders[idx];
+  }
+
+  deleteOrder(id: string): boolean {
+    const exists = this.orders.find((o) => o.id === id || o.orderNumber === id);
+    if (!exists) return false;
+    this.orders = this.orders.filter((o) => o.id !== id && o.orderNumber !== id);
+    this.saveToStorage();
+    this.logAuditEvent("DELETE", "ORDER", id, "SUCCESS", `Deleted order ${exists.orderNumber}`);
+    return true;
+  }
+
+  // --- Transactions Management ---
+  createTransaction(tx: Omit<Transaction, "id" | "createdAt"> & { id?: string; createdAt?: string }): Transaction {
+    const newTx: Transaction = {
+      id: tx.id || `tx-${Date.now().toString(36)}`,
+      reference: tx.reference || `HT-TX-${Date.now().toString(36).toUpperCase()}`,
+      createdAt: tx.createdAt || new Date().toISOString(),
+      ...tx,
+    };
+    this.transactions = [newTx, ...this.transactions];
+    this.saveToStorage();
+    this.logAuditEvent("CREATE", "TRANSACTION", newTx.id, "SUCCESS", `Recorded transaction ${newTx.reference}`);
+    return newTx;
+  }
+
+  updateTransaction(id: string, updates: Partial<Transaction>): Transaction | null {
+    const idx = this.transactions.findIndex((t) => t.id === id || t.reference === id);
+    if (idx === -1) return null;
+    this.transactions[idx] = { ...this.transactions[idx], ...updates };
+    this.saveToStorage();
+    this.logAuditEvent("UPDATE", "TRANSACTION", id, "SUCCESS", `Updated transaction ${this.transactions[idx].reference}`);
+    return this.transactions[idx];
+  }
+
+  deleteTransaction(id: string): boolean {
+    const exists = this.transactions.find((t) => t.id === id || t.reference === id);
+    if (!exists) return false;
+    this.transactions = this.transactions.filter((t) => t.id !== id && t.reference !== id);
+    this.saveToStorage();
+    this.logAuditEvent("DELETE", "TRANSACTION", id, "SUCCESS", `Voided transaction ${exists.reference}`);
+    return true;
+  }
+
+  // --- Wallets Management ---
+  updateWalletStatus(userId: string, status: Wallet["status"]): boolean {
+    if (userId === this.user.id || userId === this.wallet.userId) {
+      this.wallet.status = status;
+      this.wallet.updatedAt = new Date().toISOString();
+      this.saveToStorage();
+      return true;
+    }
+    return true;
+  }
+
+  resetWalletBalance(userId: string): boolean {
+    if (userId === this.user.id || userId === this.wallet.userId) {
+      this.wallet.currentBalance = 0;
+      this.wallet.ledgerBalance = 0;
+      this.wallet.updatedAt = new Date().toISOString();
+      this.saveToStorage();
+      this.logAuditEvent("RESET", "WALLET", userId, "SUCCESS", "Zeroed out wallet balance");
+      return true;
+    }
+    this.logAuditEvent("RESET", "WALLET", userId, "SUCCESS", "Reset external user wallet to zero");
+    return true;
+  }
+
+  // --- Dynamic Pricing Rules ---
+  createPriceRule(rule: Omit<PriceRule, "id"> & { id?: string }): PriceRule {
+    const newRule: PriceRule = {
+      id: rule.id || `pr-${Date.now().toString(36)}`,
+      ...rule,
+    };
+    this.priceRules = [...this.priceRules, newRule];
+    this.saveToStorage();
+    this.logAuditEvent("CREATE", "PRICE_RULE", newRule.id, "SUCCESS", `Created pricing rule for ${newRule.serviceName}`);
+    return newRule;
+  }
+
+  deletePriceRule(id: string): boolean {
+    const exists = this.priceRules.find((p) => p.id === id);
+    if (!exists) return false;
+    this.priceRules = this.priceRules.filter((p) => p.id !== id);
+    this.saveToStorage();
+    this.logAuditEvent("DELETE", "PRICE_RULE", id, "SUCCESS", `Removed pricing rule ${exists.serviceName}`);
+    return true;
+  }
+
+  // --- System Providers ---
+  createProvider(prov: Omit<SystemProvider, "id"> & { id?: string }): SystemProvider {
+    const newProv: SystemProvider = {
+      id: prov.id || `prov-${Date.now().toString(36)}`,
+      ...prov,
+    };
+    this.providers = [...this.providers, newProv];
+    this.saveToStorage();
+    this.logAuditEvent("CREATE", "PROVIDER", newProv.id, "SUCCESS", `Registered provider ${newProv.name}`);
+    return newProv;
+  }
+
+  updateProvider(codeOrId: string, updates: Partial<SystemProvider>): SystemProvider | null {
+    const idx = this.providers.findIndex((p) => p.code === codeOrId || p.id === codeOrId);
+    if (idx === -1) return null;
+    this.providers[idx] = { ...this.providers[idx], ...updates };
+    this.saveToStorage();
+    this.logAuditEvent("UPDATE", "PROVIDER", codeOrId, "SUCCESS", `Updated provider ${this.providers[idx].name}`);
+    return this.providers[idx];
+  }
+
+  deleteProvider(codeOrId: string): boolean {
+    const exists = this.providers.find((p) => p.code === codeOrId || p.id === codeOrId);
+    if (!exists) return false;
+    this.providers = this.providers.filter((p) => p.code !== codeOrId && p.id !== codeOrId);
+    this.saveToStorage();
+    this.logAuditEvent("DELETE", "PROVIDER", codeOrId, "SUCCESS", `Deleted provider ${exists.name}`);
+    return true;
+  }
+
+  // --- NIN Requests Management ---
+  updateNINRequest(id: string, updates: Partial<NINRequest>): NINRequest | null {
+    const idx = this.ninRequests.findIndex((r) => r.id === id || r.trackingNumber === id);
+    if (idx === -1) return null;
+    this.ninRequests[idx] = { ...this.ninRequests[idx], ...updates, updatedAt: new Date().toISOString() };
+    this.saveToStorage();
+    this.logAuditEvent("UPDATE", "NIN_REQUEST", id, "SUCCESS", `Updated NIN request ${this.ninRequests[idx].trackingNumber}`);
+    return this.ninRequests[idx];
+  }
+
+  deleteNINRequest(id: string): boolean {
+    const exists = this.ninRequests.find((r) => r.id === id || r.trackingNumber === id);
+    if (!exists) return false;
+    this.ninRequests = this.ninRequests.filter((r) => r.id !== id && r.trackingNumber !== id);
+    this.saveToStorage();
+    this.logAuditEvent("DELETE", "NIN_REQUEST", id, "SUCCESS", `Deleted NIN request ${exists.trackingNumber}`);
+    return true;
+  }
+
+  // --- CAC Requests Management ---
+  updateCACRequest(id: string, updates: Partial<CACRequest>): CACRequest | null {
+    const idx = this.cacRequests.findIndex((r) => r.id === id || r.trackingNumber === id);
+    if (idx === -1) return null;
+    this.cacRequests[idx] = { ...this.cacRequests[idx], ...updates, updatedAt: new Date().toISOString() };
+    this.saveToStorage();
+    this.logAuditEvent("UPDATE", "CAC_REQUEST", id, "SUCCESS", `Updated CAC request ${this.cacRequests[idx].trackingNumber}`);
+    return this.cacRequests[idx];
+  }
+
+  deleteCACRequest(id: string): boolean {
+    const exists = this.cacRequests.find((r) => r.id === id || r.trackingNumber === id);
+    if (!exists) return false;
+    this.cacRequests = this.cacRequests.filter((r) => r.id !== id && r.trackingNumber !== id);
+    this.saveToStorage();
+    this.logAuditEvent("DELETE", "CAC_REQUEST", id, "SUCCESS", `Deleted CAC request ${exists.trackingNumber}`);
+    return true;
+  }
+
+  // --- Academy Enrollments Management ---
+  createAcademyEnrollment(enr: Partial<AcademyEnrollment>): AcademyEnrollment {
+    const newEnr: AcademyEnrollment = {
+      id: enr.id || `enr-${Date.now().toString(36)}`,
+      userId: enr.userId || this.user.id,
+      courseId: enr.courseId || "course-web-01",
+      courseTitle: enr.courseTitle || "Professional Web Development",
+      studentName: enr.studentName || this.user.fullName,
+      studentEmail: enr.studentEmail || this.user.email,
+      cohort: enr.cohort || "Q4-2026",
+      progressPercent: enr.progressPercent || 0,
+      status: enr.status || "ENROLLED",
+      completedModules: enr.completedModules || [],
+      certificateIssued: enr.certificateIssued || false,
+      certificateNumber: enr.certificateNumber,
+      certificateDate: enr.certificateDate,
+      enrolledAt: enr.enrolledAt || new Date().toISOString(),
+    };
+    this.enrollments = [newEnr, ...this.enrollments];
+    this.saveToStorage();
+    this.logAuditEvent("CREATE", "ACADEMY", newEnr.id, "SUCCESS", `Enrolled ${newEnr.studentName} in ${newEnr.courseTitle}`);
+    return newEnr;
+  }
+
+  updateAcademyEnrollment(id: string, updates: Partial<AcademyEnrollment>): AcademyEnrollment | null {
+    const idx = this.enrollments.findIndex((e) => e.id === id);
+    if (idx === -1) return null;
+    this.enrollments[idx] = { ...this.enrollments[idx], ...updates };
+    this.saveToStorage();
+    this.logAuditEvent("UPDATE", "ACADEMY", id, "SUCCESS", `Updated student ${this.enrollments[idx].studentName}`);
+    return this.enrollments[idx];
+  }
+
+  deleteAcademyEnrollment(id: string): boolean {
+    const exists = this.enrollments.find((e) => e.id === id);
+    if (!exists) return false;
+    this.enrollments = this.enrollments.filter((e) => e.id !== id);
+    this.saveToStorage();
+    this.logAuditEvent("DELETE", "ACADEMY", id, "SUCCESS", `Removed enrollment for ${exists.studentName}`);
+    return true;
+  }
+
+  // --- Support Tickets Management ---
+  updateTicket(id: string, updates: Partial<SupportTicket>): SupportTicket | null {
+    const idx = this.tickets.findIndex((t) => t.id === id || t.ticketNumber === id);
+    if (idx === -1) return null;
+    this.tickets[idx] = { ...this.tickets[idx], ...updates, updatedAt: new Date().toISOString() };
+    this.saveToStorage();
+    this.logAuditEvent("UPDATE", "SUPPORT_TICKET", id, "SUCCESS", `Updated ticket ${this.tickets[idx].ticketNumber}`);
+    return this.tickets[idx];
+  }
+
+  deleteTicket(id: string): boolean {
+    const exists = this.tickets.find((t) => t.id === id || t.ticketNumber === id);
+    if (!exists) return false;
+    this.tickets = this.tickets.filter((t) => t.id !== id && t.ticketNumber !== id);
+    this.saveToStorage();
+    this.logAuditEvent("DELETE", "SUPPORT_TICKET", id, "SUCCESS", `Deleted ticket ${exists.ticketNumber}`);
+    return true;
+  }
+
+  // --- CMS Content Management (Announcements, Pages, BlogPosts) ---
+  updateAnnouncement(id: string, updates: Partial<CMSAnnouncement>): CMSAnnouncement | null {
+    const idx = this.announcements.findIndex((a) => a.id === id);
+    if (idx === -1) return null;
+    this.announcements[idx] = { ...this.announcements[idx], ...updates };
+    this.saveToStorage();
+    this.logAuditEvent("UPDATE", "ANNOUNCEMENT", id, "SUCCESS", `Updated announcement ${this.announcements[idx].title}`);
+    return this.announcements[idx];
+  }
+
+  createCMSPage(page: Omit<CMSPage, "id" | "updatedAt"> & { id?: string }): CMSPage {
+    const newPage: CMSPage = {
+      id: page.id || `pg-${Date.now().toString(36)}`,
+      updatedAt: new Date().toISOString(),
+      ...page,
+    };
+    this.cmsPages = [...this.cmsPages, newPage];
+    this.saveToStorage();
+    this.logAuditEvent("CREATE", "CMS_PAGE", newPage.id, "SUCCESS", `Created page /${newPage.slug}`);
+    return newPage;
+  }
+
+  updateCMSPage(id: string, updates: Partial<CMSPage>): CMSPage | null {
+    const idx = this.cmsPages.findIndex((p) => p.id === id || p.slug === id);
+    if (idx === -1) return null;
+    this.cmsPages[idx] = { ...this.cmsPages[idx], ...updates, updatedAt: new Date().toISOString() };
+    this.saveToStorage();
+    this.logAuditEvent("UPDATE", "CMS_PAGE", id, "SUCCESS", `Updated page /${this.cmsPages[idx].slug}`);
+    return this.cmsPages[idx];
+  }
+
+  deleteCMSPage(id: string): boolean {
+    const exists = this.cmsPages.find((p) => p.id === id || p.slug === id);
+    if (!exists) return false;
+    this.cmsPages = this.cmsPages.filter((p) => p.id !== id && p.slug !== id);
+    this.saveToStorage();
+    this.logAuditEvent("DELETE", "CMS_PAGE", id, "SUCCESS", `Deleted page /${exists.slug}`);
+    return true;
+  }
+
+  createBlogPost(post: Omit<BlogPost, "id" | "publishedAt"> & { id?: string }): BlogPost {
+    const newPost: BlogPost = {
+      id: post.id || `post-${Date.now().toString(36)}`,
+      publishedAt: new Date().toISOString(),
+      ...post,
+    };
+    this.blogPosts = [newPost, ...this.blogPosts];
+    this.saveToStorage();
+    this.logAuditEvent("CREATE", "BLOG_POST", newPost.id, "SUCCESS", `Published article ${newPost.title}`);
+    return newPost;
+  }
+
+  updateBlogPost(id: string, updates: Partial<BlogPost>): BlogPost | null {
+    const idx = this.blogPosts.findIndex((b) => b.id === id || b.slug === id);
+    if (idx === -1) return null;
+    this.blogPosts[idx] = { ...this.blogPosts[idx], ...updates };
+    this.saveToStorage();
+    this.logAuditEvent("UPDATE", "BLOG_POST", id, "SUCCESS", `Updated article ${this.blogPosts[idx].title}`);
+    return this.blogPosts[idx];
+  }
+
+  deleteBlogPost(id: string): boolean {
+    const exists = this.blogPosts.find((b) => b.id === id || b.slug === id);
+    if (!exists) return false;
+    this.blogPosts = this.blogPosts.filter((b) => b.id !== id && b.slug !== id);
+    this.saveToStorage();
+    this.logAuditEvent("DELETE", "BLOG_POST", id, "SUCCESS", `Deleted article ${exists.title}`);
+    return true;
+  }
+
+  // --- Notifications Management ---
+  updateNotification(id: string, updates: Partial<NotificationItem>): NotificationItem | null {
+    const idx = this.notifications.findIndex((n) => n.id === id);
+    if (idx === -1) return null;
+    this.notifications[idx] = { ...this.notifications[idx], ...updates };
+    this.saveToStorage();
+    this.logAuditEvent("UPDATE", "NOTIFICATION", id, "SUCCESS", `Updated notification "${this.notifications[idx].title}"`);
+    return this.notifications[idx];
+  }
+
+  deleteNotification(id: string): boolean {
+    const exists = this.notifications.find((n) => n.id === id);
+    if (!exists) return false;
+    this.notifications = this.notifications.filter((n) => n.id !== id);
+    this.saveToStorage();
+    this.logAuditEvent("DELETE", "NOTIFICATION", id, "SUCCESS", `Deleted notification "${exists.title}"`);
+    return true;
+  }
+
+  // --- Payment Attempts Management ---
+  createPaymentAttempt(attempt: Omit<PaymentAttempt, "id" | "createdAt"> & { id?: string }): PaymentAttempt {
+    const newAttempt: PaymentAttempt = {
+      id: attempt.id || `pay-${Date.now().toString(36)}`,
+      createdAt: new Date().toISOString(),
+      ...attempt,
+    };
+    this.paymentAttempts = [newAttempt, ...this.paymentAttempts];
+    this.saveToStorage();
+    this.logAuditEvent("CREATE", "PAYMENT_ATTEMPT", newAttempt.id, "SUCCESS", `Logged payment attempt ref ${newAttempt.reference}`);
+    return newAttempt;
+  }
+
+  updatePaymentAttempt(id: string, updates: Partial<PaymentAttempt>): PaymentAttempt | null {
+    const idx = this.paymentAttempts.findIndex((p) => p.id === id || p.reference === id);
+    if (idx === -1) return null;
+    this.paymentAttempts[idx] = { ...this.paymentAttempts[idx], ...updates };
+    this.saveToStorage();
+    this.logAuditEvent("UPDATE", "PAYMENT_ATTEMPT", id, "SUCCESS", `Updated payment attempt ref ${this.paymentAttempts[idx].reference}`);
+    return this.paymentAttempts[idx];
+  }
+
+  deletePaymentAttempt(id: string): boolean {
+    const exists = this.paymentAttempts.find((p) => p.id === id || p.reference === id);
+    if (!exists) return false;
+    this.paymentAttempts = this.paymentAttempts.filter((p) => p.id !== id && p.reference !== id);
+    this.saveToStorage();
+    this.logAuditEvent("DELETE", "PAYMENT_ATTEMPT", id, "SUCCESS", `Deleted payment attempt ref ${exists.reference}`);
+    return true;
+  }
+
+  // --- Security & Audit Logs ---
+  logAuditEvent(action: string, entity: string, entityId: string, status: "SUCCESS" | "FAILED" = "SUCCESS", notes?: string): AuditLogEntry {
+    const entry: AuditLogEntry = {
+      id: `aud-${Date.now().toString(36)}`,
+      timestamp: new Date().toISOString(),
+      actorName: this.user.fullName || "Hambak Admin",
+      actorEmail: this.user.email || "admin@hambaktech.com.ng",
+      role: (this.user.role as RoleSlug) || "admin",
+      action,
+      entity,
+      entityId,
+      ipAddress: "102.89.44.12",
+      status,
+      metadata: notes ? { notes } : undefined,
+    };
+    this.auditLogs = [entry, ...this.auditLogs];
+    this.saveToStorage();
+    return entry;
+  }
+
+  createAuditLogEntry(entryData: Omit<AuditLogEntry, "id" | "timestamp"> & { id?: string; timestamp?: string }): AuditLogEntry {
+    const entry: AuditLogEntry = {
+      id: entryData.id || `aud-${Date.now().toString(36)}`,
+      timestamp: entryData.timestamp || new Date().toISOString(),
+      ...entryData,
+    };
+    this.auditLogs = [entry, ...this.auditLogs];
+    this.saveToStorage();
+    return entry;
+  }
+
+  updateAuditLog(id: string, updates: Partial<AuditLogEntry>): AuditLogEntry | null {
+    const idx = this.auditLogs.findIndex((a) => a.id === id);
+    if (idx === -1) return null;
+    this.auditLogs[idx] = { ...this.auditLogs[idx], ...updates };
+    this.saveToStorage();
+    return this.auditLogs[idx];
+  }
+
+  deleteAuditLog(id: string): boolean {
+    this.auditLogs = this.auditLogs.filter((a) => a.id !== id);
+    this.saveToStorage();
+    return true;
+  }
+
+  clearAuditLogs(): void {
+    this.auditLogs = [];
+    this.saveToStorage();
   }
 
   // --- Admin Wallets & Adjustments ---
   getAllWallets(): Array<{ wallet: Wallet; user: User }> {
-    return this.users.map((u) => ({
-      user: u,
-      wallet: u.id === this.user.id
-        ? this.wallet
-        : {
-            id: `wal-${u.id}`,
-            userId: u.id,
-            currency: "NGN",
-            currentBalance: u.role === "agent" ? 125000 : u.role === "staff" ? 8400 : 15200,
-            ledgerBalance: u.role === "agent" ? 125000 : u.role === "staff" ? 8400 : 15200,
-            lockedBalance: 0,
-            status: "ACTIVE",
-            updatedAt: new Date().toISOString(),
-          },
-    }));
+    return this.users.map((u) => {
+      let w: Wallet;
+      if (u.id === this.user.id) {
+        w = this.wallet;
+      } else if (this.userWallets[u.id]) {
+        w = this.userWallets[u.id];
+      } else {
+        w = {
+          id: `wal-${u.id}`,
+          userId: u.id,
+          currency: "NGN",
+          currentBalance: u.role === "agent" ? 125000 : u.role === "staff" ? 8400 : 15200,
+          ledgerBalance: u.role === "agent" ? 125000 : u.role === "staff" ? 8400 : 15200,
+          lockedBalance: 0,
+          status: "ACTIVE",
+          updatedAt: new Date().toISOString(),
+        };
+        this.userWallets[u.id] = w;
+      }
+      return { user: u, wallet: w };
+    });
+  }
+
+  updateWalletStatus(userId: string, status: "ACTIVE" | "FROZEN" | "SUSPENDED"): Wallet {
+    if (userId === this.user.id || userId === this.wallet.userId) {
+      this.wallet.status = status;
+      this.wallet.updatedAt = new Date().toISOString();
+      this.saveToStorage();
+      this.logAuditEvent("UPDATE", "WALLET", this.wallet.id, "SUCCESS", `Updated current user wallet status to ${status}`);
+      return this.wallet;
+    }
+
+    if (!this.userWallets[userId]) {
+      this.getAllWallets(); // ensures initialized
+    }
+    const w = this.userWallets[userId] || {
+      id: `wal-${userId}`,
+      userId,
+      currency: "NGN",
+      currentBalance: 10000,
+      ledgerBalance: 10000,
+      lockedBalance: 0,
+      status: "ACTIVE",
+      updatedAt: new Date().toISOString(),
+    };
+    w.status = status;
+    w.updatedAt = new Date().toISOString();
+    this.userWallets[userId] = w;
+    this.saveToStorage();
+    this.logAuditEvent("UPDATE", "WALLET", w.id, "SUCCESS", `Updated wallet status for user ${userId} to ${status}`);
+    return w;
   }
 
   adjustWalletBalance(userId: string, amount: number, type: "CREDIT" | "DEBIT", reason: string): Transaction {
@@ -1534,9 +2327,18 @@ class PlatformStore {
     const delta = type === "CREDIT" ? amount : -amount;
     
     if (isTargetCurrentUser) {
-      this.wallet.currentBalance += delta;
-      this.wallet.ledgerBalance += delta;
+      this.wallet.currentBalance = Math.max(0, this.wallet.currentBalance + delta);
+      this.wallet.ledgerBalance = Math.max(0, this.wallet.ledgerBalance + delta);
       this.wallet.updatedAt = new Date().toISOString();
+    } else {
+      if (!this.userWallets[userId]) {
+        this.getAllWallets();
+      }
+      if (this.userWallets[userId]) {
+        this.userWallets[userId].currentBalance = Math.max(0, this.userWallets[userId].currentBalance + delta);
+        this.userWallets[userId].ledgerBalance = Math.max(0, this.userWallets[userId].ledgerBalance + delta);
+        this.userWallets[userId].updatedAt = new Date().toISOString();
+      }
     }
 
     const ref = `HT-ADJ-${Date.now()}`;
@@ -1558,6 +2360,7 @@ class PlatformStore {
 
     this.transactions = [newTx, ...this.transactions];
     this.saveToStorage();
+    this.logAuditEvent("UPDATE", "WALLET_BALANCE", userId, "SUCCESS", `Adjusted balance by ${type === "CREDIT" ? "+" : "-"}${amount}: ${reason}`);
     return newTx;
   }
 

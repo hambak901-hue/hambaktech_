@@ -181,6 +181,7 @@ export default function DashboardLayout({
               </div>
               <Link
                 href="/dashboard/wallet/fund"
+                prefetch={false}
                 className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 bg-primary text-white rounded-lg hover:bg-primary/90 transition shadow-sm"
               >
                 <Plus className="w-3 h-3" />
@@ -201,6 +202,7 @@ export default function DashboardLayout({
                 <Link
                   key={item.href}
                   href={item.href}
+                  prefetch={false}
                   onClick={() => setSidebarOpen(false)}
                   className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition ${
                     isActive
@@ -259,6 +261,7 @@ export default function DashboardLayout({
           {/* Link back to public site */}
           <Link
             href="/"
+            prefetch={false}
             className="flex items-center justify-between px-3 py-2 text-xs font-medium text-body-color hover:text-primary transition"
           >
             <span className="flex items-center gap-2">
@@ -286,14 +289,14 @@ export default function DashboardLayout({
             {/* Breadcrumb Navigation */}
             <div>
               <div className="flex items-center gap-1.5 text-xs text-body-color">
-                <Link href="/dashboard" className="hover:text-primary transition">
+                <Link href="/dashboard" prefetch={false} className="hover:text-primary transition">
                   Dashboard
                 </Link>
                 {breadcrumbs?.map((b, i) => (
                   <React.Fragment key={i}>
                     <ChevronRight className="w-3 h-3 text-body-color/50" />
                     {b.href ? (
-                      <Link href={b.href} className="hover:text-primary transition">
+                      <Link href={b.href} prefetch={false} className="hover:text-primary transition">
                         {b.label}
                       </Link>
                     ) : (

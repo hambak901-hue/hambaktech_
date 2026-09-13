@@ -12,6 +12,10 @@ import {
   ShoppingBag,
   GraduationCap,
   Megaphone,
+  Edit2,
+  Trash2,
+  X,
+  Check,
 } from "lucide-react";
 import AdminLayout from "@/components/Admin/AdminLayout";
 import AdminDataTable, { Column, FilterOption } from "@/components/Admin/AdminDataTable";
@@ -22,15 +26,26 @@ export default function AdminNotificationsPage() {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [actionFeedback, setActionFeedback] = useState<string | null>(null);
 
-  // Broadcast Modal State
+  // Broadcast / Create Modal State
   const [showBroadcastModal, setShowBroadcastModal] = useState(false);
   const [title, setTitle] = useState("");
   const [message, setMessage] = useState("");
   const [type, setType] = useState<NotificationItem["type"]>("ANNOUNCEMENT");
   const [actionUrl, setActionUrl] = useState("");
   const [broadcasting, setBroadcasting] = useState(false);
-  const [broadcastSuccess, setBroadcastSuccess] = useState(false);
+
+  // Edit Modal State
+  const [editingNotification, setEditingNotification] = useState<NotificationItem | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editMessage, setEditMessage] = useState("");
+  const [editType, setEditType] = useState<NotificationItem["type"]>("ANNOUNCEMENT");
+  const [editActionUrl, setEditActionUrl] = useState("");
+  const [editRead, setEditRead] = useState(false);
+
+  // Delete Modal State
+  const [deletingNotification, setDeletingNotification] = useState<NotificationItem | null>(null);
 
   const loadNotifications = () => {
     try {
@@ -62,16 +77,62 @@ export default function AdminNotificationsPage() {
         actionUrl.trim() || undefined
       );
       setBroadcasting(false);
-      setBroadcastSuccess(true);
       setTitle("");
       setMessage("");
       setActionUrl("");
-      setTimeout(() => {
-        setBroadcastSuccess(false);
-        setShowBroadcastModal(false);
-      }, 1200);
+      setShowBroadcastModal(false);
+      setActionFeedback("Notification broadcast sent.");
+      setTimeout(() => setActionFeedback(null), 3500);
       loadNotifications();
-    }, 600);
+    }, 400);
+  };
+
+  const openEditModal = (n: NotificationItem) => {
+    setEditingNotification(n);
+    setEditTitle(n.title);
+    setEditMessage(n.message);
+    setEditType(n.type);
+    setEditActionUrl(n.actionUrl || "");
+    setEditRead(n.read);
+  };
+
+  const handleUpdate = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingNotification) return;
+
+    try {
+      platformApi.updateNotification(editingNotification.id, {
+        title: editTitle.trim(),
+        message: editMessage.trim(),
+        type: editType,
+        actionUrl: editActionUrl.trim() || undefined,
+        read: editRead,
+      });
+      setEditingNotification(null);
+      setActionFeedback("Notification updated successfully.");
+      setTimeout(() => setActionFeedback(null), 3500);
+      loadNotifications();
+    } catch (err: any) {
+      alert(err.message || "Failed to update notification");
+    }
+  };
+
+  const handleDelete = () => {
+    if (!deletingNotification) return;
+    try {
+      platformApi.deleteNotification(deletingNotification.id);
+      setDeletingNotification(null);
+      setActionFeedback("Notification deleted.");
+      setTimeout(() => setActionFeedback(null), 3500);
+      loadNotifications();
+    } catch (err: any) {
+      alert(err.message || "Failed to delete notification");
+    }
+  };
+
+  const toggleReadStatus = (n: NotificationItem) => {
+    platformApi.updateNotification(n.id, { read: !n.read });
+    loadNotifications();
   };
 
   const columns: Column<NotificationItem>[] = [
@@ -122,13 +183,18 @@ export default function AdminNotificationsPage() {
       header: "Status",
       sortable: true,
       render: (n) => (
-        <span className={`text-[11px] font-bold px-2 py-0.5 rounded ${
-          n.read
-            ? "bg-gray-100 text-body-color dark:bg-gray-800"
-            : "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300"
-        }`}>
+        <button
+          type="button"
+          onClick={() => toggleReadStatus(n)}
+          className={`text-[11px] font-bold px-2 py-0.5 rounded transition ${
+            n.read
+              ? "bg-gray-100 text-body-color dark:bg-gray-800 hover:bg-gray-200"
+              : "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 hover:bg-amber-200"
+          }`}
+          title="Click to toggle Read/Unread"
+        >
           {n.read ? "Read" : "Unread"}
-        </span>
+        </button>
       ),
     },
     {
@@ -139,6 +205,31 @@ export default function AdminNotificationsPage() {
         <span className="text-xs text-body-color">
           {new Date(n.createdAt).toLocaleDateString("en-NG", { dateStyle: "short" })}
         </span>
+      ),
+    },
+    {
+      key: "actions",
+      header: "Actions",
+      align: "right",
+      render: (n) => (
+        <div className="flex items-center justify-end gap-1.5">
+          <button
+            type="button"
+            onClick={() => openEditModal(n)}
+            className="p-1.5 rounded-lg border border-stroke dark:border-strokedark hover:bg-gray-100 dark:hover:bg-gray-dark text-body-color hover:text-amber-600 transition"
+            title="Edit Notification"
+          >
+            <Edit2 className="w-3.5 h-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setDeletingNotification(n)}
+            className="p-1.5 rounded-lg border border-rose-200 dark:border-rose-900/40 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-600 transition"
+            title="Delete Notification"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+        </div>
       ),
     },
   ];
@@ -173,6 +264,14 @@ export default function AdminNotificationsPage() {
       }
     >
       <div className="space-y-6">
+        {/* Action feedback */}
+        {actionFeedback && (
+          <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-xl text-emerald-800 dark:text-emerald-300 text-xs font-semibold flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4" />
+            <span>{actionFeedback}</span>
+          </div>
+        )}
+
         {/* Metric Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="p-4 bg-white dark:bg-dark rounded-2xl border border-stroke dark:border-strokedark shadow-sm">
@@ -209,22 +308,24 @@ export default function AdminNotificationsPage() {
         {showBroadcastModal && (
           <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
             <div className="bg-white dark:bg-dark rounded-2xl max-w-md w-full p-6 border border-stroke dark:border-strokedark shadow-xl space-y-4">
-              <div className="flex items-center gap-3 pb-3 border-b border-stroke dark:border-strokedark">
-                <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
-                  <Megaphone className="w-5 h-5" />
+              <div className="flex items-center justify-between pb-3 border-b border-stroke dark:border-strokedark">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+                    <Megaphone className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-dark dark:text-white">Broadcast Customer Alert</h3>
+                    <p className="text-xs text-body-color">Sends real-time in-app notification to users</p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-base font-bold text-dark dark:text-white">Broadcast Customer Alert</h3>
-                  <p className="text-xs text-body-color">Sends real-time in-app notification to all users</p>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowBroadcastModal(false)}
+                  className="p-1 rounded-lg text-body-color hover:bg-gray-100 dark:hover:bg-gray-dark"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
-
-              {broadcastSuccess && (
-                <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-xs flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                  <span>Broadcast successfully transmitted!</span>
-                </div>
-              )}
 
               <form onSubmit={handleBroadcast} className="space-y-3.5">
                 <div>
@@ -306,7 +407,159 @@ export default function AdminNotificationsPage() {
             </div>
           </div>
         )}
+
+        {/* Edit Notification Modal */}
+        {editingNotification && (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-dark rounded-2xl max-w-md w-full p-6 border border-stroke dark:border-strokedark shadow-xl space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b border-stroke dark:border-strokedark">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center">
+                    <Edit2 className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-dark dark:text-white">Edit Notification</h3>
+                    <p className="text-xs text-body-color">Update broadcast content or state</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setEditingNotification(null)}
+                  className="p-1 rounded-lg text-body-color hover:bg-gray-100 dark:hover:bg-gray-dark"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <form onSubmit={handleUpdate} className="space-y-3.5">
+                <div>
+                  <label className="block text-xs font-bold text-dark dark:text-white mb-1.5">
+                    Notification Category
+                  </label>
+                  <select
+                    value={editType}
+                    onChange={(e) => setEditType(e.target.value as NotificationItem["type"])}
+                    className="w-full px-4 py-2 text-xs sm:text-sm rounded-xl border border-stroke dark:border-strokedark bg-gray-50 dark:bg-gray-dark text-dark dark:text-white focus:border-primary focus:outline-none"
+                  >
+                    <option value="ANNOUNCEMENT">Announcement / Promotion</option>
+                    <option value="SECURITY">Security Advisory</option>
+                    <option value="ORDER">Service / Order Fulfillment</option>
+                    <option value="ACADEMY">Academy & Training</option>
+                    <option value="TRANSACTION">Wallet & Billing</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-dark dark:text-white mb-1.5">
+                    Notification Title
+                  </label>
+                  <input
+                    type="text"
+                    value={editTitle}
+                    onChange={(e) => setEditTitle(e.target.value)}
+                    required
+                    className="w-full px-4 py-2 text-xs sm:text-sm rounded-xl border border-stroke dark:border-strokedark bg-gray-50 dark:bg-gray-dark text-dark dark:text-white focus:border-primary focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-dark dark:text-white mb-1.5">
+                    Message Body
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={editMessage}
+                    onChange={(e) => setEditMessage(e.target.value)}
+                    required
+                    className="w-full px-4 py-2 text-xs sm:text-sm rounded-xl border border-stroke dark:border-strokedark bg-gray-50 dark:bg-gray-dark text-dark dark:text-white focus:border-primary focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-dark dark:text-white mb-1.5">
+                    Action URL
+                  </label>
+                  <input
+                    type="text"
+                    value={editActionUrl}
+                    onChange={(e) => setEditActionUrl(e.target.value)}
+                    placeholder="/dashboard/..."
+                    className="w-full px-4 py-2 text-xs sm:text-sm rounded-xl border border-stroke dark:border-strokedark bg-gray-50 dark:bg-gray-dark text-dark dark:text-white focus:border-primary focus:outline-none"
+                  />
+                </div>
+
+                <div className="flex items-center gap-2 pt-1">
+                  <input
+                    type="checkbox"
+                    id="editReadCheckbox"
+                    checked={editRead}
+                    onChange={(e) => setEditRead(e.target.checked)}
+                    className="w-4 h-4 text-primary rounded"
+                  />
+                  <label htmlFor="editReadCheckbox" className="text-xs font-medium text-dark dark:text-white cursor-pointer">
+                    Mark as Read by Default
+                  </label>
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-stroke dark:border-strokedark">
+                  <button
+                    type="button"
+                    onClick={() => setEditingNotification(null)}
+                    className="px-4 py-2 text-xs font-semibold rounded-xl border border-stroke dark:border-strokedark text-dark dark:text-white hover:bg-gray-100 dark:hover:bg-gray-dark transition"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 text-xs font-bold rounded-xl bg-primary text-white hover:bg-primary/90 transition shadow-sm"
+                  >
+                    Save Changes
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Delete Notification Modal */}
+        {deletingNotification && (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-dark rounded-2xl max-w-md w-full p-6 border border-stroke dark:border-strokedark shadow-xl space-y-4">
+              <div className="flex items-center gap-3 text-rose-600">
+                <div className="w-10 h-10 rounded-xl bg-rose-500/10 flex items-center justify-center">
+                  <Trash2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-dark dark:text-white">Delete Notification</h3>
+                  <p className="text-xs text-body-color">Removal of broadcast notice</p>
+                </div>
+              </div>
+
+              <p className="text-xs text-body-color leading-relaxed">
+                Are you sure you want to delete broadcast notice &ldquo;<strong className="text-dark dark:text-white">{deletingNotification.title}</strong>&rdquo;? Customers will no longer receive or view this notice.
+              </p>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setDeletingNotification(null)}
+                  className="px-4 py-2 text-xs font-semibold rounded-xl border border-stroke dark:border-strokedark text-dark dark:text-white hover:bg-gray-100 dark:hover:bg-gray-dark"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  className="px-4 py-2 text-xs font-bold rounded-xl bg-rose-600 text-white hover:bg-rose-700 transition"
+                >
+                  Confirm Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </AdminLayout>
   );
 }
+

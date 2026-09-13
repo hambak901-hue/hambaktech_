@@ -191,6 +191,7 @@ export default function AdminLayout({
                     <Link
                       key={item.href}
                       href={item.href}
+                      prefetch={false}
                       onClick={() => setSidebarOpen(false)}
                       className={`flex items-center gap-3 px-3.5 py-2 rounded-xl text-xs font-semibold transition ${
                         isActive
@@ -211,6 +212,7 @@ export default function AdminLayout({
           <div className="p-4 border-t border-stroke dark:border-strokedark space-y-2">
             <Link
               href="/"
+              prefetch={false}
               className="flex items-center justify-between px-3 py-1.5 text-xs text-body-color hover:text-primary transition"
             >
               <span className="flex items-center gap-2">
@@ -239,14 +241,14 @@ export default function AdminLayout({
             {/* Breadcrumb Navigation */}
             <div>
               <div className="flex items-center gap-1.5 text-xs text-body-color">
-                <Link href="/admin" className="hover:text-primary transition font-medium">
+                <Link href="/admin" prefetch={false} className="hover:text-primary transition font-medium">
                   Admin Command
                 </Link>
                 {breadcrumbs?.map((b, i) => (
                   <React.Fragment key={i}>
                     <ChevronRight className="w-3 h-3 text-body-color/40" />
                     {b.href ? (
-                      <Link href={b.href} className="hover:text-primary transition">
+                      <Link href={b.href} prefetch={false} className="hover:text-primary transition">
                         {b.label}
                       </Link>
                     ) : (

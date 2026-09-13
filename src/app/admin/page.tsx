@@ -111,6 +111,7 @@ export default function AdminOverviewPage() {
             </button>
             <Link
               href="/admin/pricing"
+              prefetch={false}
               className="px-4 py-2.5 rounded-xl border border-strokedark hover:border-primary text-white font-semibold text-xs transition flex items-center gap-1.5"
             >
               <Settings className="w-4 h-4 text-primary" />

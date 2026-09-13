@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   Grid,
@@ -12,24 +12,177 @@ import {
   ExternalLink,
   Plus,
   Sparkles,
+  Trash2,
+  X,
+  Edit2,
 } from "lucide-react";
 import AdminLayout from "@/components/Admin/AdminLayout";
 import AdminDataTable, { Column, FilterOption } from "@/components/Admin/AdminDataTable";
-import { servicesData } from "@/data/servicesData";
+import platformApi from "@/lib/api-client";
 import { ServiceCategory, ServiceStatus } from "@/types/service";
 
 export default function AdminServicesPage() {
-  const [services, setServices] = useState<ServiceCategory[]>(servicesData);
+  const [services, setServices] = useState<ServiceCategory[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Modals state
   const [selectedService, setSelectedService] = useState<ServiceCategory | null>(null);
-  const [showEditModal, setShowEditModal] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [editingService, setEditingService] = useState<ServiceCategory | null>(null);
+  const [deletingService, setDeletingService] = useState<ServiceCategory | null>(null);
+  const [actionFeedback, setActionFeedback] = useState<string | null>(null);
+
+  // Form states
+  const [formTitle, setFormTitle] = useState("");
+  const [formSlug, setFormSlug] = useState("");
+  const [formShortDesc, setFormShortDesc] = useState("");
+  const [formFullDesc, setFormFullDesc] = useState("");
+  const [formStatus, setFormStatus] = useState<ServiceStatus>("available");
+  const [formChannel, setFormChannel] = useState("Online & Walk-in");
+  const [formTurnaround, setFormTurnaround] = useState("10–30 Minutes");
+  const [formAudience, setFormAudience] = useState("Public, Agents, Corporates");
+  const [formStartingPrice, setFormStartingPrice] = useState("₦1,000");
+  const [formFeatured, setFormFeatured] = useState(false);
+  const [formFeaturesText, setFormFeaturesText] = useState("");
+  const [formDeliverablesText, setFormDeliverablesText] = useState("");
+
+  const loadServices = () => {
+    try {
+      setLoading(true);
+      const list = platformApi.getServices();
+      setServices([...list]);
+      setError(null);
+    } catch (err: any) {
+      setError(err.message || "Failed to load services");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadServices();
+  }, []);
+
+  const openCreateModal = () => {
+    setFormTitle("");
+    setFormSlug("");
+    setFormShortDesc("");
+    setFormFullDesc("");
+    setFormStatus("available");
+    setFormChannel("Online & Walk-in");
+    setFormTurnaround("10–30 Minutes");
+    setFormAudience("General Public, Agents");
+    setFormStartingPrice("₦1,000");
+    setFormFeatured(false);
+    setFormFeaturesText("Instant processing\nAutomated delivery\nSMS / Email confirmation");
+    setFormDeliverablesText("Digital certificate / slip\nOfficial confirmation receipt");
+    setShowCreateModal(true);
+  };
+
+  const openEditModal = (s: ServiceCategory) => {
+    setEditingService(s);
+    setFormTitle(s.title);
+    setFormSlug(s.slug);
+    setFormShortDesc(s.shortDescription);
+    setFormFullDesc(s.fullDescription);
+    setFormStatus(s.status);
+    setFormChannel(s.onlineAvailability);
+    setFormTurnaround(s.estimatedProcessingTime);
+    setFormAudience(s.targetAudience);
+    setFormStartingPrice(s.startingPrice || "₦1,000");
+    setFormFeatured(!!s.featured);
+    setFormFeaturesText((s.features || []).join("\n"));
+    setFormDeliverablesText((s.deliverables || []).join("\n"));
+  };
+
+  const handleCreateService = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formTitle.trim()) return;
+
+    const slug = formSlug.trim() || formTitle.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+    const features = formFeaturesText.split("\n").map((f) => f.trim()).filter(Boolean);
+    const deliverables = formDeliverablesText.split("\n").map((d) => d.trim()).filter(Boolean);
+
+    try {
+      platformApi.createService({
+        title: formTitle.trim(),
+        slug,
+        shortDescription: formShortDesc.trim() || formTitle.trim(),
+        fullDescription: formFullDesc.trim() || formShortDesc.trim() || formTitle.trim(),
+        status: formStatus,
+        onlineAvailability: formChannel,
+        estimatedProcessingTime: formTurnaround,
+        targetAudience: formAudience,
+        startingPrice: formStartingPrice,
+        featured: formFeatured,
+        icon: "Shield",
+        features: features.length > 0 ? features : ["Fast processing", "Full compliance"],
+        deliverables: deliverables.length > 0 ? deliverables : ["Official confirmation slip"],
+        subServices: [],
+      });
+      setShowCreateModal(false);
+      setActionFeedback("Service created successfully");
+      setTimeout(() => setActionFeedback(null), 3500);
+      loadServices();
+    } catch (err: any) {
+      alert(err.message || "Failed to create service");
+    }
+  };
+
+  const handleUpdateService = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingService) return;
+
+    const features = formFeaturesText.split("\n").map((f) => f.trim()).filter(Boolean);
+    const deliverables = formDeliverablesText.split("\n").map((d) => d.trim()).filter(Boolean);
+
+    try {
+      platformApi.updateService(editingService.id, {
+        title: formTitle.trim(),
+        slug: formSlug.trim(),
+        shortDescription: formShortDesc.trim(),
+        fullDescription: formFullDesc.trim(),
+        status: formStatus,
+        onlineAvailability: formChannel,
+        estimatedProcessingTime: formTurnaround,
+        targetAudience: formAudience,
+        startingPrice: formStartingPrice,
+        featured: formFeatured,
+        features,
+        deliverables,
+      });
+      setEditingService(null);
+      setActionFeedback("Service details updated successfully");
+      setTimeout(() => setActionFeedback(null), 3500);
+      loadServices();
+    } catch (err: any) {
+      alert(err.message || "Failed to update service");
+    }
+  };
+
+  const handleDeleteService = () => {
+    if (!deletingService) return;
+    try {
+      platformApi.deleteService(deletingService.id);
+      setDeletingService(null);
+      setActionFeedback(`Service ${deletingService.title} has been deleted`);
+      setTimeout(() => setActionFeedback(null), 3500);
+      loadServices();
+    } catch (err: any) {
+      alert(err.message || "Failed to delete service");
+    }
+  };
 
   const handleToggleStatus = (srv: ServiceCategory) => {
     const nextStatus: ServiceStatus = srv.status === "available" ? "request_only" : "available";
-    setServices(services.map((s) => (s.id === srv.id ? { ...s, status: nextStatus } : s)));
+    platformApi.updateService(srv.id, { status: nextStatus });
+    loadServices();
   };
 
   const handleToggleFeatured = (srv: ServiceCategory) => {
-    setServices(services.map((s) => (s.id === srv.id ? { ...s, featured: !s.featured } : s)));
+    platformApi.updateService(srv.id, { featured: !srv.featured });
+    loadServices();
   };
 
   const columns: Column<ServiceCategory>[] = [
@@ -113,10 +266,26 @@ export default function AdminServicesPage() {
           </button>
           <button
             type="button"
+            onClick={() => openEditModal(s)}
+            className="p-1.5 rounded-lg border border-stroke dark:border-strokedark hover:bg-gray-100 dark:hover:bg-gray-dark text-body-color hover:text-amber-600 transition"
+            title="Edit Service"
+          >
+            <Edit2 className="w-3.5 h-3.5" />
+          </button>
+          <button
+            type="button"
             onClick={() => handleToggleStatus(s)}
             className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-gray-100 dark:bg-gray-800 text-dark dark:text-white hover:bg-gray-200 transition"
           >
             {s.status === "available" ? "Pause" : "Activate"}
+          </button>
+          <button
+            type="button"
+            onClick={() => setDeletingService(s)}
+            className="p-1.5 rounded-lg border border-rose-200 dark:border-rose-900/40 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-600 transition"
+            title="Delete Service"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
           </button>
         </div>
       ),
@@ -141,6 +310,30 @@ export default function AdminServicesPage() {
       breadcrumbs={[{ label: "Services Catalog" }]}
     >
       <div className="space-y-6">
+        {/* Top bar with Add Service CTA */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-bold text-dark dark:text-white">Service Offerings & Pricing Catalog</h2>
+            <p className="text-xs text-body-color">Manage customer-facing digital services, turnarounds, and availability.</p>
+          </div>
+          <button
+            type="button"
+            onClick={openCreateModal}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-white text-xs font-bold shadow-sm transition"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Add New Service</span>
+          </button>
+        </div>
+
+        {/* Action feedback message */}
+        {actionFeedback && (
+          <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-xl text-emerald-800 dark:text-emerald-300 text-xs font-semibold flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4" />
+            <span>{actionFeedback}</span>
+          </div>
+        )}
+
         {/* Metric Cards */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <div className="p-4 bg-white dark:bg-dark rounded-2xl border border-stroke dark:border-strokedark shadow-sm">
@@ -171,12 +364,366 @@ export default function AdminServicesPage() {
         <AdminDataTable
           columns={columns}
           data={services}
+          loading={loading}
+          error={error}
+          onRetry={loadServices}
           searchPlaceholder="Search service title, description, or slug..."
           searchKeys={["title", "shortDescription", "slug"]}
           filters={filters}
           emptyTitle="No services found"
           emptyDescription="Try clearing your search query."
         />
+
+        {/* Create Service Modal */}
+        {showCreateModal && (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-dark rounded-2xl max-w-2xl w-full p-6 border border-stroke dark:border-strokedark shadow-xl space-y-4 max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+                    <Plus className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-dark dark:text-white">Add Catalog Service</h3>
+                    <p className="text-xs text-body-color">Introduce a new service offering</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowCreateModal(false)}
+                  className="p-1.5 rounded-lg text-body-color hover:bg-gray-100 dark:hover:bg-gray-dark"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <form onSubmit={handleCreateService} className="space-y-3 pt-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-dark dark:text-white mb-1">Service Title *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. CAC Business Name Registration"
+                      value={formTitle}
+                      onChange={(e) => setFormTitle(e.target.value)}
+                      className="w-full px-3 py-2 text-xs rounded-xl border border-stroke dark:border-strokedark bg-gray-50 dark:bg-gray-dark text-dark dark:text-white focus:border-primary focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-dark dark:text-white mb-1">URL Slug</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. cac-registration"
+                      value={formSlug}
+                      onChange={(e) => setFormSlug(e.target.value)}
+                      className="w-full px-3 py-2 text-xs rounded-xl border border-stroke dark:border-strokedark bg-gray-50 dark:bg-gray-dark text-dark dark:text-white focus:border-primary focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-dark dark:text-white mb-1">Short Description *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Brief 1-sentence summary"
+                    value={formShortDesc}
+                    onChange={(e) => setFormShortDesc(e.target.value)}
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-stroke dark:border-strokedark bg-gray-50 dark:bg-gray-dark text-dark dark:text-white focus:border-primary focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-dark dark:text-white mb-1">Full Description</label>
+                  <textarea
+                    rows={3}
+                    placeholder="Comprehensive overview of requirements, process and guarantee"
+                    value={formFullDesc}
+                    onChange={(e) => setFormFullDesc(e.target.value)}
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-stroke dark:border-strokedark bg-gray-50 dark:bg-gray-dark text-dark dark:text-white focus:border-primary focus:outline-none"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-dark dark:text-white mb-1">Status</label>
+                    <select
+                      value={formStatus}
+                      onChange={(e) => setFormStatus(e.target.value as ServiceStatus)}
+                      className="w-full px-3 py-2 text-xs rounded-xl border border-stroke dark:border-strokedark bg-gray-50 dark:bg-gray-dark text-dark dark:text-white focus:border-primary focus:outline-none"
+                    >
+                      <option value="available">Available (Instant / Live)</option>
+                      <option value="request_only">Request Only</option>
+                      <option value="coming_soon">Coming Soon</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-dark dark:text-white mb-1">Turnaround Time</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 24–48 Hours"
+                      value={formTurnaround}
+                      onChange={(e) => setFormTurnaround(e.target.value)}
+                      className="w-full px-3 py-2 text-xs rounded-xl border border-stroke dark:border-strokedark bg-gray-50 dark:bg-gray-dark text-dark dark:text-white focus:border-primary focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-dark dark:text-white mb-1">Starting Price</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. ₦15,000"
+                      value={formStartingPrice}
+                      onChange={(e) => setFormStartingPrice(e.target.value)}
+                      className="w-full px-3 py-2 text-xs rounded-xl border border-stroke dark:border-strokedark bg-gray-50 dark:bg-gray-dark text-dark dark:text-white focus:border-primary focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-dark dark:text-white mb-1">Key Features (One per line)</label>
+                    <textarea
+                      rows={3}
+                      value={formFeaturesText}
+                      onChange={(e) => setFormFeaturesText(e.target.value)}
+                      className="w-full px-3 py-2 text-xs rounded-xl border border-stroke dark:border-strokedark bg-gray-50 dark:bg-gray-dark text-dark dark:text-white focus:border-primary focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-dark dark:text-white mb-1">Deliverables (One per line)</label>
+                    <textarea
+                      rows={3}
+                      value={formDeliverablesText}
+                      onChange={(e) => setFormDeliverablesText(e.target.value)}
+                      className="w-full px-3 py-2 text-xs rounded-xl border border-stroke dark:border-strokedark bg-gray-50 dark:bg-gray-dark text-dark dark:text-white focus:border-primary focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 pt-1">
+                  <input
+                    type="checkbox"
+                    id="createFeatured"
+                    checked={formFeatured}
+                    onChange={(e) => setFormFeatured(e.target.checked)}
+                    className="rounded text-primary focus:ring-primary h-4 w-4"
+                  />
+                  <label htmlFor="createFeatured" className="text-xs text-dark dark:text-white font-medium cursor-pointer">
+                    Feature on homepage banner and quick actions
+                  </label>
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-3 border-t border-stroke dark:border-strokedark">
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateModal(false)}
+                    className="px-4 py-2 text-xs font-semibold rounded-xl border border-stroke dark:border-strokedark text-dark dark:text-white hover:bg-gray-100 dark:hover:bg-gray-dark"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 text-xs font-bold rounded-xl bg-primary text-white hover:bg-primary/90 transition shadow-sm"
+                  >
+                    Save Service
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Edit Service Modal */}
+        {editingService && (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-dark rounded-2xl max-w-2xl w-full p-6 border border-stroke dark:border-strokedark shadow-xl space-y-4 max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center">
+                    <Edit2 className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-dark dark:text-white">Edit Service</h3>
+                    <p className="text-xs text-body-color">{editingService.title}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setEditingService(null)}
+                  className="p-1.5 rounded-lg text-body-color hover:bg-gray-100 dark:hover:bg-gray-dark"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <form onSubmit={handleUpdateService} className="space-y-3 pt-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-dark dark:text-white mb-1">Service Title *</label>
+                    <input
+                      type="text"
+                      required
+                      value={formTitle}
+                      onChange={(e) => setFormTitle(e.target.value)}
+                      className="w-full px-3 py-2 text-xs rounded-xl border border-stroke dark:border-strokedark bg-gray-50 dark:bg-gray-dark text-dark dark:text-white focus:border-primary focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-dark dark:text-white mb-1">URL Slug</label>
+                    <input
+                      type="text"
+                      required
+                      value={formSlug}
+                      onChange={(e) => setFormSlug(e.target.value)}
+                      className="w-full px-3 py-2 text-xs rounded-xl border border-stroke dark:border-strokedark bg-gray-50 dark:bg-gray-dark text-dark dark:text-white focus:border-primary focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-dark dark:text-white mb-1">Short Description</label>
+                  <input
+                    type="text"
+                    required
+                    value={formShortDesc}
+                    onChange={(e) => setFormShortDesc(e.target.value)}
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-stroke dark:border-strokedark bg-gray-50 dark:bg-gray-dark text-dark dark:text-white focus:border-primary focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-dark dark:text-white mb-1">Full Description</label>
+                  <textarea
+                    rows={3}
+                    value={formFullDesc}
+                    onChange={(e) => setFormFullDesc(e.target.value)}
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-stroke dark:border-strokedark bg-gray-50 dark:bg-gray-dark text-dark dark:text-white focus:border-primary focus:outline-none"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-dark dark:text-white mb-1">Status</label>
+                    <select
+                      value={formStatus}
+                      onChange={(e) => setFormStatus(e.target.value as ServiceStatus)}
+                      className="w-full px-3 py-2 text-xs rounded-xl border border-stroke dark:border-strokedark bg-gray-50 dark:bg-gray-dark text-dark dark:text-white focus:border-primary focus:outline-none"
+                    >
+                      <option value="available">Available</option>
+                      <option value="request_only">Request Only</option>
+                      <option value="coming_soon">Coming Soon</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-dark dark:text-white mb-1">Turnaround Time</label>
+                    <input
+                      type="text"
+                      value={formTurnaround}
+                      onChange={(e) => setFormTurnaround(e.target.value)}
+                      className="w-full px-3 py-2 text-xs rounded-xl border border-stroke dark:border-strokedark bg-gray-50 dark:bg-gray-dark text-dark dark:text-white focus:border-primary focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-dark dark:text-white mb-1">Starting Price</label>
+                    <input
+                      type="text"
+                      value={formStartingPrice}
+                      onChange={(e) => setFormStartingPrice(e.target.value)}
+                      className="w-full px-3 py-2 text-xs rounded-xl border border-stroke dark:border-strokedark bg-gray-50 dark:bg-gray-dark text-dark dark:text-white focus:border-primary focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-dark dark:text-white mb-1">Features (One per line)</label>
+                    <textarea
+                      rows={3}
+                      value={formFeaturesText}
+                      onChange={(e) => setFormFeaturesText(e.target.value)}
+                      className="w-full px-3 py-2 text-xs rounded-xl border border-stroke dark:border-strokedark bg-gray-50 dark:bg-gray-dark text-dark dark:text-white focus:border-primary focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-dark dark:text-white mb-1">Deliverables (One per line)</label>
+                    <textarea
+                      rows={3}
+                      value={formDeliverablesText}
+                      onChange={(e) => setFormDeliverablesText(e.target.value)}
+                      className="w-full px-3 py-2 text-xs rounded-xl border border-stroke dark:border-strokedark bg-gray-50 dark:bg-gray-dark text-dark dark:text-white focus:border-primary focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 pt-1">
+                  <input
+                    type="checkbox"
+                    id="editFeatured"
+                    checked={formFeatured}
+                    onChange={(e) => setFormFeatured(e.target.checked)}
+                    className="rounded text-primary focus:ring-primary h-4 w-4"
+                  />
+                  <label htmlFor="editFeatured" className="text-xs text-dark dark:text-white font-medium cursor-pointer">
+                    Featured on Landing Page
+                  </label>
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-3 border-t border-stroke dark:border-strokedark">
+                  <button
+                    type="button"
+                    onClick={() => setEditingService(null)}
+                    className="px-4 py-2 text-xs font-semibold rounded-xl border border-stroke dark:border-strokedark text-dark dark:text-white hover:bg-gray-100 dark:hover:bg-gray-dark"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 text-xs font-bold rounded-xl bg-primary text-white hover:bg-primary/90 transition shadow-sm"
+                  >
+                    Update Service
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Delete Service Modal */}
+        {deletingService && (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-dark rounded-2xl max-w-md w-full p-6 border border-stroke dark:border-strokedark shadow-xl space-y-4">
+              <div className="flex items-center gap-3 text-rose-600">
+                <div className="w-10 h-10 rounded-xl bg-rose-500/10 flex items-center justify-center">
+                  <Trash2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-dark dark:text-white">Delete Service</h3>
+                  <p className="text-xs text-body-color">Removal from public catalog</p>
+                </div>
+              </div>
+
+              <p className="text-xs text-body-color leading-relaxed">
+                Are you sure you want to delete <strong className="text-dark dark:text-white">{deletingService.title}</strong>? Customers will no longer be able to view or request this service online.
+              </p>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setDeletingService(null)}
+                  className="px-4 py-2 text-xs font-semibold rounded-xl border border-stroke dark:border-strokedark text-dark dark:text-white hover:bg-gray-100 dark:hover:bg-gray-dark"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDeleteService}
+                  className="px-4 py-2 text-xs font-bold rounded-xl bg-rose-600 text-white hover:bg-rose-700 transition"
+                >
+                  Confirm Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Service Details Modal */}
         {selectedService && (
@@ -227,6 +774,10 @@ export default function AdminServicesPage() {
                   <span>Estimated Processing Time:</span>
                   <span className="font-semibold text-dark dark:text-white">{selectedService.estimatedProcessingTime}</span>
                 </div>
+                <div className="flex justify-between text-body-color">
+                  <span>Starting Retail Price:</span>
+                  <span className="font-semibold text-emerald-600">{selectedService.startingPrice || "Standard"}</span>
+                </div>
               </div>
 
               <div className="pt-2 flex justify-between items-center">
@@ -239,13 +790,26 @@ export default function AdminServicesPage() {
                   <ExternalLink className="w-3.5 h-3.5" />
                 </Link>
 
-                <button
-                  type="button"
-                  onClick={() => setSelectedService(null)}
-                  className="px-4 py-2 text-xs font-bold rounded-xl bg-primary text-white hover:bg-primary/90 transition shadow-sm"
-                >
-                  Close
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const s = selectedService;
+                      setSelectedService(null);
+                      openEditModal(s);
+                    }}
+                    className="px-3 py-1.5 text-xs font-bold rounded-xl border border-stroke dark:border-strokedark hover:bg-gray-100 dark:hover:bg-gray-dark text-dark dark:text-white transition"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedService(null)}
+                    className="px-4 py-2 text-xs font-bold rounded-xl bg-primary text-white hover:bg-primary/90 transition shadow-sm"
+                  >
+                    Close
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -254,3 +818,4 @@ export default function AdminServicesPage() {
     </AdminLayout>
   );
 }
+
