@@ -9,6 +9,9 @@
 export interface CompanyConfig {
   legalName: string;
   brandName: string;
+  name?: string;
+  brand?: string;
+  phone?: string;
   slogan: string;
   domain: string;
   email: string;
@@ -28,6 +31,9 @@ export interface CompanyConfig {
 export const companyConfig: CompanyConfig = {
   legalName: "Hambaktech & Services",
   brandName: "HambakTech",
+  name: "HambakTech",
+  brand: "HambakTech",
+  phone: "08147837664",
   slogan: "Where Technology Meet Service",
   domain: "hambaktech.com.ng",
   email: "info@hambaktech.com.ng",

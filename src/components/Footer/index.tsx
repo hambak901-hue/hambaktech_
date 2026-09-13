@@ -1,9 +1,17 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import BrandLogo from "@/components/Common/BrandLogo";
 import { MapPin, Mail, Clock, Phone, ShieldCheck } from "lucide-react";
 import { companyConfig } from "@/data/companyConfig";
 
 export default function Footer() {
+  const pathname = usePathname();
+
+  if (pathname?.startsWith("/dashboard") || pathname?.startsWith("/admin")) {
+    return null;
+  }
   return (
     <footer className="relative z-10 bg-white dark:bg-gray-dark border-t border-stroke dark:border-strokedark pt-16 pb-12">
       <div className="container mx-auto px-4">

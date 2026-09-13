@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import Footer from "@/components/Footer";
 import Header from "@/components/Header";
 import ScrollToTop from "@/components/ScrollToTop";
+import HambakTechAssistant from "@/components/AIAssistant/HambakTechAssistant";
 import { Providers } from "./providers";
 import "../styles/index.css";
 
@@ -44,6 +45,7 @@ export default function RootLayout({
             {children}
             <Footer />
           </div>
+          <HambakTechAssistant />
           <ScrollToTop />
         </Providers>
       </body>

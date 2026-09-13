@@ -49,6 +49,10 @@ const Header = () => {
     setOpenIndex(-1);
   }, [pathname]);
 
+  if (pathname?.startsWith("/dashboard") || pathname?.startsWith("/admin")) {
+    return null;
+  }
+
   return (
     <header
       id="main-header"

@@ -81,6 +81,18 @@ const menuData: Menu[] = [
     newTab: false,
   },
   {
+    id: 31,
+    title: "Customer Dashboard",
+    path: "/dashboard",
+    newTab: false,
+  },
+  {
+    id: 32,
+    title: "Admin Portal",
+    path: "/admin",
+    newTab: false,
+  },
+  {
     id: 4,
     title: "About",
     path: "/about",
