@@ -16,7 +16,7 @@ import {
   CreditCard,
   Zap,
 } from "lucide-react";
-import DashboardLayout from "@/components/Dashboard/DashboardLayout";
+import AdminLayout from "@/components/Admin/AdminLayout";
 
 export default function AdminPricingPage() {
   const [saving, setSaving] = useState(false);
@@ -51,12 +51,9 @@ export default function AdminPricingPage() {
   };
 
   return (
-    <DashboardLayout
+    <AdminLayout
       pageTitle="Dynamic Pricing & Profit Margin Engine"
-      breadcrumbs={[
-        { label: "Admin Console", href: "/admin" },
-        { label: "Pricing Engine" },
-      ]}
+      breadcrumbs={[{ label: "Dynamic Pricing" }]}
     >
       <form onSubmit={handleSave} className="max-w-4xl mx-auto space-y-6">
         {/* Header */}
@@ -365,6 +362,6 @@ export default function AdminPricingPage() {
           </div>
         </div>
       </form>
-    </DashboardLayout>
+    </AdminLayout>
   );
 }

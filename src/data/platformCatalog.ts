@@ -14,13 +14,18 @@ export interface CatalogCategory {
   id: string;
   slug: string;
   name: string;
+  title?: string;
+  description?: string;
   group: "PHYSICAL_CENTRE" | "DIGITAL_PORTALS" | "VTU_BILLS" | "ACADEMY_TRAINING" | "ENTERTAINMENT";
+  category?: string;
   icon: string;
   shortDesc: string;
   fullDesc: string;
   status: "AVAILABLE" | "REQUEST_ONLY" | "COMING_SOON";
   deliveryChannels: ("WALK_IN" | "ONLINE_ORDER" | "INSTANT_API")[];
   startingPrice?: string;
+  price?: string | number;
+  estimatedTurnaround?: string;
   badge?: string;
   features: string[];
 }
@@ -323,12 +328,12 @@ export const platformCatalog: CatalogCategory[] = [
 ];
 
 export const platformCategories = [
-  { id: "ALL", label: "All Services" },
-  { id: "VTU_BILLS", label: "VTU & Bills" },
-  { id: "DIGITAL_PORTALS", label: "Digital Portals" },
-  { id: "PHYSICAL_CENTRE", label: "Business Centre & Print" },
-  { id: "ACADEMY_TRAINING", label: "Academy & Training" },
-  { id: "ENTERTAINMENT", label: "Entertainment" },
+  { id: "ALL", label: "All Services", name: "All Services", description: "Complete digital services portfolio" },
+  { id: "VTU_BILLS", label: "VTU & Bills", name: "VTU & Bills", description: "Airtime, internet data, electricity disco tokens & cable TV" },
+  { id: "DIGITAL_PORTALS", label: "Digital Portals", name: "Digital Portals", description: "Online registration, graphic design, NIN desk & CAC filing" },
+  { id: "PHYSICAL_CENTRE", label: "Business Centre & Print", name: "Business Centre & Print", description: "Clerical documentation, digital print, spiral binding & laminating" },
+  { id: "ACADEMY_TRAINING", label: "Academy & Training", name: "Academy & Training", description: "Certified practical tech programs & executive lab training" },
+  { id: "ENTERTAINMENT", label: "Entertainment", name: "Entertainment", description: "Modern gaming lounge & youth community hub" },
 ];
 
 export function getServicesByCategory(group?: string) {

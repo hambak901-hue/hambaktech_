@@ -39,14 +39,19 @@ export default function HambakTechAssistant() {
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "welcome-msg",
       sender: "assistant",
       text: `Hello! Welcome to HambakTech Smart Digital Assistant. I can help you discover our digital services, check NIN and CAC requirements, guide your utility bill payments, or tell you about our Academy in Ibeju-Lekki. How can I assist you today?`,
-      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      timestamp: "Just now",
       actions: [
         { label: "View All Services", href: "/services" },
         { label: "Customer Dashboard", href: "/dashboard" },
@@ -74,8 +79,7 @@ export default function HambakTechAssistant() {
     setInput("");
     setIsTyping(true);
 
-    // Intelligent answer engine based on keywords
-    setTimeout(() => {
+    const executeLocalFallback = () => {
       const q = userText.toLowerCase();
       let reply = "";
       let actions: Array<{ label: string; href: string }> | undefined;
@@ -137,8 +141,41 @@ export default function HambakTechAssistant() {
 
       setMessages((prev) => [...prev, botMsg]);
       setIsTyping(false);
-    }, 600);
+    };
+
+    // Try server-side Gemini route first
+    fetch("/api/assistant", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: userText }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.text && !data.fallback) {
+          const botMsg: Message = {
+            id: `b-${Date.now()}`,
+            sender: "assistant",
+            text: data.text,
+            timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+            actions: [
+              { label: "View Services", href: "/services" },
+              { label: "Customer Dashboard", href: "/dashboard" },
+            ],
+          };
+          setMessages((prev) => [...prev, botMsg]);
+          setIsTyping(false);
+        } else {
+          executeLocalFallback();
+        }
+      })
+      .catch(() => {
+        executeLocalFallback();
+      });
   };
+
+  if (!mounted) {
+    return null;
+  }
 
   return (
     <>

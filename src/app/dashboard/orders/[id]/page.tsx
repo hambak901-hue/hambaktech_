@@ -201,7 +201,7 @@ export default function OrderDetailsReceiptPage() {
               Fulfillment Audit & Progress Timeline
             </h4>
             <div className="space-y-3">
-              {order.timeline.map((step, idx) => (
+              {(order.timeline || order.statusTimeline || []).map((step, idx) => (
                 <div key={idx} className="flex items-start gap-3 text-xs">
                   <div className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 flex items-center justify-center shrink-0 mt-0.5">
                     <CheckCircle2 className="w-3.5 h-3.5" />

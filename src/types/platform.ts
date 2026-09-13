@@ -7,7 +7,7 @@
  * - Compatible with MySQL (initial cPanel deployment) and PostgreSQL (future scale)
  */
 
-export type RoleSlug = "customer" | "admin" | "agent" | "super_admin" | "instructor";
+export type RoleSlug = "customer" | "admin" | "agent" | "super_admin" | "instructor" | "staff";
 
 export type UserStatus = "ACTIVE" | "INACTIVE" | "SUSPENDED" | "PENDING_VERIFICATION";
 
@@ -16,6 +16,7 @@ export interface User {
   email: string;
   phone?: string;
   fullName: string;
+  name?: string;
   role: RoleSlug;
   status: UserStatus;
   avatarUrl?: string;
@@ -54,6 +55,9 @@ export interface WalletLedgerEntry {
 
 export type TransactionType =
   | "WALLET_TOPUP"
+  | "ORDER_PAYMENT"
+  | "SERVICE_PAYMENT"
+  | "SERVICE_PURCHASE"
   | "VTU_AIRTIME"
   | "VTU_DATA"
   | "ELECTRICITY_BILL"
@@ -118,9 +122,15 @@ export interface Order {
     title: string;
     quantity: number;
     unitPrice: number;
+    serviceId?: string;
   }>;
   statusTimeline: Array<{
     status: OrderStatus;
+    timestamp: string;
+    note: string;
+  }>;
+  timeline?: Array<{
+    status: OrderStatus | string;
     timestamp: string;
     note: string;
   }>;
@@ -257,7 +267,17 @@ export interface AcademyEnrollment {
 // --------------------------------------------------------------------------
 export type TicketPriority = "LOW" | "MEDIUM" | "HIGH" | "URGENT";
 export type TicketStatus = "OPEN" | "IN_PROGRESS" | "WAITING_ON_CUSTOMER" | "RESOLVED" | "CLOSED";
-export type TicketCategory = "WALLET" | "VTU_BILLS" | "ORDERS" | "NIN_DESK" | "CAC_DESK" | "ACADEMY" | "TECHNICAL";
+export type TicketCategory =
+  | "WALLET"
+  | "WALLET_FUNDING"
+  | "VTU_BILLS"
+  | "ORDERS"
+  | "NIN_DESK"
+  | "CAC_DESK"
+  | "CAC_REGISTRATION"
+  | "ACADEMY"
+  | "PRINTING_CENTRE"
+  | "TECHNICAL";
 
 export interface TicketMessage {
   id: string;
@@ -276,6 +296,7 @@ export interface SupportTicket {
   userEmail: string;
   category: TicketCategory;
   subject: string;
+  message?: string;
   priority: TicketPriority;
   status: TicketStatus;
   messages: TicketMessage[];
@@ -341,5 +362,53 @@ export interface NotificationItem {
   read: boolean;
   createdAt: string;
   actionUrl?: string;
+}
+
+export interface CMSPage {
+  id: string;
+  slug: string;
+  title: string;
+  metaDescription: string;
+  published: boolean;
+  updatedAt: string;
+}
+
+export interface BlogPost {
+  id: string;
+  slug: string;
+  title: string;
+  summary: string;
+  category: string;
+  author: string;
+  publishedAt: string;
+  featured: boolean;
+}
+
+export interface PaymentAttempt {
+  id: string;
+  reference: string;
+  gateway: "PAYSTACK" | "FLUTTERWAVE" | "MONIEPOINT" | "BANK_TRANSFER";
+  amount: number;
+  currency: string;
+  status: "INITIALIZED" | "PENDING" | "SUCCESS" | "FAILED" | "ABANDONED";
+  customerEmail: string;
+  customerName: string;
+  serviceType: string;
+  channel?: string;
+  gatewayResponse?: string;
+  createdAt: string;
+}
+
+export interface PlatformReport {
+  period: string;
+  grossVolume: number;
+  netRevenue: number;
+  vtuSales: number;
+  ninRegistrationsCount: number;
+  cacFilingsCount: number;
+  academyEnrollmentsCount: number;
+  totalOrdersCount: number;
+  successfulTxCount: number;
+  failedTxCount: number;
 }
 

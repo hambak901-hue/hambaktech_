@@ -71,7 +71,7 @@ export default function ServicesHubPage() {
             >
               All Categories
             </button>
-            {platformCategories.map((cat) => (
+            {platformCategories.filter((c) => c.id !== "ALL").map((cat) => (
               <button
                 key={cat.id}
                 onClick={() => setSelectedCategory(cat.id)}
@@ -81,7 +81,7 @@ export default function ServicesHubPage() {
                     : "bg-gray-100 dark:bg-gray-dark text-body-color hover:text-dark dark:hover:text-white"
                 }`}
               >
-                {cat.name}
+                {cat.label || cat.name}
               </button>
             ))}
           </div>
@@ -91,11 +91,12 @@ export default function ServicesHubPage() {
         <div className="space-y-10">
           {filteredCategories.map((category) => {
             const allServices = getServicesByCategory(category.id);
-            const services = allServices.filter(
-              (s) =>
-                s.title.toLowerCase().includes(search.toLowerCase()) ||
-                s.description.toLowerCase().includes(search.toLowerCase())
-            );
+            const services = allServices.filter((s) => {
+              const nameText = (s.title || s.name || "").toLowerCase();
+              const descText = (s.description || s.shortDesc || s.fullDesc || "").toLowerCase();
+              const q = search.toLowerCase();
+              return nameText.includes(q) || descText.includes(q);
+            });
 
             if (services.length === 0) return null;
 
@@ -104,65 +105,73 @@ export default function ServicesHubPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="text-base sm:text-lg font-bold text-dark dark:text-white flex items-center gap-2">
-                      <span>{category.name}</span>
+                      <span>{category.name || category.label}</span>
                     </h3>
                     <p className="text-xs text-body-color">{category.description}</p>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
-                  {services.map((item) => (
-                    <div
-                      key={item.id}
-                      className="p-5 rounded-2xl bg-white dark:bg-dark border border-stroke dark:border-strokedark hover:border-primary/60 transition shadow-sm flex flex-col justify-between"
-                    >
-                      <div>
-                        <div className="flex items-start justify-between gap-3 mb-2">
-                          <h4 className="text-sm font-bold text-dark dark:text-white leading-snug">
-                            {item.title}
-                          </h4>
-                          <span className="text-xs font-extrabold text-primary bg-primary/10 px-2.5 py-1 rounded-lg shrink-0">
-                            {typeof item.price === "number" ? `₦${item.price.toLocaleString()}` : item.price}
-                          </span>
+                  {services.map((item) => {
+                    const itemTitle = item.title || item.name;
+                    const itemDesc = item.description || item.shortDesc || item.fullDesc;
+                    const itemPrice = item.price || item.startingPrice || "Instant Access";
+                    const turnaround = item.estimatedTurnaround || (item.status === "AVAILABLE" ? "Instant / Same Day" : "On Request");
+
+                    let targetUrl = "/dashboard/orders";
+                    if (item.id.includes("airtime")) {
+                      targetUrl = "/dashboard/services/airtime";
+                    } else if (item.id.includes("data")) {
+                      targetUrl = "/dashboard/services/data";
+                    } else if (item.id.includes("electricity") || item.id.includes("power")) {
+                      targetUrl = "/dashboard/services/electricity";
+                    } else if (item.id.includes("cable") || item.id.includes("tv")) {
+                      targetUrl = "/dashboard/services/cable-tv";
+                    } else if (item.id.includes("nin") || item.group === "DIGITAL_PORTALS" && item.id.includes("identity")) {
+                      targetUrl = "/dashboard/nin";
+                    } else if (item.id.includes("cac") || item.id.includes("business-registration")) {
+                      targetUrl = "/dashboard/cac";
+                    } else if (item.group === "ACADEMY_TRAINING" || item.id.includes("academy") || item.id.includes("training")) {
+                      targetUrl = "/dashboard/academy";
+                    }
+
+                    return (
+                      <div
+                        key={item.id}
+                        className="p-5 rounded-2xl bg-white dark:bg-dark border border-stroke dark:border-strokedark hover:border-primary/60 transition shadow-sm flex flex-col justify-between"
+                      >
+                        <div>
+                          <div className="flex items-start justify-between gap-3 mb-2">
+                            <h4 className="text-sm font-bold text-dark dark:text-white leading-snug">
+                              {itemTitle}
+                            </h4>
+                            <span className="text-xs font-extrabold text-primary bg-primary/10 px-2.5 py-1 rounded-lg shrink-0">
+                              {typeof itemPrice === "number" ? `₦${itemPrice.toLocaleString()}` : itemPrice}
+                            </span>
+                          </div>
+
+                          <p className="text-xs text-body-color line-clamp-2 leading-relaxed">
+                            {itemDesc}
+                          </p>
                         </div>
 
-                        <p className="text-xs text-body-color line-clamp-2 leading-relaxed">
-                          {item.description}
-                        </p>
-                      </div>
+                        <div className="mt-4 pt-3 border-t border-stroke/60 dark:border-strokedark/60 flex items-center justify-between">
+                          <span className="flex items-center gap-1 text-[11px] text-body-color">
+                            <Clock className="w-3.5 h-3.5 text-primary" />
+                            <span>{turnaround}</span>
+                          </span>
 
-                      <div className="mt-4 pt-3 border-t border-stroke/60 dark:border-strokedark/60 flex items-center justify-between">
-                        <span className="flex items-center gap-1 text-[11px] text-body-color">
-                          <Clock className="w-3.5 h-3.5 text-primary" />
-                          <span>{item.estimatedTurnaround}</span>
-                        </span>
-
-                        <Link
-                          href={
-                            item.category === "vtu-bills" && item.id.includes("airtime")
-                              ? "/dashboard/services/airtime"
-                              : item.category === "vtu-bills" && item.id.includes("data")
-                              ? "/dashboard/services/data"
-                              : item.category === "vtu-bills" && item.id.includes("electricity")
-                              ? "/dashboard/services/electricity"
-                              : item.category === "vtu-bills" && item.id.includes("cable")
-                              ? "/dashboard/services/cable-tv"
-                              : item.category === "nin-identity"
-                              ? "/dashboard/nin"
-                              : item.category === "business-cac"
-                              ? "/dashboard/cac"
-                              : item.category === "academy"
-                              ? "/dashboard/academy"
-                              : "/dashboard/orders"
-                          }
-                          className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:text-primary/80 transition"
-                        >
-                          <span>Order Now</span>
-                          <ArrowRight className="w-3.5 h-3.5" />
-                        </Link>
+                          <Link
+                            href={targetUrl}
+                            className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:text-primary/80 transition"
+                          >
+                            <span>Order Now</span>
+                            <ArrowRight className="w-3.5 h-3.5" />
+                          </Link>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             );

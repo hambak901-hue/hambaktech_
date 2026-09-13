@@ -21,7 +21,7 @@ import {
   PlusCircle,
   ShieldCheck,
 } from "lucide-react";
-import DashboardLayout from "@/components/Dashboard/DashboardLayout";
+import AdminLayout from "@/components/Admin/AdminLayout";
 import platformApi from "@/lib/api-client";
 import { Order, NINRequest, CACRequest, SupportTicket } from "@/types/platform";
 
@@ -76,7 +76,7 @@ export default function AdminOverviewPage() {
   };
 
   return (
-    <DashboardLayout
+    <AdminLayout
       pageTitle="Operations Command Center"
       breadcrumbs={[{ label: "Admin Console" }]}
     >
@@ -404,6 +404,6 @@ export default function AdminOverviewPage() {
           </div>
         )}
       </div>
-    </DashboardLayout>
+    </AdminLayout>
   );
 }

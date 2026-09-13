@@ -18,15 +18,15 @@ import {
 } from "lucide-react";
 import DashboardLayout from "@/components/Dashboard/DashboardLayout";
 import platformApi from "@/lib/api-client";
-import { SupportTicket } from "@/types/platform";
+import { SupportTicket, TicketCategory, TicketPriority } from "@/types/platform";
 import companyConfig from "@/data/companyConfig";
 
 export default function DashboardSupportPage() {
   const [tickets, setTickets] = useState<SupportTicket[]>(platformApi.getTickets());
   const [showModal, setShowModal] = useState(false);
   const [subject, setSubject] = useState("");
-  const [category, setCategory] = useState("VTU_BILLS");
-  const [priority, setPriority] = useState<any>("MEDIUM");
+  const [category, setCategory] = useState<TicketCategory>("VTU_BILLS");
+  const [priority, setPriority] = useState<TicketPriority>("MEDIUM");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -190,7 +190,7 @@ export default function DashboardSupportPage() {
                     </td>
                     <td className="py-3.5">
                       <p className="font-bold text-dark dark:text-white">{tk.subject}</p>
-                      <span className="text-[10px] text-body-color line-clamp-1">{tk.message}</span>
+                      <span className="text-[10px] text-body-color line-clamp-1">{tk.message || tk.messages?.[0]?.content || ""}</span>
                     </td>
                     <td className="py-3.5 text-body-color">{tk.category.replace(/_/g, " ")}</td>
                     <td className="py-3.5">
@@ -264,7 +264,7 @@ export default function DashboardSupportPage() {
                     </label>
                     <select
                       value={category}
-                      onChange={(e) => setCategory(e.target.value)}
+                      onChange={(e) => setCategory(e.target.value as TicketCategory)}
                       className="w-full px-3 py-2 rounded-xl border border-stroke dark:border-strokedark bg-gray-50 dark:bg-gray-dark text-dark dark:text-white"
                     >
                       <option value="VTU_BILLS">VTU & Bill Payments</option>
@@ -282,7 +282,7 @@ export default function DashboardSupportPage() {
                     </label>
                     <select
                       value={priority}
-                      onChange={(e) => setPriority(e.target.value)}
+                      onChange={(e) => setPriority(e.target.value as TicketPriority)}
                       className="w-full px-3 py-2 rounded-xl border border-stroke dark:border-strokedark bg-gray-50 dark:bg-gray-dark text-dark dark:text-white"
                     >
                       <option value="LOW">Low</option>

@@ -2,6 +2,8 @@
 
 import {
   User,
+  RoleSlug,
+  UserStatus,
   Wallet,
   WalletLedgerEntry,
   Transaction,
@@ -19,35 +21,90 @@ import {
   TelecomNetwork,
   ElectricityDisco,
   CableTVProvider,
+  PaymentAttempt,
+  CMSPage,
+  BlogPost,
 } from "@/types/platform";
 import { companyConfig } from "@/data/companyConfig";
 
 // Default seed users
-const INITIAL_CUSTOMER: User = {
-  id: "usr-cust-001",
-  email: "customer@hambaktech.com.ng",
-  phone: "08147837664",
-  fullName: "Oluwaseun Adeyemi",
-  role: "customer",
-  status: "ACTIVE",
-  state: "Lagos State",
-  lga: "Ibeju-Lekki",
-  address: "12 Eleko Junction Way, Ibeju-Lekki",
-  createdAt: "2026-01-15T10:30:00Z",
-};
+const INITIAL_USERS: User[] = [
+  {
+    id: "usr-cust-001",
+    email: "customer@hambaktech.com.ng",
+    phone: "08147837664",
+    fullName: "Oluwaseun Adeyemi",
+    role: "customer",
+    status: "ACTIVE",
+    state: "Lagos State",
+    lga: "Ibeju-Lekki",
+    address: "12 Eleko Junction Way, Ibeju-Lekki",
+    createdAt: "2026-01-15T10:30:00Z",
+  },
+  {
+    id: "usr-adm-001",
+    email: "admin@hambaktech.com.ng",
+    phone: "09155104724",
+    fullName: "Hambak Administrator",
+    role: "admin",
+    status: "ACTIVE",
+    state: "Lagos State",
+    lga: "Ibeju-Lekki",
+    address: "HambakTech Hub, Origanrigan Cele Area",
+    createdAt: "2026-01-01T08:00:00Z",
+  },
+  {
+    id: "usr-agt-002",
+    email: "bello.reseller@gmail.com",
+    phone: "08033221144",
+    fullName: "Fatima Sani Bello",
+    role: "agent",
+    status: "ACTIVE",
+    state: "Lagos State",
+    lga: "Epe",
+    address: "Plot 4 Marina Road, Epe",
+    createdAt: "2026-02-10T14:20:00Z",
+  },
+  {
+    id: "usr-stf-003",
+    email: "kazeem.desk@hambaktech.com.ng",
+    phone: "08099887766",
+    fullName: "Kazeem Balogun",
+    role: "staff",
+    status: "ACTIVE",
+    state: "Lagos State",
+    lga: "Ibeju-Lekki",
+    address: "Origanrigan Cele Area, Lagos",
+    createdAt: "2026-02-01T09:00:00Z",
+  },
+  {
+    id: "usr-inst-004",
+    email: "instructor.emeka@hambaktech.com.ng",
+    phone: "07011223344",
+    fullName: "Engr. Emeka Nwosu",
+    role: "instructor",
+    status: "ACTIVE",
+    state: "Lagos State",
+    lga: "Ibeju-Lekki",
+    address: "Lekki Free Zone corridor, Lagos",
+    createdAt: "2026-01-20T11:00:00Z",
+  },
+  {
+    id: "usr-cust-005",
+    email: "chioma.okeke@yahoo.com",
+    phone: "08123456789",
+    fullName: "Chioma Okeke",
+    role: "customer",
+    status: "PENDING_VERIFICATION",
+    state: "Lagos State",
+    lga: "Ibeju-Lekki",
+    address: "Akodo Village, Ibeju-Lekki",
+    createdAt: "2026-09-10T16:45:00Z",
+  },
+];
 
-const INITIAL_ADMIN: User = {
-  id: "usr-adm-001",
-  email: "admin@hambaktech.com.ng",
-  phone: "09155104724",
-  fullName: "Hambak Administrator",
-  role: "admin",
-  status: "ACTIVE",
-  state: "Lagos State",
-  lga: "Ibeju-Lekki",
-  address: "HambakTech Hub, Origanrigan Cele Area",
-  createdAt: "2026-01-01T08:00:00Z",
-};
+const INITIAL_CUSTOMER: User = INITIAL_USERS[0];
+const INITIAL_ADMIN: User = INITIAL_USERS[1];
 
 const INITIAL_WALLET: Wallet = {
   id: "wal-001",
@@ -476,11 +533,71 @@ const INITIAL_NOTIFICATIONS: NotificationItem[] = [
   },
 ];
 
+const INITIAL_PAYMENT_ATTEMPTS: PaymentAttempt[] = [
+  {
+    id: "pay-att-101",
+    reference: "HT-PAY-2026-091101",
+    gateway: "PAYSTACK",
+    amount: 50000,
+    currency: "NGN",
+    status: "SUCCESS",
+    customerEmail: "customer@hambaktech.com.ng",
+    customerName: "Oluwaseun Adeyemi",
+    serviceType: "WALLET_FUNDING",
+    channel: "card",
+    gatewayResponse: "Approved by Issuer",
+    createdAt: "2026-09-11T09:14:22Z",
+  },
+  {
+    id: "pay-att-102",
+    reference: "HT-PAY-2026-091201",
+    gateway: "MONIEPOINT",
+    amount: 22000,
+    currency: "NGN",
+    status: "SUCCESS",
+    customerEmail: "customer@hambaktech.com.ng",
+    customerName: "Oluwaseun Adeyemi",
+    serviceType: "CAC_SERVICE",
+    channel: "transfer",
+    gatewayResponse: "Bank Transfer Settled",
+    createdAt: "2026-09-12T14:20:10Z",
+  },
+  {
+    id: "pay-att-103",
+    reference: "HT-PAY-2026-091301",
+    gateway: "FLUTTERWAVE",
+    amount: 15000,
+    currency: "NGN",
+    status: "PENDING",
+    customerEmail: "bello.reseller@gmail.com",
+    customerName: "Fatima Sani Bello",
+    serviceType: "WALLET_FUNDING",
+    channel: "ussd",
+    gatewayResponse: "Awaiting Customer Authorization",
+    createdAt: "2026-09-13T10:15:00Z",
+  },
+];
+
+const INITIAL_CMS_PAGES: CMSPage[] = [
+  { id: "pg-1", slug: "about", title: "About HambakTech & Services", metaDescription: "Where Technology Meet Service in Ibeju-Lekki", published: true, updatedAt: "2026-09-10T12:00:00Z" },
+  { id: "pg-2", slug: "services", title: "Digital Service Hub", metaDescription: "Telecom VTU, Business Centre, NIN, CAC & Printing", published: true, updatedAt: "2026-09-12T08:00:00Z" },
+  { id: "pg-3", slug: "academy", title: "HambakTech Computer Training Academy", metaDescription: "Practical tech education and vocational digital skills", published: true, updatedAt: "2026-09-11T15:30:00Z" },
+  { id: "pg-4", slug: "privacy-policy", title: "Privacy Policy & NDPR Compliance", metaDescription: "How HambakTech protects user data and records", published: true, updatedAt: "2026-08-20T10:00:00Z" },
+  { id: "pg-5", slug: "terms-of-service", title: "Terms of Service & Usage Agreements", metaDescription: "Customer service level agreements and terms", published: true, updatedAt: "2026-08-20T10:00:00Z" },
+];
+
+const INITIAL_BLOG_POSTS: BlogPost[] = [
+  { id: "post-1", slug: "how-to-register-business-with-cac-nigeria", title: "Complete Guide to Registering Your Business Name with CAC in 2026", summary: "Step-by-step guidance on name reservations, requirements, and avoiding rejection queries.", category: "Business Growth", author: "Hambak Liaison Desk", publishedAt: "2026-09-08T09:00:00Z", featured: true },
+  { id: "post-2", slug: "nin-slip-reprint-and-plastic-id-solutions", title: "Everything You Need to Know About NIN Slip Verification & Plastic Cards", summary: "Understanding standard slip reprints, premium slips, and verified PVC cards.", category: "Identity Services", author: "NIN Operations Desk", publishedAt: "2026-09-05T14:30:00Z", featured: true },
+  { id: "post-3", slug: "why-ibeju-lekki-youth-are-learning-web-development", title: "Tech Skills for the Future: Web Development & Office Automation in Ibeju-Lekki", summary: "How our vocational curriculum prepares students for digital enterprise and freelance work.", category: "Academy & Tech", author: "Engr. Emeka Nwosu", publishedAt: "2026-09-01T11:00:00Z", featured: false },
+];
+
 // --------------------------------------------------------------------------
 // In-Memory & LocalStorage Persisted Reactive Store
 // --------------------------------------------------------------------------
 class PlatformStore {
   private user: User = INITIAL_CUSTOMER;
+  private users: User[] = INITIAL_USERS;
   private wallet: Wallet = INITIAL_WALLET;
   private transactions: Transaction[] = INITIAL_TRANSACTIONS;
   private orders: Order[] = INITIAL_ORDERS;
@@ -493,6 +610,9 @@ class PlatformStore {
   private announcements: CMSAnnouncement[] = INITIAL_ANNOUNCEMENTS;
   private auditLogs: AuditLogEntry[] = INITIAL_AUDIT_LOGS;
   private notifications: NotificationItem[] = INITIAL_NOTIFICATIONS;
+  private paymentAttempts: PaymentAttempt[] = INITIAL_PAYMENT_ATTEMPTS;
+  private cmsPages: CMSPage[] = INITIAL_CMS_PAGES;
+  private blogPosts: BlogPost[] = INITIAL_BLOG_POSTS;
 
   constructor() {
     if (typeof window !== "undefined") {
@@ -822,6 +942,234 @@ class PlatformStore {
     return { success: true, token, reference: ref };
   }
 
+  purchaseAirtime(network: string, phone: string, amount: number): Order {
+    if (this.wallet.currentBalance < amount) {
+      throw new Error("Insufficient wallet balance. Please fund your wallet.");
+    }
+    this.wallet.currentBalance -= amount;
+    this.wallet.ledgerBalance -= amount;
+
+    const orderNum = `HT-AIR-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+    const newOrder: Order = {
+      id: `ord-${Date.now()}`,
+      orderNumber: orderNum,
+      userId: this.user.id,
+      userName: this.user.fullName,
+      userEmail: this.user.email,
+      userPhone: phone || this.user.phone,
+      serviceCategorySlug: "vtu-telecom",
+      serviceCategoryName: "VTU & Telecoms",
+      serviceTitle: `${network} Airtime Recharge - ₦${amount.toLocaleString()}`,
+      status: "COMPLETED",
+      paymentStatus: "PAID",
+      paymentMethod: "WALLET",
+      totalAmount: amount,
+      feeAmount: 0,
+      currency: "NGN",
+      items: [{ title: `${network} Airtime to ${phone}`, quantity: 1, unitPrice: amount, serviceId: "AIRTIME" }],
+      statusTimeline: [
+        { status: "PENDING", timestamp: new Date().toISOString(), note: "Order placed" },
+        { status: "PROCESSING", timestamp: new Date().toISOString(), note: `Routing through ${network} direct gateway` },
+        { status: "COMPLETED", timestamp: new Date().toISOString(), note: "Delivered instantly" },
+      ],
+      deliveryType: "INSTANT_DIGITAL",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    const newTx: Transaction = {
+      id: `tx-${Date.now()}`,
+      reference: orderNum,
+      userId: this.user.id,
+      userName: this.user.fullName,
+      type: "VTU_AIRTIME",
+      amount,
+      fee: 0,
+      currency: "NGN",
+      status: "SUCCESSFUL",
+      paymentMethod: "WALLET",
+      description: `${network} Airtime ₦${amount} to ${phone}`,
+      createdAt: new Date().toISOString(),
+    };
+
+    this.orders = [newOrder, ...this.orders];
+    this.transactions = [newTx, ...this.transactions];
+    this.saveToStorage();
+    return newOrder;
+  }
+
+  purchaseData(network: string, phone: string, planId: string, amount: number): Order {
+    if (this.wallet.currentBalance < amount) {
+      throw new Error("Insufficient wallet balance. Please fund your wallet.");
+    }
+    this.wallet.currentBalance -= amount;
+    this.wallet.ledgerBalance -= amount;
+
+    const orderNum = `HT-DAT-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+    const newOrder: Order = {
+      id: `ord-${Date.now()}`,
+      orderNumber: orderNum,
+      userId: this.user.id,
+      userName: this.user.fullName,
+      userEmail: this.user.email,
+      userPhone: phone || this.user.phone,
+      serviceCategorySlug: "vtu-telecom",
+      serviceCategoryName: "VTU & Telecoms",
+      serviceTitle: `${network} Data Bundle (${planId}) - ₦${amount.toLocaleString()}`,
+      status: "COMPLETED",
+      paymentStatus: "PAID",
+      paymentMethod: "WALLET",
+      totalAmount: amount,
+      feeAmount: 0,
+      currency: "NGN",
+      items: [{ title: `${network} Data (${planId}) to ${phone}`, quantity: 1, unitPrice: amount, serviceId: planId }],
+      statusTimeline: [
+        { status: "PENDING", timestamp: new Date().toISOString(), note: "Order placed" },
+        { status: "PROCESSING", timestamp: new Date().toISOString(), note: `Activating package via ${network} SME/Direct API` },
+        { status: "COMPLETED", timestamp: new Date().toISOString(), note: "Data credited to subscriber" },
+      ],
+      deliveryType: "INSTANT_DIGITAL",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    const newTx: Transaction = {
+      id: `tx-${Date.now()}`,
+      reference: orderNum,
+      userId: this.user.id,
+      userName: this.user.fullName,
+      type: "VTU_DATA",
+      amount,
+      fee: 0,
+      currency: "NGN",
+      status: "SUCCESSFUL",
+      paymentMethod: "WALLET",
+      description: `${network} Data (${planId}) to ${phone}`,
+      createdAt: new Date().toISOString(),
+    };
+
+    this.orders = [newOrder, ...this.orders];
+    this.transactions = [newTx, ...this.transactions];
+    this.saveToStorage();
+    return newOrder;
+  }
+
+  purchaseElectricity(disco: string, meterNumber: string, meterType: string, amount: number): Order {
+    if (this.wallet.currentBalance < amount) {
+      throw new Error("Insufficient wallet balance. Please fund your wallet.");
+    }
+    this.wallet.currentBalance -= amount;
+    this.wallet.ledgerBalance -= amount;
+
+    const token = `${Math.floor(1000 + Math.random() * 9000)}-${Math.floor(1000 + Math.random() * 9000)}-${Math.floor(1000 + Math.random() * 9000)}-${Math.floor(1000 + Math.random() * 9000)}`;
+    const orderNum = `HT-PWR-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+
+    const newOrder: Order = {
+      id: `ord-${Date.now()}`,
+      orderNumber: orderNum,
+      userId: this.user.id,
+      userName: this.user.fullName,
+      userEmail: this.user.email,
+      userPhone: this.user.phone,
+      serviceCategorySlug: "utility-bills",
+      serviceCategoryName: "Utility & Energy",
+      serviceTitle: `${disco} (${meterType}) Meter ${meterNumber} - ₦${amount.toLocaleString()}`,
+      status: "COMPLETED",
+      paymentStatus: "PAID",
+      paymentMethod: "WALLET",
+      totalAmount: amount,
+      feeAmount: 0,
+      currency: "NGN",
+      items: [{ title: `${disco} Token for Meter ${meterNumber}`, quantity: 1, unitPrice: amount, serviceId: meterType }],
+      statusTimeline: [
+        { status: "PENDING", timestamp: new Date().toISOString(), note: "Order placed" },
+        { status: "PROCESSING", timestamp: new Date().toISOString(), note: `Vending token with ${disco} server` },
+        { status: "COMPLETED", timestamp: new Date().toISOString(), note: `Token Generated: ${token}` },
+      ],
+      notes: `Vended Token: ${token}`,
+      deliveryType: "INSTANT_DIGITAL",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    const newTx: Transaction = {
+      id: `tx-${Date.now()}`,
+      reference: orderNum,
+      userId: this.user.id,
+      userName: this.user.fullName,
+      type: "ELECTRICITY_BILL",
+      amount,
+      fee: 0,
+      currency: "NGN",
+      status: "SUCCESSFUL",
+      paymentMethod: "WALLET",
+      description: `${disco} Electricity Meter ${meterNumber}`,
+      metadata: { token, disco, meterNumber },
+      createdAt: new Date().toISOString(),
+    };
+
+    this.orders = [newOrder, ...this.orders];
+    this.transactions = [newTx, ...this.transactions];
+    this.saveToStorage();
+    return newOrder;
+  }
+
+  purchaseCableTV(provider: string, iucNumber: string, bouquetName: string, amount: number): Order {
+    if (this.wallet.currentBalance < amount) {
+      throw new Error("Insufficient wallet balance. Please fund your wallet.");
+    }
+    this.wallet.currentBalance -= amount;
+    this.wallet.ledgerBalance -= amount;
+
+    const orderNum = `HT-CBL-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+    const newOrder: Order = {
+      id: `ord-${Date.now()}`,
+      orderNumber: orderNum,
+      userId: this.user.id,
+      userName: this.user.fullName,
+      userEmail: this.user.email,
+      userPhone: this.user.phone,
+      serviceCategorySlug: "utility-bills",
+      serviceCategoryName: "Utility & Entertainment",
+      serviceTitle: `${provider} (${bouquetName}) Smartcard ${iucNumber} - ₦${amount.toLocaleString()}`,
+      status: "COMPLETED",
+      paymentStatus: "PAID",
+      paymentMethod: "WALLET",
+      totalAmount: amount,
+      feeAmount: 0,
+      currency: "NGN",
+      items: [{ title: `${provider} ${bouquetName} to ${iucNumber}`, quantity: 1, unitPrice: amount, serviceId: bouquetName }],
+      statusTimeline: [
+        { status: "PENDING", timestamp: new Date().toISOString(), note: "Order placed" },
+        { status: "PROCESSING", timestamp: new Date().toISOString(), note: `Broadcasting activation to ${provider}` },
+        { status: "COMPLETED", timestamp: new Date().toISOString(), note: "Bouquet renewed successfully" },
+      ],
+      deliveryType: "INSTANT_DIGITAL",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    const newTx: Transaction = {
+      id: `tx-${Date.now()}`,
+      reference: orderNum,
+      userId: this.user.id,
+      userName: this.user.fullName,
+      type: "CABLE_TV",
+      amount,
+      fee: 0,
+      currency: "NGN",
+      status: "SUCCESSFUL",
+      paymentMethod: "WALLET",
+      description: `${provider} Cable TV (${bouquetName}) Smartcard ${iucNumber}`,
+      createdAt: new Date().toISOString(),
+    };
+
+    this.orders = [newOrder, ...this.orders];
+    this.transactions = [newTx, ...this.transactions];
+    this.saveToStorage();
+    return newOrder;
+  }
+
   // --- NIN Desk ---
   getNINRequests(): NINRequest[] {
     return this.ninRequests;
@@ -1054,6 +1402,20 @@ class PlatformStore {
     return this.tickets.find((t) => t.id === id || t.ticketNumber === id);
   }
 
+  createTicket(params: {
+    category: SupportTicket["category"] | string;
+    subject: string;
+    priority: SupportTicket["priority"] | string;
+    message: string;
+  }): SupportTicket {
+    return this.createSupportTicket({
+      category: params.category as SupportTicket["category"],
+      subject: params.subject,
+      priority: params.priority as SupportTicket["priority"],
+      initialMessage: params.message,
+    });
+  }
+
   createSupportTicket(params: {
     category: SupportTicket["category"];
     subject: string;
@@ -1109,6 +1471,176 @@ class PlatformStore {
     this.tickets[idx] = { ...tkt };
     this.saveToStorage();
     return this.tickets[idx];
+  }
+
+  // --- User Management ---
+  getUsers(filter?: { role?: string; status?: string; search?: string }): User[] {
+    let list = [...this.users];
+    if (filter?.role && filter.role !== "ALL") {
+      list = list.filter((u) => u.role === filter.role.toLowerCase());
+    }
+    if (filter?.status && filter.status !== "ALL") {
+      list = list.filter((u) => u.status === filter.status);
+    }
+    if (filter?.search) {
+      const q = filter.search.toLowerCase();
+      list = list.filter(
+        (u) =>
+          u.fullName.toLowerCase().includes(q) ||
+          u.email.toLowerCase().includes(q) ||
+          (u.phone && u.phone.includes(q))
+      );
+    }
+    return list;
+  }
+
+  updateUserStatus(id: string, status: UserStatus): User | null {
+    const idx = this.users.findIndex((u) => u.id === id);
+    if (idx === -1) return null;
+    this.users[idx] = { ...this.users[idx], status };
+    this.saveToStorage();
+    return this.users[idx];
+  }
+
+  updateUserRole(id: string, role: RoleSlug): User | null {
+    const idx = this.users.findIndex((u) => u.id === id);
+    if (idx === -1) return null;
+    this.users[idx] = { ...this.users[idx], role };
+    this.saveToStorage();
+    return this.users[idx];
+  }
+
+  // --- Admin Wallets & Adjustments ---
+  getAllWallets(): Array<{ wallet: Wallet; user: User }> {
+    return this.users.map((u) => ({
+      user: u,
+      wallet: u.id === this.user.id
+        ? this.wallet
+        : {
+            id: `wal-${u.id}`,
+            userId: u.id,
+            currency: "NGN",
+            currentBalance: u.role === "agent" ? 125000 : u.role === "staff" ? 8400 : 15200,
+            ledgerBalance: u.role === "agent" ? 125000 : u.role === "staff" ? 8400 : 15200,
+            lockedBalance: 0,
+            status: "ACTIVE",
+            updatedAt: new Date().toISOString(),
+          },
+    }));
+  }
+
+  adjustWalletBalance(userId: string, amount: number, type: "CREDIT" | "DEBIT", reason: string): Transaction {
+    const isTargetCurrentUser = userId === this.user.id || userId === this.wallet.userId;
+    const delta = type === "CREDIT" ? amount : -amount;
+    
+    if (isTargetCurrentUser) {
+      this.wallet.currentBalance += delta;
+      this.wallet.ledgerBalance += delta;
+      this.wallet.updatedAt = new Date().toISOString();
+    }
+
+    const ref = `HT-ADJ-${Date.now()}`;
+    const targetUser = this.users.find((u) => u.id === userId) || this.user;
+    const newTx: Transaction = {
+      id: `tx-${Date.now()}`,
+      reference: ref,
+      userId: targetUser.id,
+      userName: targetUser.fullName,
+      type: "WALLET_TOPUP",
+      amount,
+      fee: 0,
+      currency: "NGN",
+      status: "SUCCESSFUL",
+      paymentMethod: "WALLET",
+      description: `Admin Adjustment (${type}): ${reason}`,
+      createdAt: new Date().toISOString(),
+    };
+
+    this.transactions = [newTx, ...this.transactions];
+    this.saveToStorage();
+    return newTx;
+  }
+
+  // --- Payment Gateways Logs ---
+  getPaymentAttempts(filter?: { gateway?: string; status?: string; search?: string }): PaymentAttempt[] {
+    let list = [...this.paymentAttempts];
+    if (filter?.gateway && filter.gateway !== "ALL") {
+      list = list.filter((p) => p.gateway === filter.gateway);
+    }
+    if (filter?.status && filter.status !== "ALL") {
+      list = list.filter((p) => p.status === filter.status);
+    }
+    if (filter?.search) {
+      const q = filter.search.toLowerCase();
+      list = list.filter(
+        (p) =>
+          p.reference.toLowerCase().includes(q) ||
+          p.customerEmail.toLowerCase().includes(q) ||
+          p.customerName.toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }
+
+  verifyPaymentAttempt(reference: string): PaymentAttempt | undefined {
+    const attempt = this.paymentAttempts.find((p) => p.reference === reference);
+    if (attempt && attempt.status === "PENDING") {
+      attempt.status = "SUCCESS";
+      attempt.gatewayResponse = "Re-queried and verified successfully with provider";
+      this.saveToStorage();
+    }
+    return attempt;
+  }
+
+  // --- CMS Content ---
+  getCMSPages(): CMSPage[] {
+    return this.cmsPages;
+  }
+
+  getBlogPosts(): BlogPost[] {
+    return this.blogPosts;
+  }
+
+  createAnnouncement(title: string, message: string, category: CMSAnnouncement["category"]): CMSAnnouncement {
+    const item: CMSAnnouncement = {
+      id: `ann-${Date.now()}`,
+      title,
+      message,
+      category,
+      isActive: true,
+      createdAt: new Date().toISOString(),
+    };
+    this.announcements = [item, ...this.announcements];
+    this.saveToStorage();
+    return item;
+  }
+
+  toggleAnnouncement(id: string, active: boolean): void {
+    const idx = this.announcements.findIndex((a) => a.id === id);
+    if (idx !== -1) {
+      this.announcements[idx].isActive = active;
+      this.saveToStorage();
+    }
+  }
+
+  deleteAnnouncement(id: string): void {
+    this.announcements = this.announcements.filter((a) => a.id !== id);
+    this.saveToStorage();
+  }
+
+  broadcastNotification(title: string, message: string, type: NotificationItem["type"], actionUrl?: string): NotificationItem {
+    const item: NotificationItem = {
+      id: `notif-${Date.now()}`,
+      title,
+      message,
+      type,
+      read: false,
+      createdAt: new Date().toISOString(),
+      actionUrl,
+    };
+    this.notifications = [item, ...this.notifications];
+    this.saveToStorage();
+    return item;
   }
 
   // --- Admin Data ---

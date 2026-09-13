@@ -105,6 +105,11 @@ export default function DashboardLayout({
       icon: LifeBuoy,
     },
     {
+      label: "Security & PIN",
+      href: "/dashboard/security",
+      icon: Lock,
+    },
+    {
       label: "Notifications",
       href: "/dashboard/notifications",
       icon: Bell,

@@ -1,194 +1,255 @@
 "use client";
 
 import React, { useState } from "react";
-import Link from "next/link";
 import {
   BarChart3,
   TrendingUp,
-  DollarSign,
   Download,
   Calendar,
-  Layers,
+  DollarSign,
+  Users,
+  ShoppingBag,
   ArrowUpRight,
-  ShieldCheck,
-  Zap,
-  Building2,
-  Tv,
-  GraduationCap,
+  FileSpreadsheet,
 } from "lucide-react";
-import DashboardLayout from "@/components/Dashboard/DashboardLayout";
+import AdminLayout from "@/components/Admin/AdminLayout";
 import platformApi from "@/lib/api-client";
 
+interface ServiceReportItem {
+  name: string;
+  category: string;
+  volume: number;
+  revenue: number;
+  providerCost: number;
+  netMargin: number;
+  marginPct: number;
+}
+
+const REPORT_DATA: ServiceReportItem[] = [
+  {
+    name: "MTN Data & VTU Airtime",
+    category: "Telecom VTU",
+    volume: 342,
+    revenue: 485000,
+    providerCost: 460750,
+    netMargin: 24250,
+    marginPct: 5.0,
+  },
+  {
+    name: "Plastic PVC NIN Card Printing",
+    category: "NIN Identity",
+    volume: 128,
+    revenue: 320000,
+    providerCost: 166400,
+    netMargin: 153600,
+    marginPct: 48.0,
+  },
+  {
+    name: "CAC Business Name Registration",
+    category: "Corporate Affairs",
+    volume: 14,
+    revenue: 308000,
+    providerCost: 210000,
+    netMargin: 98000,
+    marginPct: 31.8,
+  },
+  {
+    name: "Computer Academy Enrollments",
+    category: "Academy",
+    volume: 6,
+    revenue: 260000,
+    providerCost: 52000,
+    netMargin: 208000,
+    marginPct: 80.0,
+  },
+  {
+    name: "Business Centre (Print & Bind)",
+    category: "Business Centre",
+    volume: 215,
+    revenue: 125000,
+    providerCost: 43750,
+    netMargin: 81250,
+    marginPct: 65.0,
+  },
+];
+
 export default function AdminReportsPage() {
-  const orders = platformApi.getOrders();
-  const [period, setPeriod] = useState<"MONTH" | "QUARTER" | "YEAR">("MONTH");
+  const [period, setPeriod] = useState<"7d" | "30d" | "90d" | "ytd">("30d");
 
-  const totalVolume = orders.reduce((sum, o) => sum + o.totalAmount, 0);
-
-  const serviceBreakdown = [
-    {
-      category: "NIN Support Desk & PVC Cards",
-      revenue: 42000,
-      share: 36,
-      icon: ShieldCheck,
-      color: "bg-emerald-500",
-    },
-    {
-      category: "CAC Business Filings",
-      revenue: 55000,
-      share: 47,
-      icon: Building2,
-      color: "bg-indigo-500",
-    },
-    {
-      category: "VTU Data & Airtime",
-      revenue: 9500,
-      share: 8,
-      icon: Zap,
-      color: "bg-amber-500",
-    },
-    {
-      category: "Electricity & Cable TV Bills",
-      revenue: 10500,
-      share: 9,
-      icon: Tv,
-      color: "bg-blue-500",
-    },
-  ];
+  const totalRevenue = REPORT_DATA.reduce((s, i) => s + i.revenue, 0);
+  const totalVolume = REPORT_DATA.reduce((s, i) => s + i.volume, 0);
+  const totalMargin = REPORT_DATA.reduce((s, i) => s + i.netMargin, 0);
 
   const handleExportCSV = () => {
-    alert("Exporting transactional ledger report to CSV format...");
+    const headers = ["Service Offering", "Category", "Transaction Volume", "Gross Revenue (NGN)", "Provider Cost (NGN)", "Net Margin (NGN)", "Margin %"];
+    const rows = REPORT_DATA.map((i) => [
+      `"${i.name}"`,
+      `"${i.category}"`,
+      i.volume,
+      i.revenue,
+      i.providerCost,
+      i.netMargin,
+      `${i.marginPct}%`,
+    ]);
+
+    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `hambaktech-performance-report-${period}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleExportJSON = () => {
+    const data = {
+      period,
+      generatedAt: new Date().toISOString(),
+      summary: {
+        totalRevenue,
+        totalVolume,
+        totalMargin,
+        blendedMarginPct: ((totalMargin / totalRevenue) * 100).toFixed(1),
+      },
+      lineItems: REPORT_DATA,
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `hambaktech-financial-report-${period}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   return (
-    <DashboardLayout
-      pageTitle="Business Intelligence & Operational Reports"
-      breadcrumbs={[
-        { label: "Admin Console", href: "/admin" },
-        { label: "Reports & Analytics" },
-      ]}
+    <AdminLayout
+      pageTitle="Financial Analytics & Service Performance Reports"
+      breadcrumbs={[{ label: "Financial Reports" }]}
+      actionButton={
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleExportCSV}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-stroke dark:border-strokedark text-xs font-bold text-dark dark:text-white hover:bg-gray-100 dark:hover:bg-gray-dark transition shadow-sm"
+          >
+            <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+            <span>Export CSV</span>
+          </button>
+          <button
+            type="button"
+            onClick={handleExportJSON}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary text-white text-xs font-bold hover:bg-primary/90 transition shadow-sm"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>Export JSON</span>
+          </button>
+        </div>
+      }
     >
       <div className="space-y-6">
-        {/* Header */}
-        <div className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-dark border border-stroke dark:border-strokedark shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-bold mb-2">
-              <BarChart3 className="w-4 h-4" />
-              <span>Financial & Service Analytics</span>
-            </div>
-            <h2 className="text-xl sm:text-2xl font-bold text-dark dark:text-white">
-              Revenue & Performance Ledger
-            </h2>
-            <p className="text-xs text-body-color mt-0.5">
-              Comprehensive breakdown of retail transactions, service desk volume, and profitability.
+        {/* Period Selector */}
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-body-color font-semibold">Reporting Period:</span>
+          <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-xl">
+            {(["7d", "30d", "90d", "ytd"] as const).map((p) => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => setPeriod(p)}
+                className={`px-3 py-1 rounded-lg text-xs font-bold uppercase transition ${
+                  period === p
+                    ? "bg-white dark:bg-dark text-primary shadow-xs"
+                    : "text-body-color hover:text-dark dark:hover:text-white"
+                }`}
+              >
+                {p}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Top Financial Metric Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="p-5 bg-white dark:bg-dark rounded-2xl border border-stroke dark:border-strokedark shadow-sm">
+            <span className="text-xs font-semibold text-body-color block">Gross Volume Generated</span>
+            <p className="text-2xl font-black text-dark dark:text-white mt-1">
+              ₦{totalRevenue.toLocaleString()}
             </p>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <div className="flex p-1 rounded-xl bg-gray-100 dark:bg-gray-dark border border-stroke dark:border-strokedark text-xs">
-              {(["MONTH", "QUARTER", "YEAR"] as const).map((p) => (
-                <button
-                  key={p}
-                  onClick={() => setPeriod(p)}
-                  className={`px-3 py-1.5 rounded-lg font-bold transition ${
-                    period === p
-                      ? "bg-white dark:bg-dark text-primary shadow-sm"
-                      : "text-body-color hover:text-dark dark:hover:text-white"
-                  }`}
-                >
-                  {p}
-                </button>
-              ))}
-            </div>
-
-            <button
-              onClick={handleExportCSV}
-              className="px-4 py-2.5 rounded-xl border border-stroke dark:border-strokedark hover:border-primary text-dark dark:text-white font-bold text-xs flex items-center gap-1.5 transition"
-            >
-              <Download className="w-4 h-4 text-primary" />
-              <span>Export CSV</span>
-            </button>
-          </div>
-        </div>
-
-        {/* 3 Metric Summary */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-          <div className="p-6 rounded-2xl bg-white dark:bg-dark border border-stroke dark:border-strokedark shadow-sm">
-            <span className="text-xs font-bold uppercase tracking-wider text-body-color">
-              Aggregate Revenue
-            </span>
-            <h3 className="text-2xl sm:text-3xl font-extrabold text-dark dark:text-white mt-2">
-              ₦{(totalVolume + 117000).toLocaleString()}
-            </h3>
-            <span className="text-xs text-emerald-600 font-semibold mt-1 inline-flex items-center gap-1">
-              <TrendingUp className="w-3.5 h-3.5" />
-              <span>+18.4% vs last reporting cycle</span>
+            <span className="text-[11px] text-emerald-600 font-bold flex items-center gap-0.5 mt-2">
+              <ArrowUpRight className="w-3.5 h-3.5" /> +18.4% compared to previous cycle
             </span>
           </div>
 
-          <div className="p-6 rounded-2xl bg-white dark:bg-dark border border-stroke dark:border-strokedark shadow-sm">
-            <span className="text-xs font-bold uppercase tracking-wider text-body-color">
-              Successful Transactions
-            </span>
-            <h3 className="text-2xl sm:text-3xl font-extrabold text-dark dark:text-white mt-2">
-              99.4%
-            </h3>
-            <span className="text-xs text-body-color mt-1 block">
-              1,248 API switch calls completed
+          <div className="p-5 bg-white dark:bg-dark rounded-2xl border border-stroke dark:border-strokedark shadow-sm">
+            <span className="text-xs font-semibold text-body-color block">Net Platform Gross Margin</span>
+            <p className="text-2xl font-black text-emerald-600 mt-1">
+              ₦{totalMargin.toLocaleString()}
+            </p>
+            <span className="text-[11px] text-body-color font-semibold mt-2 block">
+              Blended margin rate: {((totalMargin / totalRevenue) * 100).toFixed(1)}%
             </span>
           </div>
 
-          <div className="p-6 rounded-2xl bg-white dark:bg-dark border border-stroke dark:border-strokedark shadow-sm">
-            <span className="text-xs font-bold uppercase tracking-wider text-body-color">
-              Average Order Value
-            </span>
-            <h3 className="text-2xl sm:text-3xl font-extrabold text-dark dark:text-white mt-2">
-              ₦6,850
-            </h3>
-            <span className="text-xs text-body-color mt-1 block">
-              Driven by CAC filings & PVC cards
+          <div className="p-5 bg-white dark:bg-dark rounded-2xl border border-stroke dark:border-strokedark shadow-sm">
+            <span className="text-xs font-semibold text-body-color block">Total Service Orders</span>
+            <p className="text-2xl font-black text-primary mt-1">
+              {totalVolume.toLocaleString()} Orders
+            </p>
+            <span className="text-[11px] text-body-color font-semibold mt-2 block">
+              Avg. Ticket: ₦{Math.round(totalRevenue / totalVolume).toLocaleString()}
             </span>
           </div>
         </div>
 
-        {/* Service Share Breakdown */}
-        <div className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-dark border border-stroke dark:border-strokedark shadow-sm">
-          <h3 className="text-base font-bold text-dark dark:text-white mb-6">
-            Revenue Composition by Department
-          </h3>
+        {/* Breakdown by Service Line */}
+        <div className="bg-white dark:bg-dark rounded-2xl border border-stroke dark:border-strokedark shadow-sm overflow-hidden">
+          <div className="p-4 border-b border-stroke dark:border-strokedark flex items-center justify-between">
+            <h3 className="text-sm font-bold text-dark dark:text-white">Service Line Performance Matrix</h3>
+            <span className="text-xs font-mono text-body-color">5 Verticals Tracked</span>
+          </div>
 
-          <div className="space-y-5">
-            {serviceBreakdown.map((item, idx) => {
-              const Icon = item.icon;
-              return (
-                <div key={idx} className="space-y-2">
-                  <div className="flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-2.5">
-                      <Icon className="w-4 h-4 text-primary" />
-                      <span className="font-bold text-dark dark:text-white">
-                        {item.category}
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-gray-50 dark:bg-gray-dark border-b border-stroke dark:border-strokedark text-dark dark:text-white font-bold">
+                <tr>
+                  <th className="p-3.5">Service Offering</th>
+                  <th className="p-3.5">Category</th>
+                  <th className="p-3.5 text-center">Volume</th>
+                  <th className="p-3.5 text-right">Gross Revenue</th>
+                  <th className="p-3.5 text-right">API / Direct Cost</th>
+                  <th className="p-3.5 text-right">Net Margin</th>
+                  <th className="p-3.5 text-right">Margin %</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-stroke dark:divide-strokedark">
+                {REPORT_DATA.map((item, idx) => (
+                  <tr key={idx} className="hover:bg-gray-50/50 dark:hover:bg-gray-dark/50">
+                    <td className="p-3.5 font-bold text-dark dark:text-white">{item.name}</td>
+                    <td className="p-3.5 text-body-color">{item.category}</td>
+                    <td className="p-3.5 text-center font-mono font-semibold">{item.volume}</td>
+                    <td className="p-3.5 text-right font-mono font-bold text-dark dark:text-white">
+                      ₦{item.revenue.toLocaleString()}
+                    </td>
+                    <td className="p-3.5 text-right font-mono text-body-color">
+                      ₦{item.providerCost.toLocaleString()}
+                    </td>
+                    <td className="p-3.5 text-right font-mono font-bold text-emerald-600">
+                      ₦{item.netMargin.toLocaleString()}
+                    </td>
+                    <td className="p-3.5 text-right">
+                      <span className="font-bold text-xs px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+                        {item.marginPct}%
                       </span>
-                    </div>
-                    <div className="text-right">
-                      <span className="font-bold text-dark dark:text-white mr-3">
-                        ₦{item.revenue.toLocaleString()}
-                      </span>
-                      <span className="text-body-color font-medium">({item.share}%)</span>
-                    </div>
-                  </div>
-
-                  <div className="w-full h-2 rounded-full bg-gray-100 dark:bg-gray-dark overflow-hidden">
-                    <div
-                      className={`h-full ${item.color} rounded-full`}
-                      style={{ width: `${item.share}%` }}
-                    />
-                  </div>
-                </div>
-              );
-            })}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
-    </DashboardLayout>
+    </AdminLayout>
   );
 }
