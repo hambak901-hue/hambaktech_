@@ -133,6 +133,22 @@ The repository was initialized from the open-source **Startup Next.js Template**
 - **Admin Management Portal (M9):** Internal dashboard for HambakTech staff to process orders and update pricing.
 - **PHP REST Backend (M12):** `/api` directory containing controllers, middleware, and database models.
 
+### 4.5 Official Brand Identity & Asset Architecture
+The authoritative brand identity established by the owner has been audited and cataloged in the repository:
+- **Logo Hierarchy (`public/images/brand/logo/`):**
+  - `hambaktech-logo.svg`: Primary vector brand logo combining the copper segmented circular ring, the stylized "H" and "B" monogram, and Cooper Black brand typography ("HAMBAK — Tech & Services").
+  - `hambaktech-logo-light.svg`: Version optimized for high-contrast light backgrounds with solid dark typography.
+  - `hambaktech-logo-dark.svg`: Version optimized for dark backgrounds with crisp white typography.
+  - `hambaktech-mark.svg`: Standalone emblem mark for icons, navigation badges, and compact cards.
+- **Favicon Hierarchy (`public/images/brand/favicon/`):**
+  - `hambaktech-favicon.svg`: Monogram and segmented ring scaled for browser tab favicons and PWA icons.
+- **Physical Premises Verification (`public/images/brand/office/`):**
+  - `hambaktech-office.svg`: Vector architectural reference documenting the authentic HambakTech physical premises (Origanrigan cele Area, Lagos), including the overhead "HAMBAK TECH & SERVICES" signboard, Business Center printing and NIN registration desk, Game Center console lounge (FIFA 23 screens), and Computer Institute student workstation laboratory.
+- **Corporate Registration Record (`public/images/brand/cac/`):**
+  - `cac-certificate.svg`: Vector record documenting official Corporate Affairs Commission Registration No. `9284726` and TIN `2622495414483` under CAMA 2020.
+- **Template Legacy (`public/images/logo/`):**
+  - `logo.svg` & `logo-2.svg`: Startup template assets retained temporarily for rollback safety, but strictly superseded by `public/images/brand/` in all user-facing layouts.
+
 ---
 
 ## 5. Architectural Status Labels

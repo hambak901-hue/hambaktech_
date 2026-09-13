@@ -80,7 +80,7 @@ const SigninPage = () => {
                   </p>
                   <span className="bg-body-color/50 hidden h-[1px] w-full max-w-[70px] sm:block"></span>
                 </div>
-                <form>
+                <form suppressHydrationWarning>
                   <div className="mb-8">
                     <label
                       htmlFor="email"
@@ -91,7 +91,9 @@ const SigninPage = () => {
                     <input
                       type="email"
                       name="email"
+                      id="email"
                       placeholder="Enter your Email"
+                      suppressHydrationWarning
                       className="border-stroke dark:text-body-color-dark dark:shadow-two text-body-color focus:border-primary dark:focus:border-primary w-full rounded-xs border bg-[#f8f8f8] px-6 py-3 text-base outline-hidden transition-all duration-300 dark:border-transparent dark:bg-[#2C303B] dark:focus:shadow-none"
                     />
                   </div>
@@ -105,7 +107,9 @@ const SigninPage = () => {
                     <input
                       type="password"
                       name="password"
+                      id="password"
                       placeholder="Enter your Password"
+                      suppressHydrationWarning
                       className="border-stroke dark:text-body-color-dark dark:shadow-two text-body-color focus:border-primary dark:focus:border-primary w-full rounded-xs border bg-[#f8f8f8] px-6 py-3 text-base outline-hidden transition-all duration-300 dark:border-transparent dark:bg-[#2C303B] dark:focus:shadow-none"
                     />
                   </div>
@@ -119,6 +123,7 @@ const SigninPage = () => {
                           <input
                             type="checkbox"
                             id="checkboxLabel"
+                            suppressHydrationWarning
                             className="sr-only"
                           />
                           <div className="box border-body-color/20 mr-4 flex h-5 w-5 items-center justify-center rounded-sm border dark:border-white/10">

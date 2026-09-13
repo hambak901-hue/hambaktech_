@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" width="100%" height="100%">
+  <defs>
+    <mask id="logo-dark-gaps">
+      <rect width="500" height="500" fill="#FFFFFF" />
+      <rect x="0" y="157" width="500" height="26" fill="#000000" />
+      <rect x="237" y="0" width="26" height="500" fill="#000000" />
+    </mask>
+  </defs>
+
+  <!-- Segmented Outer Ring -->
+  <path
+    d="M 250 50 A 120 120 0 1 0 250 290 A 120 120 0 1 0 250 50 Z M 250 94 A 76 76 0 1 1 250 246 A 76 76 0 1 1 250 94 Z"
+    fill="#E0702B"
+    fill-rule="evenodd"
+    mask="url(#logo-dark-gaps)"
+  />
+
+  <!-- Monogram: H -->
+  <g id="monogram-h-dark">
+    <rect x="202" y="100" width="32" height="140" rx="2" fill="#E0702B" />
+    <rect x="230" y="149" width="34" height="38" fill="#E0702B" />
+    <rect x="230" y="100" width="4" height="140" fill="#A84814" opacity="0.4" />
+  </g>
+
+  <!-- Monogram: B -->
+  <g id="monogram-b-dark">
+    <path d="M 248 102 L 255 102 L 255 238 L 248 238 Z" fill="#E0922F" />
+    <path
+      d="M 254 100 H 276 C 294 100, 307 112, 307 130 C 307 146, 298 158, 283 162 C 300 167, 311 180, 311 198 C 311 220, 296 238, 274 238 H 254 Z"
+      fill="#FBBF68"
+    />
+    <!-- Transparent/Dark Counter Cutouts for B -->
+    <path d="M 270 119 H 275 C 285 119, 291 124, 291 133 C 291 141, 284 146, 274 146 H 270 Z" fill="#181C23" />
+    <path d="M 270 191 H 275 C 287 191, 293 197, 293 207 C 293 217, 286 222, 274 222 H 270 Z" fill="#181C23" />
+  </g>
+
+  <!-- Crisp Light Typography for Dark Backgrounds -->
+  <text
+    x="250"
+    y="360"
+    text-anchor="middle"
+    font-family="system-ui, -apple-system, 'Segoe UI', serif"
+    font-size="54"
+    font-weight="900"
+    letter-spacing="2.5"
+    fill="#FFFFFF"
+  >HAMBAK</text>
+
+  <text
+    x="250"
+    y="415"
+    text-anchor="middle"
+    font-family="system-ui, -apple-system, 'Segoe UI', serif"
+    font-size="38"
+    font-weight="800"
+    letter-spacing="0.5"
+    fill="#F3F4F6"
+  >Tech &amp; Services</text>
+</svg>

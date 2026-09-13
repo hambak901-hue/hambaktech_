@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <mask id="fav-ring-gaps">
+      <rect width="128" height="128" fill="#FFFFFF" />
+      <rect x="0" y="58" width="128" height="12" fill="#000000" />
+      <rect x="58" y="0" width="12" height="128" fill="#000000" />
+    </mask>
+  </defs>
+
+  <!-- Segmented Ring -->
+  <path
+    d="M 64 8 A 56 56 0 1 0 64 120 A 56 56 0 1 0 64 8 Z M 64 28 A 36 36 0 1 1 64 100 A 36 36 0 1 1 64 28 Z"
+    fill="#C96022"
+    fill-rule="evenodd"
+    mask="url(#fav-ring-gaps)"
+  />
+
+  <!-- H Stem -->
+  <rect x="42" y="32" width="14" height="64" rx="1" fill="#C96022" />
+  <!-- H Crossbar -->
+  <rect x="54" y="54" width="16" height="18" fill="#C96022" />
+
+  <!-- B Shape -->
+  <path
+    d="M 65 32
+       H 75
+       C 84 32, 90 38, 90 46
+       C 90 53, 85 59, 78 61
+       C 87 63, 92 69, 92 78
+       C 92 88, 85 96, 74 96
+       H 65
+       Z"
+    fill="#F5B050"
+  />
+  <!-- Inner Cutouts -->
+  <rect x="72" y="41" width="7" height="11" rx="2" fill="#FFFFFF" />
+  <rect x="72" y="74" width="8" height="12" rx="2" fill="#FFFFFF" />
+</svg>
