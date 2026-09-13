@@ -12,9 +12,15 @@ import Video from "@/components/Video";
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Free Next.js Template for Startup and SaaS",
-  description: "This is Home for Startup Nextjs Template",
-  // other metadata
+  title: "HambakTech — Where Technology Meet Service | Smart Digital Platform",
+  description: "HambakTech & Services: Smart digital solutions, business centre, IT academy, and identity services in Ibeju-Lekki, Lagos.",
+  openGraph: {
+    title: "HambakTech — Where Technology Meet Service | Smart Digital Platform",
+    description: "HambakTech & Services: Smart digital solutions, business centre, IT academy, and identity services in Ibeju-Lekki, Lagos.",
+    url: "https://hambaktech.com.ng",
+    siteName: "HambakTech",
+    type: "website",
+  },
 };
 
 export default function Home() {

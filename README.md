@@ -1,81 +1,108 @@
-# Startup - Free Next.js Startup Website Template
+# HambakTech Smart Digital Platform
 
-Startup is a free, open-source, and premium-quality [**Next.js startup website template**](https://nextjstemplates.com/templates/startup) that comes with everything you need to launch a startup, business, or SaaS website, including all essential sections, components, and pages.
+> **Where Technology Meet Service**
 
-If you're looking for a high-quality and visually appealing, feature-rich Next.js Template for your next startup, SaaS, or business website, this is the perfect choice and starting point for you!
+**Legal Entity:** Hambaktech & Services (CAC Registered)  
+**Brand Name:** HambakTech  
+**Repository:** `hambaktech_`  
+**Official Domain:** [hambaktech.com.ng](https://hambaktech.com.ng)  
+**Established:** 2020 (Ibeju-Lekki / Lekki LCDA, Lagos State, Nigeria)  
+**Status:** Milestone 1 — Foundation Audit Complete  
 
-### ✨ Key Features
+---
 
-- Crafted for Startup and SaaS Business
-- Next.js and Tailwind CSS
-- All Essential Business Sections and Pages
-- High-quality and Clean Design
-- Dark and Light Version
-- TypeScript Support
-and Much More ...
+## 📖 Overview
 
-### 🙌 Detailed comparison between the Free and Pro versions of Startup
+The **HambakTech Smart Digital Platform** is an all-in-one digital ecosystem powering comprehensive commercial services, identity solutions, educational training, and e-commerce for Ibeju-Lekki, Lagos, and throughout Nigeria.
 
-| Feature             | Free | Pro |
-|---------------------|------------|----------|
-| Next.js Landing Page             | ✅ Yes      | ✅ Yes      |
-| All The Integrations - Auth, DB, Payments, Blog and many more ...             | ❌ No      | ✅ Yes |
-| Homepage Variations             | 1      | 2 |
-| Additional SaaS Pages and Components             | ❌ No      | ✅ Yes |
-| Functional Blog with Sanity       | ❌ No      | ✅ Yes |
-| Use with Commercial Projects            | ✅ Yes      | ✅ Yes      |
-| Lifetime Free Updates             | ✅ Yes      | ✅ Yes |
-| Email Support       | ❌ No         | ✅ Yes       |
-| Community Support         | ✅ Yes         | ✅ Yes       |
+### Major Platform Areas
+- 🌐 **Public Website & Services Portal:** High-performance responsive showcase for all 14 business divisions.
+- 👤 **Customer Platform & Dashboard:** Order tracking, digital document downloads, service requests, and receipts.
+- 💳 **Payments & Multi-Currency Wallet:** Double-entry wallet ledger and secure gateway integrations (Paystack, Flutterwave, Moniepoint).
+- 🆔 **NIN, BVN & CAC Processing:** Certified national identity verification, modification, slip reprinting, and business registration.
+- 📱 **Telecom VTU Services:** Automated instant airtime, internet data bundles, and utility bill settlements.
+- 🎓 **Academy / Computer Institute:** Course curriculum, student enrollment, training modules, and verifiable digital certificates.
+- 🛍️ **Stationery & Bookshop:** Digital catalog of school/office supplies and computer peripherals with distance-based delivery.
+- 🖨️ **Graphics & Printing Press:** Digital asset ordering, flex banner production, DI printing, and corporate branding.
+- 🛠️ **Administrative Command Center:** Back-office portal for staff processing, financial auditing, and CMS management.
+- 📲 **Mobile API Engine:** Unified RESTful API powering web, future mobile apps, and partner integrations.
 
-### [🔥 Get Startup Pro](https://nextjstemplates.com/templates/saas-starter-startup)
+---
 
-[![Startup Pro](https://raw.githubusercontent.com/NextJSTemplates/startup-nextjs/main/startup-pro.webp)](https://nextjstemplates.com/templates/saas-starter-startup)
+## 🏗️ Technology Architecture
 
-Startup Pro - Expertly crafted for fully-functional, high-performing SaaS startup websites. Comes with with Authentication, Database, Blog, and all the essential integrations necessary for SaaS business sites.
+- **Frontend:** Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS v4
+- **Backend (Planned):** PHP 8.x RESTful API (Layered Service Architecture & Provider Adapters)
+- **Database (Planned):** MySQL / MariaDB (InnoDB, utf8mb4 encoding, ACID transactions)
+- **Production Hosting:** cPanel Shared Hosting (Apache with `.htaccess` rewrites, AutoSSL)
+- **Testing & Verification:** ESLint, TypeScript compiler, production build pipeline
 
-- [🚀 View Free Demo](https://startup.nextjstemplates.com/)
+---
 
-- [🚀 View Pro Demo](https://startup-pro.nextjstemplates.com/)
+## 🔄 Development Methodology
 
-- [📦 Download](https://nextjstemplates.com/templates/startup)
+Every task and milestone in HambakTech follows a strict engineering cycle:
 
-- [🔥 Get Pro](https://nextjstemplates.com/templates/saas-starter-startup)
+```
+[ BUILD ] ──> [ TEST ] ──> [ FIX ] ──> [ COMMIT ] ──> [ PUSH ] ──> [ DOCUMENT ] ──> [ CONTINUE ]
+```
 
-- [🔌 Documentation](https://nextjstemplates.com/docs)
+- **Scope Discipline:** Strict adherence to owner specifications; zero premature or unsolicited feature bloat.
+- **Milestone Gate:** A milestone must reach 100% verification before the next begins.
+- **Zero Committed Secrets:** Credentials are exclusively managed in server environments, never in version control.
 
-### ⚡ Deploy Now
+---
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FNextJSTemplates%2Fstartup-nextjs)
+## 🚀 Getting Started (Development)
 
-[![Deploy with Netlify](https://www.netlify.com/img/deploy/button.svg)](https://app.netlify.com/start/deploy?repository=https://github.com/NextJSTemplates/startup-nextjs)
+### 1. Prerequisites
+- Node.js ≥ 20
+- npm or yarn
 
-### 📄 License
+### 2. Installation
+```bash
+npm install
+```
 
-Startup is 100% free and open-source, feel free to use with your personal and commercial projects.
+### 3. Environment Setup
+```bash
+cp .env.example .env.local
+```
+*(Fill in local configuration values if needed. Do NOT commit `.env.local`)*
 
-### 💜 Support
+### 4. Development Server
+```bash
+npm run dev
+```
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-If you like the template, please star this repository to inspire the team to create more stuff like this and reach more users like you!
+### 5. Lint & Build Verification
+```bash
+npm run lint
+npm run build
+```
 
-### ✨ Explore and Download - Free [Next.js Templates](https://nextjstemplates.com)
+---
 
-### Update Log
+## 📚 Project Documentation
 
-**03 December 2025**
+All architectural specifications, database models, and deployment guides are available in the `/docs` directory:
+- [`docs/project-progress.md`](./docs/project-progress.md) — Current milestone status & audit report
+- [`docs/architecture.md`](./docs/architecture.md) — System topology & cPanel hosting plan
+- [`docs/database.md`](./docs/database.md) — Planned MySQL database schema domains
+- [`docs/api.md`](./docs/api.md) — REST API architecture & provider adapter patterns
+- [`docs/deployment.md`](./docs/deployment.md) — cPanel production checklist & SSL
+- [`docs/coding-standards.md`](./docs/coding-standards.md) — 20 core engineering rules
+- [`docs/roadmap.md`](./docs/roadmap.md) — 14 business divisions & roadmap
+- [`docs/release-notes.md`](./docs/release-notes.md) — Release notes & version tracking
 
-- Upgrade to Next.js 16
-- Fixed video modal issue
+---
 
-**10 April 2025**
+## 📞 Official Contact & Channels
 
-- Fix peer deps issue with Next.js 15
-- Upgrade to tailwind v4
-- Refactored blog cards for handling edge cases(text ellipsis on bio, keeping author details at the bottom etc.)
-- Re-wrote blog details page with icons separation, fallback author image and better markup.
-- Fixed duplicate key errors on homepage.
-- Separated icons on theme-switcher button, and refactored scroll-to-top button.
-
-**29 Jan 2025**
-
-- Upgraded to Next.js 15
+- **Official Email:** info@hambaktech.com.ng
+- **Support Email:** support@hambaktech.com.ng
+- **Official Phones:** 08147837664, 09019120241
+- **Alternative Phone:** 09127469686
+- **Official WhatsApp:** 09155104724
+- **Social Handles:** @hambaktech.com.ng (Facebook, Instagram, TikTok, X, LinkedIn, YouTube, Telegram, WhatsApp)

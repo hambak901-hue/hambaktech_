@@ -1,12 +1,12 @@
 {
-  "name": "startup-nextjs-template",
-  "version": "2.2.1",
+  "name": "hambaktech",
+  "version": "0.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "ESLINT_USE_FLAT_CONFIG=false eslint src"
   },
   "dependencies": {
     "@tailwindcss/postcss": "^4.1.3",
