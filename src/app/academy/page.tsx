@@ -67,10 +67,10 @@ export default function AcademyPage() {
                 <Award className="w-6 h-6" />
               </div>
               <h3 className="text-lg font-bold text-dark dark:text-white mb-2">
-                Assessment & Certification
+                Practical Skills Assessment
               </h3>
               <p className="text-xs sm:text-sm text-body-color dark:text-body-color-dark leading-relaxed">
-                Practical capstone projects and rigorous evaluation leading to an official Certificate of Proficiency upon graduation.
+                Hands-on capstone projects and practical evaluation leading to a Certificate of Completion upon graduation.
               </p>
             </div>
           </div>

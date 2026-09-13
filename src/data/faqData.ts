@@ -34,7 +34,7 @@ export const faqData: FAQItem[] = [
     category: "general",
     question: "How can I contact HambakTech?",
     answer:
-      "You can reach out through our online contact form at /contact, via email at support@hambaktech.com.ng, or by visiting our business centre in Ibeju-Lekki during working hours (Monday – Saturday: 8:00 AM – 6:00 PM).",
+      "You can reach out through our online contact form at /contact, via email at info@hambaktech.com.ng, by phone/WhatsApp at 08147837664 / 09155104724, or by visiting our business centre in Origanrigan cele Area, Ibeju-Lekki during working hours (Monday – Saturday: 8:00 AM – 6:00 PM).",
   },
   {
     id: "faq-6",

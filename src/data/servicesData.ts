@@ -109,7 +109,7 @@ export const servicesData: ServiceCategory[] = [
     shortDescription:
       "Dedicated assistance with National Identification Number (NIN) enrollment guidelines, slip retrieval, data validation, and modification requests.",
     fullDescription:
-      "Navigating identity services requires care and adherence to regulatory standards. HambakTech's NIN support desk assists citizens and residents with proper documentation pre-checks, slip retrieval guidance, and formal modification procedures in coordination with accredited identity processing channels.",
+      "Navigating identity services requires care and adherence to regulatory standards. HambakTech's NIN support desk assists citizens and residents with proper documentation pre-checks, slip retrieval guidance, and formal modification procedures in coordination with designated identity processing channels.",
     iconName: "ShieldCheck",
     status: "available",
     onlineAvailability: "Physical Walk-in & Online",
@@ -126,7 +126,7 @@ export const servicesData: ServiceCategory[] = [
     ],
     requirements: [
       "Valid supporting documents (Birth Certificate, Declaration of Age, BVN, Voter's Card, or Passport)",
-      "Physical biometric presence at accredited terminal",
+      "Physical biometric presence at designated terminal",
     ],
     targetAudience:
       "Citizens, students, civil servants, and business operators needing identity compliance.",
@@ -186,7 +186,7 @@ export const servicesData: ServiceCategory[] = [
     ],
     deliverables: [
       "Official CAC Registration Certificate",
-      "Certified Status Report / Application details",
+      "Official CAC Status Report / Application details",
       "Tax Identification Number (TIN)",
     ],
     requirements: [

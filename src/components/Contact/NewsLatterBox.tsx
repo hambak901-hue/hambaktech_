@@ -11,8 +11,8 @@ const NewsLatterBox = () => {
         Subscribe to receive future updates
       </h3>
       <p className="border-body-color/25 text-body-color mb-11 border-b pb-11 text-base leading-relaxed dark:border-white/25">
-        Lorem ipsum dolor sited Sed ullam corper consectur adipiscing Mae ornare
-        massa quis lectus.
+        Stay informed with ICT skill workshops, business registration guides,
+        and digital service updates from our team.
       </p>
       <form suppressHydrationWarning onSubmit={(e) => e.preventDefault()}>
         <input
@@ -36,7 +36,7 @@ const NewsLatterBox = () => {
           className="bg-primary shadow-submit hover:bg-primary/90 dark:shadow-submit-dark mb-5 flex w-full cursor-pointer items-center justify-center rounded-xs px-9 py-4 text-base font-medium text-white duration-300"
         />
         <p className="text-body-color dark:text-body-color-dark text-center text-base leading-relaxed">
-          No spam guaranteed, So please don’t send any spam mail.
+          We respect your privacy. No unwanted promotions.
         </p>
       </form>
 

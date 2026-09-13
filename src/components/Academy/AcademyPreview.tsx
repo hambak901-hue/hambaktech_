@@ -100,10 +100,10 @@ export default function AcademyPreview() {
             </div>
             <div>
               <h4 className="text-sm font-bold text-dark dark:text-white mb-1">
-                Recognized Certification
+                Skills Assessment & Completion
               </h4>
               <p className="text-xs text-body-color dark:text-body-color-dark">
-                Official HambakTech Certificate awarded upon successful assessment.
+                HambakTech Certificate of Completion awarded upon successful project evaluation.
               </p>
             </div>
           </div>

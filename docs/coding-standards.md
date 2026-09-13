@@ -28,6 +28,7 @@
 18. **Verify Before Committing:** Run `npm run lint` and `npm run build` prior to committing any change. Never commit broken code.
 19. **Document Architectural Decisions:** Significant structural, schema, or third-party decisions must be recorded in `/docs`.
 20. **Zero Destructive Changes:** Never delete existing functional code simply because it is template code; prefer surgical, incremental refactoring.
+21. **Zero Fabrication of Assets:** Never generate synthetic official logos, simulated office photography, fake registration certificates, or fictional testimonials. Missing official assets must be documented and isolated behind replaceable component interfaces (e.g., `BrandLogo.tsx`, `OfficePhotoPlaceholder.tsx`).
 
 ---
 

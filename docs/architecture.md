@@ -117,37 +117,26 @@ The repository was initialized from the open-source **Startup Next.js Template**
 - `src/components/Contact/` — Replace demo contact form with authentic HambakTech contact info (phones: `08147837664`, `09019120241`; WhatsApp: `09155104724`; email: `info@hambaktech.com.ng`).
 - `src/app/signin/page.tsx` & `src/app/signup/page.tsx` — Adapt layout for HambakTech customer portal authentication.
 
-### 4.3 REMOVE LATER (Safely Defer Deletion Until Replaced)
-- `src/components/Pricing/` & `src/components/Pricing/PricingBox.tsx` — Template contains hardcoded mock SaaS tiers ($40/mo, etc.) that do not match HambakTech's pay-per-service model.
-- `src/components/Brands/` — Template contains demo logo SVGs (GrayGrids, TailAdmin, UIdeck, LineIcons). Replace with real client/partner representations or remove.
-- `src/components/Video/` & `src/components/video-modal.tsx` — Template contains mock video player modal with placeholder image.
-- `src/components/Testimonials/` — Template contains mock tech startup testimonials. Replace with real verified HambakTech customer reviews.
-- `public/images/blog/*` & `src/components/Blog/*` — Template contains placeholder blog articles on SaaS UI design. Replace with HambakTech news and tech tutorials.
+### 4.3 REMOVED TEMPLATE ASSETS (Completed in Milestone 2)
+- `src/components/Pricing/` & `src/components/Pricing/PricingBox.tsx` — Purged. Replaced with transparent, itemized service quotes.
+- `src/components/Brands/` — Purged. Removed demo logo SVGs (GrayGrids, TailAdmin, UIdeck, LineIcons).
+- `src/components/Video/` — Purged. Removed mock video player modal.
+- `src/components/Testimonials/` — Purged. Replaced with genuine standards & governance section (`Trust/index.tsx`) and transparent review collection notice.
+- `src/components/Features/` — Purged template features in favor of authoritative `HomeServicesOverview` and `WhyChooseUs`.
 
-### 4.4 CREATE LATER (New Modules in Future Milestones)
-- **Services Catalog Module (M2/M6):** Dedicated views for CAC, NIN/BVN, Printing, Graphics, and VTU.
-- **Customer Portal (M4):** Orders, receipts, active tickets, and transaction history.
-- **Wallet & Ledger Engine (M5):** Balance display, top-up modal, and payment status verification.
-- **Academy Module (M7):** Computer institute course catalog, enrollment form, syllabus, and certificate verification.
-- **Stationery & Shop (M8):** Bookshop items, cart, distance fee calculation, and order tracking.
-- **Admin Management Portal (M9):** Internal dashboard for HambakTech staff to process orders and update pricing.
-- **PHP REST Backend (M12):** `/api` directory containing controllers, middleware, and database models.
-
-### 4.5 Official Brand Identity & Asset Architecture
-The authoritative brand identity established by the owner has been audited and cataloged in the repository:
-- **Logo Hierarchy (`public/images/brand/logo/`):**
-  - `hambaktech-logo.svg`: Primary vector brand logo combining the copper segmented circular ring, the stylized "H" and "B" monogram, and Cooper Black brand typography ("HAMBAK — Tech & Services").
-  - `hambaktech-logo-light.svg`: Version optimized for high-contrast light backgrounds with solid dark typography.
-  - `hambaktech-logo-dark.svg`: Version optimized for dark backgrounds with crisp white typography.
-  - `hambaktech-mark.svg`: Standalone emblem mark for icons, navigation badges, and compact cards.
-- **Favicon Hierarchy (`public/images/brand/favicon/`):**
-  - `hambaktech-favicon.svg`: Monogram and segmented ring scaled for browser tab favicons and PWA icons.
-- **Physical Premises Verification (`public/images/brand/office/`):**
-  - `hambaktech-office.svg`: Vector architectural reference documenting the authentic HambakTech physical premises (Origanrigan cele Area, Lagos), including the overhead "HAMBAK TECH & SERVICES" signboard, Business Center printing and NIN registration desk, Game Center console lounge (FIFA 23 screens), and Computer Institute student workstation laboratory.
-- **Corporate Registration Record (`public/images/brand/cac/`):**
-  - `cac-certificate.svg`: Vector record documenting official Corporate Affairs Commission Registration No. `9284726` and TIN `2622495414483` under CAMA 2020.
-- **Template Legacy (`public/images/logo/`):**
-  - `logo.svg` & `logo-2.svg`: Startup template assets retained temporarily for rollback safety, but strictly superseded by `public/images/brand/` in all user-facing layouts.
+### 4.4 OFFICIAL BRANDING & ASSET POLICY
+In strict compliance with architectural verification directives:
+- **Official Brand Assets Status: PENDING / MISSING FROM REPOSITORY**
+  - No approved raster or vector file of the official HambakTech logo has been provided in the workspace repository.
+  - No official photographs of the physical office premises have been provided in the workspace repository.
+  - Fabricated company imagery, simulated CAC registration certificates, and AI-generated logo approximations have been permanently removed.
+- **Replaceable Branding Component Architecture (`BrandLogo.tsx`):**
+  - Built as an isolated single source of truth component.
+  - When the owner provides the approved official logo file (SVG/PNG), it can be placed in `public/images/brand/` and swapped inside `BrandLogo.tsx` without affecting any page templates or layouts.
+- **Physical Office Representation (`OfficePhotoPlaceholder.tsx`):**
+  - Renders a clean architectural vector placeholder documenting the address and working hours, with zero fabricated photography.
+- **Company Configuration (`src/data/companyConfig.ts`):**
+  - Single authoritative repository for company legal name ("Hambaktech & Services"), brand name ("HambakTech"), domain, phone numbers, WhatsApp, physical address (Origanrigan cele Area, Ibeju-Lekki), and operating hours. Ready to be mapped to `CompanySetting` table in database.
 
 ---
 

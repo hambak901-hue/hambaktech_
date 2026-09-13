@@ -89,22 +89,22 @@ export default function PlatformPreview() {
           })}
         </div>
 
-        {/* Early Access Notification Banner */}
+        {/* Portal Information Banner */}
         <div className="rounded-2xl p-8 bg-gradient-to-r from-blue-900 to-indigo-900 text-white flex flex-col md:flex-row items-center justify-between gap-6">
           <div>
             <h3 className="text-xl font-bold mb-1">
-              Want priority early access when the portal launches?
+              Have Questions About Upcoming Portal Features?
             </h3>
             <p className="text-sm text-white/80 max-w-xl">
-              Create an account now to reserve your customer profile and receive an alert when wallet and direct self-service order tracking activate.
+              Reach out to our customer support desk to register interest, schedule institutional training, or discuss corporate services.
             </p>
           </div>
           <div className="flex items-center gap-3 shrink-0">
             <Link
-              href="/signup"
+              href="/contact?service=general"
               className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-white text-blue-950 font-bold text-sm shadow-md hover:bg-gray-100 transition duration-200"
             >
-              <span>Pre-Register Account</span>
+              <span>Contact Support Desk</span>
               <ArrowRight className="w-4 h-4" />
             </Link>
           </div>

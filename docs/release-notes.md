@@ -2,6 +2,34 @@
 
 ---
 
+## Version 0.2.0-website (Milestone 2 Completion & Blocker Resolution)
+
+**Release Date:** Milestone 2 Final Sign-off  
+**Target Environment:** Public Web Application (`hambaktech.com.ng`)  
+**Status:** MILESTONE 2 100% COMPLETE & VERIFIED  
+
+### What is Included in Milestone 2:
+1. **Public Web Experience:**
+   - Homepage (`/`) with Hero, 9-Category Services Overview, Why Choose Us, 6-Step Workflow, Platform Roadmap Preview, Academy Highlight, Physical Business Centre Showcase, Trust & Standards, FAQ Accordion, and Contact CTA.
+   - Comprehensive Services Directory (`/services`) and 8 dedicated service pages.
+   - HambakTech Academy Portal (`/academy`) with 4 complete curriculums, practical lab breakdown, and inquiry flow.
+   - About Page (`/about`) detailing dual physical-digital business model and corporate mission.
+   - Contact Desk (`/contact`) with interactive inquiry form, physical address, and working hours.
+   - Blog & Guides (`/blog`, `/blog-details`, `/blog-sidebar`).
+   - Customer Portal Onboarding Layouts (`/signin`, `/signup`).
+
+2. **Final Blocker Resolution Pass (18 Criteria Enforced):**
+   - **Official Branding Isolation:** Documented missing official brand logo asset. Retained isolated, replaceable `BrandLogo.tsx` component without claiming it is the approved official logo file.
+   - **Zero Fabricated Assets:** Permanently purged fabricated office graphics, simulated CAC certificates, and AI-generated logo approximations.
+   - **Accreditation & Certification Language Cleaned:** Revised all claims across academy and services to factual statements ("practical ICT skills training", "Certificate of Completion", "designated identity processing channels").
+   - **Early Access Flow:** Bound portal notice button directly to `/contact?service=general` to avoid fake interaction states.
+   - **Guarantees & Statistics Audited:** Removed unverified spam-guarantee and percentage metrics.
+   - **Template Remnants Purged:** Completely deleted `Brands`, `Pricing`, `Features`, `Video`, and `Testimonials` template directories.
+   - **Centralized Company Configuration:** Established `src/data/companyConfig.ts` reflecting `prisma/seed.ts` as the single authoritative source of truth across all components.
+   - **Route Integrity:** Fixed all legacy links (including removing `/pricing` from navigation and sidebars).
+
+---
+
 ## Version 0.1.0-foundation (Milestone 1 Baseline)
 
 **Release Date:** Milestone 1 Execution  
@@ -36,12 +64,11 @@
    - `.env.example` created with secure placeholders for all future gateway and database integrations.
    - `.gitignore` hardened to block accidental staging of any secret environment files.
 
-4. **Official Brand Identity & Evidence Verified:**
-   - Imported official vector brand logo suite in `public/images/brand/logo/`:
-     - `hambaktech-logo.svg`, `hambaktech-logo-light.svg`, `hambaktech-logo-dark.svg`, `hambaktech-mark.svg`.
-   - Generated vector favicon asset in `public/images/brand/favicon/hambaktech-favicon.svg`.
-   - Cataloged physical office premises evidence in `public/images/brand/office/hambaktech-office.svg` (Origanrigan cele Area, Lagos).
-   - Documented Corporate Affairs Commission Certificate of Registration No. `9284726` and TIN `2622495414483` in `public/images/brand/cac/cac-certificate.svg`.
+4. **Brand Architecture & Asset Baseline:**
+   - Isolated brand component suite (`BrandLogo.tsx`, `OfficePhotoPlaceholder.tsx`).
+   - Favicon asset in `public/images/brand/favicon/hambaktech-favicon.svg`.
+   - Documented company physical location in Origanrigan cele Area, Lagos.
+   - Verified Corporate Affairs Commission legal registration status factually without public exposure of sensitive identifiers.
 
 ### Explicit Non-Claims:
 - **NOT Production Ready:** This milestone establishes the architectural foundation only.

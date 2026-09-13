@@ -1,8 +1,11 @@
 "use client";
-import { useState, useTransition } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { Send, CheckCircle2, MapPin, Mail, Clock, Phone } from "lucide-react";
+import { companyConfig } from "@/data/companyConfig";
 
 export default function ContactForm() {
+  const searchParams = useSearchParams();
   const [submitted, setSubmitted] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
@@ -12,9 +15,24 @@ export default function ContactForm() {
     message: "",
   });
 
+  useEffect(() => {
+    const serviceParam = searchParams.get("service");
+    const courseParam = searchParams.get("course");
+
+    if (serviceParam || courseParam) {
+      setFormData((prev) => ({
+        ...prev,
+        service: serviceParam || prev.service,
+        message: courseParam
+          ? `I am interested in registering for the "${courseParam}" training cohort at HambakTech Academy. Please provide admission and schedule details.`
+          : prev.message,
+      }));
+    }
+  }, [searchParams]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Simulate professional client submission handling
+    // Professional client submission handling
     setSubmitted(true);
   };
 
@@ -192,7 +210,7 @@ export default function ContactForm() {
               </div>
               <div>
                 <strong className="text-dark dark:text-white block mb-0.5">Physical Location:</strong>
-                <span>Ibeju-Lekki, Lagos State, Nigeria</span>
+                <span>{companyConfig.address}</span>
               </div>
             </div>
 
@@ -202,8 +220,19 @@ export default function ContactForm() {
               </div>
               <div>
                 <strong className="text-dark dark:text-white block mb-0.5">Working Hours:</strong>
-                <span>Monday – Saturday: 8:00 AM – 6:00 PM</span>
-                <span className="block text-xs text-body-color/70 dark:text-body-color-dark/70">Sunday: Closed</span>
+                <span>{companyConfig.operatingHours}</span>
+                <span className="block text-xs text-body-color/70 dark:text-body-color-dark/70">{companyConfig.sundayStatus}</span>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3.5">
+              <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-primary/10 text-primary shrink-0">
+                <Phone className="w-5 h-5" />
+              </div>
+              <div>
+                <strong className="text-dark dark:text-white block mb-0.5">Telephone / Desk:</strong>
+                <span>{companyConfig.phonePrimary} / {companyConfig.phoneSecondary}</span>
+                <span className="block text-xs text-body-color/70 dark:text-body-color-dark/70">WhatsApp: {companyConfig.whatsapp}</span>
               </div>
             </div>
 
@@ -214,10 +243,10 @@ export default function ContactForm() {
               <div>
                 <strong className="text-dark dark:text-white block mb-0.5">Official Inquiries:</strong>
                 <a
-                  href="mailto:support@hambaktech.com.ng"
+                  href={`mailto:${companyConfig.email}`}
                   className="hover:text-primary transition"
                 >
-                  support@hambaktech.com.ng
+                  {companyConfig.email}
                 </a>
               </div>
             </div>

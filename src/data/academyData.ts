@@ -21,7 +21,7 @@ export const academyCourses: AcademyCourse[] = [
     prerequisites: "No prior computer experience required.",
     targetAudience: "School leavers, civil servants, administrative staff, and business owners.",
     status: "open",
-    certification: "Certificate of Proficiency in Computer Operations",
+    certification: "Certificate of Completion in Computer Operations",
   },
   {
     id: "graphic-design",
@@ -43,7 +43,7 @@ export const academyCourses: AcademyCourse[] = [
     prerequisites: "Basic familiarity with using a computer.",
     targetAudience: "Aspiring graphic designers, marketers, freelancers, and creative enthusiasts.",
     status: "open",
-    certification: "Certificate of Proficiency in Graphic Design",
+    certification: "Certificate of Completion in Graphic Design",
   },
   {
     id: "web-development",
@@ -66,7 +66,7 @@ export const academyCourses: AcademyCourse[] = [
     prerequisites: "Comfortable with computer operations and internet navigation.",
     targetAudience: "Students, tech career switchers, and prospective software developers.",
     status: "open",
-    certification: "Certificate of Proficiency in Web Development Foundations",
+    certification: "Certificate of Completion in Web Development Foundations",
   },
   {
     id: "data-analysis-foundations",
@@ -88,6 +88,6 @@ export const academyCourses: AcademyCourse[] = [
     prerequisites: "Basic knowledge of Microsoft Excel formulas.",
     targetAudience: "Accountants, administrative managers, inventory officers, and entrepreneurs.",
     status: "open",
-    certification: "Certificate of Proficiency in Advanced Excel & Data Analysis",
+    certification: "Certificate of Completion in Advanced Excel & Data Analysis",
   },
 ];

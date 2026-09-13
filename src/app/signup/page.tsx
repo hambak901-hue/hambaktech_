@@ -1,6 +1,6 @@
 import Link from "next/link";
-
 import { Metadata } from "next";
+import BrandLogo from "@/components/Common/BrandLogo";
 
 export const metadata: Metadata = {
   title: "Create Account | HambakTech Customer Portal",
@@ -15,6 +15,9 @@ const SignupPage = () => {
           <div className="-mx-4 flex flex-wrap">
             <div className="w-full px-4">
               <div className="shadow-three dark:bg-dark mx-auto max-w-[500px] rounded-sm bg-white px-6 py-10 sm:p-[60px]">
+                <div className="flex justify-center mb-6">
+                  <BrandLogo variant="stacked" size="lg" />
+                </div>
                 <h3 className="mb-3 text-center text-2xl font-bold text-black sm:text-3xl dark:text-white">
                   Create your account
                 </h3>
@@ -183,7 +186,7 @@ const SignupPage = () => {
                   </div>
                 </form>
                 <p className="text-body-color text-center text-base font-medium">
-                  Already using Startup?{" "}
+                  Already have a HambakTech account?{" "}
                   <Link href="/signin" className="text-primary hover:underline">
                     Sign in
                   </Link>

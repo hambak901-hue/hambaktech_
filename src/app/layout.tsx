@@ -9,9 +9,25 @@ import "../styles/index.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "HambakTech & Services | Smart Digital Solutions, Business Centre & IT Academy",
+  title: {
+    default: "HambakTech — Where Technology Meet Service | Smart Digital Platform",
+    template: "%s | HambakTech",
+  },
   description:
-    "Official digital platform for HambakTech & Services: enterprise IT solutions, business services, CAC registration, and professional training in Ibeju-Lekki, Lagos.",
+    "HambakTech & Services - Where Technology Meet Service. Smart Digital Platform.",
+  openGraph: {
+    title: "HambakTech — Where Technology Meet Service | Smart Digital Platform",
+    description:
+      "HambakTech & Services - Where Technology Meet Service. Smart Digital Platform.",
+    url: "https://hambaktech.com.ng",
+    siteName: "HambakTech",
+    type: "website",
+  },
+  icons: {
+    icon: "/images/brand/favicon/hambaktech-favicon.svg",
+    shortcut: "/images/brand/favicon/hambaktech-favicon.svg",
+    apple: "/images/brand/favicon/hambaktech-favicon.svg",
+  },
 };
 
 export default function RootLayout({

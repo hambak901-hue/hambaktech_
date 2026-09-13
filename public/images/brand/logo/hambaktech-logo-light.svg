@@ -1,58 +1,74 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" width="100%" height="100%">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 560" width="100%" height="100%">
   <defs>
-    <mask id="logo-light-gaps">
-      <rect width="500" height="500" fill="#FFFFFF" />
-      <rect x="0" y="157" width="500" height="26" fill="#000000" />
-      <rect x="237" y="0" width="26" height="500" fill="#000000" />
+    <!-- 4-Quadrant Ring Gaps -->
+    <mask id="logo-light-quadrant-gaps">
+      <rect width="500" height="560" fill="#FFFFFF" />
+      <rect x="0" y="174" width="500" height="26" fill="#000000" />
+      <rect x="237" y="0" width="26" height="560" fill="#000000" />
     </mask>
+
+    <linearGradient id="b-lobe-light" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F9CE78" />
+      <stop offset="100%" stop-color="#EEA738" />
+    </linearGradient>
+    <linearGradient id="b-bevel-light-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#CA771D" />
+      <stop offset="100%" stop-color="#A5580C" />
+    </linearGradient>
   </defs>
 
-  <!-- Segmented Outer Ring -->
+  <!-- Segmented Outer Ring in Terracotta -->
   <path
-    d="M 250 50 A 120 120 0 1 0 250 290 A 120 120 0 1 0 250 50 Z M 250 94 A 76 76 0 1 1 250 246 A 76 76 0 1 1 250 94 Z"
-    fill="#C96022"
+    d="M 250 35 A 150 150 0 1 0 250 335 A 150 150 0 1 0 250 35 Z M 250 90 A 95 95 0 1 1 250 280 A 95 95 0 1 1 250 90 Z"
+    fill="#C85A17"
     fill-rule="evenodd"
-    mask="url(#logo-light-gaps)"
+    mask="url(#logo-light-quadrant-gaps)"
   />
 
   <!-- Monogram: H -->
   <g id="monogram-h-light">
-    <rect x="202" y="100" width="32" height="140" rx="2" fill="#C96022" />
-    <rect x="230" y="149" width="34" height="38" fill="#C96022" />
-    <rect x="230" y="100" width="4" height="140" fill="#A84814" opacity="0.35" />
+    <rect x="190" y="88" width="40" height="195" rx="2" fill="#C85A17" />
+    <rect x="228" y="160" width="42" height="50" fill="#C85A17" />
+    <rect x="226" y="88" width="4" height="195" fill="#A8450E" opacity="0.3" />
   </g>
 
-  <!-- Monogram: B -->
+  <!-- Monogram: B with 3D bevel depth -->
   <g id="monogram-b-light">
-    <path d="M 248 102 L 255 102 L 255 238 L 248 238 Z" fill="#D68928" />
     <path
-      d="M 254 100 H 276 C 294 100, 307 112, 307 130 C 307 146, 298 158, 283 162 C 300 167, 311 180, 311 198 C 311 220, 296 238, 274 238 H 254 Z"
-      fill="#F5B050"
+      d="M 256 92 H 292 C 324 92, 344 110, 344 138 C 344 158, 332 174, 312 181 C 336 187, 350 206, 350 234 C 350 266, 326 285, 288 285 H 256 Z"
+      fill="url(#b-bevel-light-grad)"
+      transform="translate(4, 4)"
     />
-    <path d="M 270 119 H 275 C 285 119, 291 124, 291 133 C 291 141, 284 146, 274 146 H 270 Z" fill="#FFFFFF" />
-    <path d="M 270 191 H 275 C 287 191, 293 197, 293 207 C 293 217, 286 222, 274 222 H 270 Z" fill="#FFFFFF" />
+    <path
+      d="M 256 90 H 290 C 322 90, 342 108, 342 136 C 342 156, 330 172, 310 179 C 334 185, 348 204, 348 232 C 348 264, 324 283, 286 283 H 256 Z"
+      fill="url(#b-lobe-light)"
+    />
+    <path d="M 280 116 H 288 C 306 116, 316 124, 316 136 C 316 148, 306 156, 288 156 H 280 Z" fill="#FFFFFF" />
+    <path d="M 280 216 H 288 C 308 216, 320 225, 320 238 C 320 251, 308 260, 288 260 H 280 Z" fill="#FFFFFF" />
+    <path d="M 256 90 C 280 90, 306 97, 322 111 C 310 102, 286 95, 256 95 Z" fill="#FFF2D1" opacity="0.8" />
   </g>
 
-  <!-- Dark Typography for Light Backgrounds -->
+  <!-- Typography: HAMBAK -->
   <text
     x="250"
-    y="360"
+    y="420"
     text-anchor="middle"
-    font-family="system-ui, -apple-system, 'Segoe UI', serif"
-    font-size="54"
+    font-family="'Cooper Black', 'Rockwell Extra Bold', 'Clarendon', Georgia, serif"
+    font-size="64"
     font-weight="900"
-    letter-spacing="2.5"
-    fill="#111827"
+    letter-spacing="2"
+    fill="#0B0F19"
   >HAMBAK</text>
 
+  <!-- Typography: Tech & Services -->
   <text
     x="250"
-    y="415"
+    y="485"
     text-anchor="middle"
-    font-family="system-ui, -apple-system, 'Segoe UI', serif"
-    font-size="38"
+    font-family="'Cooper Black', 'Rockwell', Georgia, serif"
+    font-size="44"
     font-weight="800"
     letter-spacing="0.5"
-    fill="#111827"
+    fill="#0B0F19"
   >Tech &amp; Services</text>
 </svg>

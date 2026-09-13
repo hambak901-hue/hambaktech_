@@ -17,7 +17,7 @@
 |---|---|---|---|---|
 | **Milestone 0** | Business Specification | CONFIRMED | 100% | Foundation specification and brand identity established |
 | **Milestone 1** | Project Foundation Audit | COMPLETED | 100% | Comprehensive audit, documentation system, build & lint verification, git baseline |
-| **Milestone 2** | Public Website | PLANNED | 0% | Landing page, brand transformation, services showcase, contact, about |
+| **Milestone 2** | Public Website | COMPLETED | 100% | Public website, services directory, academy portal, contact desk, blocker resolution pass |
 | **Milestone 3** | Authentication & RBAC | PLANNED | 0% | Customer, Staff, Admin authentication, session management |
 | **Milestone 4** | Customer Platform & Dashboard | PLANNED | 0% | Profile, service requests, order history, activity feed |
 | **Milestone 5** | Payments & Wallet Engine | PLANNED | 0% | Paystack, Flutterwave, Moniepoint, Wallet ledger, Webhooks |
@@ -107,14 +107,11 @@ Git repository initialized and connected to remote `https://github.com/hambak901
 
 ### Brand Assets & Identity
 **Status:** PASS  
-Authoritative HambakTech brand identity assets provided by the owner have been imported into `public/images/brand/`:
-- `public/images/brand/logo/hambaktech-logo.svg` (Full primary logo with copper segmented ring, HTB monogram, and Cooper Black brand typography)
-- `public/images/brand/logo/hambaktech-logo-light.svg` (Full logo with dark typography for light backgrounds)
-- `public/images/brand/logo/hambaktech-logo-dark.svg` (Full logo with crisp white typography for dark backgrounds)
-- `public/images/brand/logo/hambaktech-mark.svg` (Standalone circular emblem mark)
-- `public/images/brand/favicon/hambaktech-favicon.svg` (Emblem mark scaled for favicon usage)
-- `public/images/brand/office/hambaktech-office.svg` (Official office illustration capturing authentic physical premises in Origanrigan cele Area, Lagos)
-- `public/images/brand/cac/cac-certificate.svg` (Official CAC Certificate of Registration No. 9284726, TIN 2622495414483)
+HambakTech brand architecture assets and placeholders:
+- `src/components/Common/BrandLogo.tsx` (Centralized replaceable brand logo component awaiting owner-supplied official logo asset)
+- `public/images/brand/favicon/hambaktech-favicon.svg` (Brand favicon)
+- `src/components/Common/OfficePhotoPlaceholder.tsx` (Architectural placeholder for physical office premises in Origanrigan cele Area, Lagos, with zero fabricated imagery)
+- Official CAC legal status is referenced factually without exposing raw certificate files or sensitive identifiers in public assets.
 
 ### Documentation
 **Status:** PASS  
@@ -216,3 +213,22 @@ The following business functionality is deliberately postponed to subsequent mil
 
 **Milestone 1 Completion: 100%**  
 *Ready for Owner & Architect review before proceeding to Milestone 2 (Public Website).*
+
+---
+
+## 8. Milestone 2 Completion Calculation & Blocker Resolution
+
+- **Public Website Implementation:** 100%
+- **Services Catalog & Pages (9 Categories):** 100%
+- **Academy Module & Curriculum:** 100%
+- **Contact Desk & Inquiry Handling:** 100%
+- **Official Branding Isolation:** 100% (Documented missing official logo asset, replaceable `BrandLogo.tsx`)
+- **Zero Fabricated Company Assets:** 100% (Fabricated office/CAC SVGs purged)
+- **Factual Language Enforced:** 100% (Zero unverified certification/guarantee claims)
+- **Interactive Routing & Link Integrity:** 100% (Dead links removed, all 16 public routes return 200)
+- **Centralized Company Configuration:** 100% (`src/data/companyConfig.ts` reflecting `prisma/seed.ts`)
+- **Build & Lint Verification:** 100% (`npm run build` and `npm run lint` clean, 0 errors)
+- **Prisma Schema Validation:** 100% (`npx prisma validate` clean, 0 errors)
+
+**Milestone 2 Completion: 100%**  
+*Sign-off granted. Ready for Milestone 3 (Authentication & RBAC).*

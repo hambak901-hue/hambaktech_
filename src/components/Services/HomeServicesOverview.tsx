@@ -16,7 +16,7 @@ export default function HomeServicesOverview() {
               Explore HambakTech Services
             </h2>
             <p className="text-base text-body-color dark:text-body-color-dark leading-relaxed">
-              From everyday office tasks and government identity support to corporate incorporation, custom software engineering, and certified ICT training.
+              From everyday office tasks and government identity support to corporate incorporation, custom software engineering, and practical ICT skills training.
             </p>
           </div>
           <Link

@@ -1,76 +1,100 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300" width="100%" height="100%">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="100%" height="100%">
   <defs>
-    <mask id="ring-gaps">
-      <rect width="300" height="300" fill="#FFFFFF" />
-      <!-- Horizontal cross-cutout separating top and bottom arcs -->
-      <rect x="0" y="137" width="300" height="26" fill="#000000" />
-      <!-- Vertical cross-cutout separating left and right arcs -->
-      <rect x="137" y="0" width="26" height="300" fill="#000000" />
+    <!-- Gaps cutting the ring into 4 distinct quadrants -->
+    <mask id="hambak-quadrant-gaps">
+      <rect width="400" height="400" fill="#FFFFFF" />
+      <!-- Horizontal gap -->
+      <rect x="0" y="186" width="400" height="28" fill="#000000" />
+      <!-- Vertical gap -->
+      <rect x="186" y="0" width="28" height="400" fill="#000000" />
     </mask>
+
+    <!-- 3D Bevel filter for the B monogram -->
+    <linearGradient id="b-face-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F9CD75" />
+      <stop offset="100%" stop-color="#EEA738" />
+    </linearGradient>
+    <linearGradient id="b-bevel-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#CA771D" />
+      <stop offset="100%" stop-color="#A5580C" />
+    </linearGradient>
   </defs>
 
-  <!-- Segmented Outer Ring -->
+  <!-- 4-Quadrant Outer Segmented Ring in Terracotta -->
   <path
-    d="M 150 20 A 130 130 0 1 0 150 280 A 130 130 0 1 0 150 20 Z M 150 68 A 82 82 0 1 1 150 232 A 82 82 0 1 1 150 68 Z"
-    fill="#C96022"
+    d="M 200 35 A 165 165 0 1 0 200 365 A 165 165 0 1 0 200 35 Z M 200 95 A 105 105 0 1 1 200 305 A 105 105 0 1 1 200 95 Z"
+    fill="#C85A17"
     fill-rule="evenodd"
-    mask="url(#ring-gaps)"
+    mask="url(#hambak-quadrant-gaps)"
   />
 
-  <!-- Central Monogram: Left 'H' Stem & Crossbar in Terracotta -->
-  <g id="monogram-h">
-    <!-- Main vertical bar of H -->
-    <rect x="98" y="74" width="34" height="152" rx="2" fill="#C96022" />
-    <!-- Horizontal connecting bar extending to the B -->
-    <rect x="128" y="127" width="36" height="42" fill="#C96022" />
-    <!-- Subtle dimensional shadow tone on H stem edge -->
-    <rect x="128" y="74" width="4" height="152" fill="#A84814" opacity="0.4" />
+  <!-- Central Monogram: Left 'H' in Solid Terracotta -->
+  <g id="mark-h">
+    <!-- Vertical stem of H -->
+    <rect x="135" y="92" width="44" height="216" rx="2" fill="#C85A17" />
+    <!-- Horizontal connector of H -->
+    <rect x="175" y="172" width="48" height="56" fill="#C85A17" />
+    <!-- Subtle inner bevel edge -->
+    <rect x="175" y="92" width="5" height="216" fill="#A8450E" opacity="0.3" />
   </g>
 
-  <!-- Central Monogram: Right 'B' Dual Lobes in Warm Amber -->
-  <g id="monogram-b">
-    <!-- Dimensional back-edge for B -->
+  <!-- Central Monogram: Right 'B' in Golden Honey Amber with 3D depth -->
+  <g id="mark-b">
+    <!-- 3D extruded shadow/bevel underneath the B -->
     <path
-      d="M 148 76 L 156 76 L 156 224 L 148 224 Z"
-      fill="#D68928"
-    />
-    <!-- Outer B silhouette with dual lobes -->
-    <path
-      d="M 154 74
-         H 178
-         C 198 74, 212 87, 212 107
-         C 212 124, 202 137, 186 142
-         C 205 147, 216 161, 216 181
-         C 216 205, 199 224, 175 224
-         H 154
+      d="M 208 96
+         L 214 96
+         H 248
+         C 285 96, 308 116, 308 148
+         C 308 171, 294 189, 272 196
+         C 298 203, 314 224, 314 256
+         C 314 290, 288 312, 246 312
+         H 208
          Z"
-      fill="#F5B050"
+      fill="url(#b-bevel-grad)"
+      transform="translate(4, 4)"
     />
-    <!-- Top inner counter / cutout -->
+
+    <!-- Main Front Face of B -->
     <path
-      d="M 172 95
-         H 177
-         C 188 95, 194 101, 194 110
-         C 194 119, 187 125, 176 125
-         H 172
+      d="M 208 94
+         H 246
+         C 282 94, 304 114, 304 146
+         C 304 168, 290 186, 268 193
+         C 294 200, 310 221, 310 253
+         C 310 287, 284 308, 244 308
+         H 208
+         Z"
+      fill="url(#b-face-grad)"
+    />
+
+    <!-- Top inner counter hole of B -->
+    <path
+      d="M 234 124
+         H 244
+         C 264 124, 276 133, 276 146
+         C 276 159, 264 168, 244 168
+         H 234
          Z"
       fill="#FFFFFF"
     />
-    <!-- Bottom inner counter / cutout -->
+
+    <!-- Bottom inner counter hole of B -->
     <path
-      d="M 172 173
-         H 177
-         C 190 173, 197 180, 197 190
-         C 197 201, 189 207, 176 207
-         H 172
+      d="M 234 234
+         H 244
+         C 266 234, 280 244, 280 258
+         C 280 273, 266 283, 244 283
+         H 234
          Z"
       fill="#FFFFFF"
     />
-    <!-- Golden amber depth highlight on top lobe -->
+
+    <!-- Highlight sheen on upper curve -->
     <path
-      d="M 154 74 C 172 74, 192 80, 200 92 C 194 83, 178 77, 154 77 Z"
-      fill="#FCE0A6"
-      opacity="0.7"
+      d="M 208 94 C 235 94, 265 102, 282 118 C 268 108, 242 100, 208 100 Z"
+      fill="#FFF2D1"
+      opacity="0.75"
     />
   </g>
 </svg>

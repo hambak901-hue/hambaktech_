@@ -1,4 +1,5 @@
-import { MapPin, Building2, Clock } from "lucide-react";
+import { MapPin, Clock } from "lucide-react";
+import { HambakEmblem } from "@/components/Common/BrandLogo";
 
 interface OfficePhotoPlaceholderProps {
   className?: string;
@@ -7,21 +8,24 @@ interface OfficePhotoPlaceholderProps {
 export default function OfficePhotoPlaceholder({ className = "" }: OfficePhotoPlaceholderProps) {
   return (
     <div
-      className={`relative overflow-hidden rounded-2xl border border-dashed border-stroke dark:border-strokedark bg-gray-1 dark:bg-gray-dark p-8 text-center flex flex-col items-center justify-center min-h-[340px] ${className}`}
+      className={`relative overflow-hidden rounded-2xl border border-dashed border-[#C85A17]/30 dark:border-[#C85A17]/40 bg-gradient-to-b from-[#C85A17]/5 via-gray-1 to-white dark:from-[#C85A17]/10 dark:via-gray-dark dark:to-dark p-8 text-center flex flex-col items-center justify-center min-h-[360px] ${className}`}
     >
-      <div className="flex items-center justify-center w-16 h-16 mb-4 rounded-2xl bg-primary/10 text-primary dark:bg-primary/20">
-        <Building2 className="w-8 h-8" />
+      {/* Official Hambak Brand Logo Emblem */}
+      <div className="mb-4 relative">
+        <div className="p-3 rounded-2xl bg-white dark:bg-dark shadow-sm border border-stroke dark:border-strokedark">
+          <HambakEmblem className="w-16 h-16" />
+        </div>
       </div>
 
       <div className="max-w-md">
-        <span className="inline-block text-xs font-bold uppercase tracking-wider text-primary px-3 py-1 rounded-full bg-primary/10 mb-2">
-          Physical Facility Showcase
+        <span className="inline-block text-xs font-bold uppercase tracking-wider text-[#C85A17] dark:text-[#E46E28] px-3 py-1 rounded-full bg-[#C85A17]/10 dark:bg-[#C85A17]/20 mb-2">
+          Physical Facility &amp; Head Office
         </span>
         <h3 className="text-xl font-bold text-dark dark:text-white mb-2">
-          HambakTech Technology & Business Centre
+          HambakTech Technology &amp; Business Centre
         </h3>
         <p className="text-sm text-body-color dark:text-body-color-dark mb-4 leading-relaxed">
-          Our physical office in Ibeju-Lekki, Lagos is open to the public for all clerical, printing, NIN, CAC, and digital service needs.
+          Our physical hub in Ibeju-Lekki, Lagos welcomes clients for all digital, clerical, printing, NIN, CAC, and enterprise computing services.
         </p>
       </div>
 

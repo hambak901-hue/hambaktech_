@@ -1,6 +1,7 @@
 import Link from "next/link";
 import BrandLogo from "@/components/Common/BrandLogo";
-import { MapPin, Mail, Clock, ShieldCheck } from "lucide-react";
+import { MapPin, Mail, Clock, Phone, ShieldCheck } from "lucide-react";
+import { companyConfig } from "@/data/companyConfig";
 
 export default function Footer() {
   return (
@@ -11,26 +12,30 @@ export default function Footer() {
           <div className="lg:col-span-2 space-y-4">
             <BrandLogo showSlogan={true} />
             <p className="text-sm leading-relaxed text-body-color dark:text-body-color-dark max-w-sm pt-2">
-              HambakTech & Services combines physical business-centre operations, ICT education, and digital solutions under one unified service platform in Ibeju-Lekki, Lagos.
+              {companyConfig.legalName} combines physical business-centre operations, ICT education, and digital solutions under one unified service platform in {companyConfig.lga}, Lagos.
             </p>
 
             <div className="pt-2 space-y-2.5 text-xs text-body-color dark:text-body-color-dark">
               <div className="flex items-start gap-2.5">
                 <MapPin className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-                <span>Ibeju-Lekki, Lagos State, Nigeria</span>
+                <span>{companyConfig.address}</span>
               </div>
               <div className="flex items-center gap-2.5">
                 <Mail className="w-4 h-4 text-primary shrink-0" />
                 <a
-                  href="mailto:support@hambaktech.com.ng"
+                  href={`mailto:${companyConfig.email}`}
                   className="hover:text-primary transition duration-200"
                 >
-                  support@hambaktech.com.ng
+                  {companyConfig.email}
                 </a>
               </div>
               <div className="flex items-center gap-2.5">
+                <Phone className="w-4 h-4 text-primary shrink-0" />
+                <span>{companyConfig.phonePrimary} / {companyConfig.phoneSecondary}</span>
+              </div>
+              <div className="flex items-center gap-2.5">
                 <Clock className="w-4 h-4 text-primary shrink-0" />
-                <span>Monday – Saturday: 8:00 AM – 6:00 PM</span>
+                <span>{companyConfig.operatingHours}</span>
               </div>
             </div>
           </div>
