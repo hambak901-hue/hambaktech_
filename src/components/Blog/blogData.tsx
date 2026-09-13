@@ -3,45 +3,46 @@ import { Blog } from "@/types/blog";
 const blogData: Blog[] = [
   {
     id: 1,
-    title: "Best UI components for modern websites",
+    title: "Essential Checklist for Registering Your Business Name with CAC in Nigeria",
     paragraph:
-      "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Cras sit amet dictum neque, laoreet dolor.",
+      "A clear step-by-step breakdown of requirements, name reservation guidelines, and post-incorporation document retrieval for Nigerian entrepreneurs.",
     image: "/images/blog/blog-01.jpg",
     author: {
-      name: "Samuyl Joshi",
-      image: "/images/blog/author-03.png",
-      designation: "Graphic Designer",
+      name: "HambakTech Editorial Desk",
+      image: "/images/blog/author-01.png",
+      designation: "Corporate Services",
     },
-    tags: ["creative"],
-    publishDate: "2025",
+    tags: ["cac-registration", "business"],
+    publishDate: "2026",
   },
   {
     id: 2,
-    title: "9 simple ways to improve your design skills",
+    title: "Why Hands-On Computer Lab Training Outperforms Theory-Only Courses",
     paragraph:
-      "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Cras sit amet dictum neque, laoreet dolor.",
+      "How practical, instructor-guided computer practice equips students with the exact productivity and design skills demanded by modern employers.",
     image: "/images/blog/blog-02.jpg",
     author: {
-      name: "Musharof Chy",
+      name: "HambakTech Academy",
       image: "/images/blog/author-02.png",
-      designation: "Content Writer",
+      designation: "Education Lead",
     },
-    tags: ["computer"],
-    publishDate: "2025",
+    tags: ["ict-training", "academy"],
+    publishDate: "2026",
   },
   {
     id: 3,
-    title: "Tips to quickly improve your coding speed.",
+    title: "The Hybrid Service Centre: Bridging Walk-in Support with Digital Platforms",
     paragraph:
-      "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Cras sit amet dictum neque, laoreet dolor.",
+      "How physical neighborhood hubs in Lagos are evolving to provide seamless digital tracking, cloud storage, and automated customer order fulfillment.",
     image: "/images/blog/blog-03.jpg",
     author: {
-      name: "Lethium Deo",
+      name: "HambakTech Insights",
       image: "/images/blog/author-03.png",
-      designation: "Graphic Designer",
+      designation: "Digital Solutions",
     },
-    tags: ["design"],
-    publishDate: "2025",
+    tags: ["technology", "digital-platform"],
+    publishDate: "2026",
   },
 ];
+
 export default blogData;

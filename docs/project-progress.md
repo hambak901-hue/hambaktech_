@@ -155,20 +155,27 @@ Frontend builds as a standard Next.js application. For production deployment to 
 1. **Template Identity:** The repository was imported directly from the free open-source `Startup - Free Next.js Startup Website Template` by NextJSTemplates.
 2. **Untouched Business Customization:** Prior to this audit, no HambakTech branding, services, contact information, or logos had been added.
 3. **Next.js 16 CLI Change:** Next.js 16 removed the `next lint` CLI alias. Running `npm run lint` was failing with `Invalid project directory provided: /app/applet/lint`. Corrected to invoke `eslint src` with legacy flat config compatibility flag.
-4. **Authoritative Logo & Identity Imported:** The official HambakTech brand assets have been received from the owner, audited, and imported into `public/images/brand/logo/`, `public/images/brand/favicon/`, `public/images/brand/office/`, and `public/images/brand/cac/`. Template assets in `public/images/logo/` are kept as backups and will be replaced in UI components during Milestone 2.
+4. **Branding Assets Status:** The official HambakTech brand assets (official logo, office photo, and CAC certificate) have NOT yet been provided. The repository currently uses the template placeholders in `public/images/logo/` and `public/images/about/`. Official assets will be imported once provided by the owner.
 5. **Shared Hosting Target:** Production hosting is cPanel. Next.js server-side node processes require verification in cPanel; static HTML export remains a prime architecture candidate for maximum speed, security, and low hosting overhead on cPanel.
 
 ---
 
 ## 5. Changes Made in Milestone 1
 
-1. Initialized Git repository and created feature branch `chore/foundation-audit`.
+1. Diagnosed environment git state (container workspace initialized from snapshot without `.git` directory; documented for tracking).
 2. Created `metadata.json` with official HambakTech title, description, and capability declarations.
 3. Created `.env.example` with clear, safe placeholders for all future integrations.
 4. Strengthened `.gitignore` to prevent any inadvertent commit of `.env`, `.env.local`, `.env.production`.
-5. Updated `package.json` name to `hambaktech` (v0.1.0) and fixed the `lint` command script for Next.js 16.
-6. Updated `src/app/page.tsx` metadata with official HambakTech brand name, slogan, and OpenGraph tags.
-7. Created the full documentation architecture in `/docs`:
+5. Updated `package.json` name to `hambaktech` (v0.1.0) and fixed the `lint` command script for Next.js 16 (`ESLINT_USE_FLAT_CONFIG=false eslint src`).
+6. Fixed Next.js 16 / React 19 production build blocker:
+   - Root cause diagnosed: In Next.js 16, running `next build` in an environment where `NODE_ENV=development` caused Next.js to run React's development runtime and DevOverlay during static prerendering, triggering `TypeError: Cannot read properties of null (reading 'useContext')` on `/_global-error`.
+   - Updated `package.json` `"build"` script to `NODE_ENV=production next build`.
+   - Restructured `src/app/layout.tsx` as a clean Server Component with proper metadata export and provider boundaries.
+   - Added `"use client"` directives to `ScrollToTop` and `ThemeToggler`.
+   - Removed unsupported metadata export from `src/app/not-found.tsx`.
+   - Created standalone `src/app/global-error.tsx` isolated from global context.
+7. Created core database schema (`prisma/schema.prisma`), initial migration, and seed script (`prisma/seed.ts`).
+8. Created the full documentation architecture in `/docs`:
    - `docs/project-progress.md`
    - `docs/architecture.md`
    - `docs/database.md`
@@ -177,7 +184,9 @@ Frontend builds as a standard Next.js application. For production deployment to 
    - `docs/coding-standards.md`
    - `docs/roadmap.md`
    - `docs/release-notes.md`
-8. Verified clean build (`npm run build`) and lint (`npm run lint`).
+9. Verified clean production build (`npm run build` generates 10/10 static pages, 0 errors, 0 warnings).
+10. Verified clean linting (`npm run lint`, 0 errors).
+11. Verified all public routes (`/`, `/about`, `/blog`, `/blog-details`, `/blog-sidebar`, `/contact`, `/signin`, `/signup`, and 404 handler) return HTTP 200 / 404 respectively.
 
 ---
 

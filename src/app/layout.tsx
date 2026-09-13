@@ -1,11 +1,18 @@
+import type { Metadata } from "next";
+import { Inter } from "next/font/google";
 import Footer from "@/components/Footer";
 import Header from "@/components/Header";
 import ScrollToTop from "@/components/ScrollToTop";
-import { Inter } from "next/font/google";
 import { Providers } from "./providers";
 import "../styles/index.css";
 
 const inter = Inter({ subsets: ["latin"] });
+
+export const metadata: Metadata = {
+  title: "HambakTech & Services | Smart Digital Solutions, Business Centre & IT Academy",
+  description:
+    "Official digital platform for HambakTech & Services: enterprise IT solutions, business services, CAC registration, and professional training in Ibeju-Lekki, Lagos.",
+};
 
 export default function RootLayout({
   children,
@@ -27,4 +34,3 @@ export default function RootLayout({
     </html>
   );
 }
-

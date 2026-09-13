@@ -9,70 +9,95 @@ const menuData: Menu[] = [
   },
   {
     id: 2,
+    title: "Services",
+    newTab: false,
+    submenu: [
+      {
+        id: 201,
+        title: "All Services Overview",
+        path: "/services",
+        newTab: false,
+      },
+      {
+        id: 202,
+        title: "Digital Services",
+        path: "/services/digital-services",
+        newTab: false,
+      },
+      {
+        id: 203,
+        title: "Business Centre",
+        path: "/services/business-centre",
+        newTab: false,
+      },
+      {
+        id: 204,
+        title: "Printing & Documentation",
+        path: "/services/printing",
+        newTab: false,
+      },
+      {
+        id: 205,
+        title: "NIN Centre",
+        path: "/services/nin-centre",
+        newTab: false,
+      },
+      {
+        id: 206,
+        title: "VTU & Bill Payments",
+        path: "/services/vtu-bill-payments",
+        newTab: false,
+      },
+      {
+        id: 207,
+        title: "Business Registration (CAC)",
+        path: "/services/business-registration",
+        newTab: false,
+      },
+      {
+        id: 208,
+        title: "Web & Software",
+        path: "/services/web-software",
+        newTab: false,
+      },
+      {
+        id: 209,
+        title: "Graphics & Branding",
+        path: "/services/graphics-branding",
+        newTab: false,
+      },
+      {
+        id: 210,
+        title: "Academy",
+        path: "/academy",
+        newTab: false,
+      },
+    ],
+  },
+  {
+    id: 3,
+    title: "Academy",
+    path: "/academy",
+    newTab: false,
+  },
+  {
+    id: 4,
     title: "About",
     path: "/about",
     newTab: false,
   },
   {
-    id: 33,
+    id: 5,
     title: "Blog",
     path: "/blog",
     newTab: false,
   },
   {
-    id: 3,
-    title: "Support",
+    id: 6,
+    title: "Contact",
     path: "/contact",
     newTab: false,
   },
-  {
-    id: 4,
-    title: "Pages",
-    newTab: false,
-    submenu: [
-      {
-        id: 41,
-        title: "About Page",
-        path: "/about",
-        newTab: false,
-      },
-      {
-        id: 42,
-        title: "Contact Page",
-        path: "/contact",
-        newTab: false,
-      },
-      {
-        id: 43,
-        title: "Blog Grid Page",
-        path: "/blog",
-        newTab: false,
-      },
-      {
-        id: 44,
-        title: "Blog Sidebar Page",
-        path: "/blog-sidebar",
-        newTab: false,
-      },
-      {
-        id: 45,
-        title: "Blog Details Page",
-        path: "/blog-details",
-        newTab: false,
-      },
-      {
-        id: 46,
-        title: "Sign In Page",
-        path: "/signin",
-        newTab: false,
-      },
-      {
-        id: 47,
-        title: "Sign Up Page",
-        path: "/signup",
-        newTab: false,
-      },
-    ],
-  },
 ];
+
 export default menuData;
