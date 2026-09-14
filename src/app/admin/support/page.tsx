@@ -41,13 +41,13 @@ export default function AdminSupportPage() {
   const [createUserName, setCreateUserName] = useState("");
   const [createUserEmail, setCreateUserEmail] = useState("");
   const [createSubject, setCreateSubject] = useState("");
-  const [createCategory, setCreateCategory] = useState<SupportTicket["category"]>("BILLING");
+  const [createCategory, setCreateCategory] = useState<SupportTicket["category"]>("WALLET_FUNDING");
   const [createPriority, setCreatePriority] = useState<SupportTicket["priority"]>("MEDIUM");
   const [createMessage, setCreateMessage] = useState("");
 
   // Edit Form State
   const [editSubject, setEditSubject] = useState("");
-  const [editCategory, setEditCategory] = useState<SupportTicket["category"]>("BILLING");
+  const [editCategory, setEditCategory] = useState<SupportTicket["category"]>("WALLET_FUNDING");
   const [editPriority, setEditPriority] = useState<SupportTicket["priority"]>("MEDIUM");
   const [editStatus, setEditStatus] = useState<SupportTicket["status"]>("OPEN");
   const [editUserName, setEditUserName] = useState("");
@@ -74,7 +74,7 @@ export default function AdminSupportPage() {
     setCreateUserName("");
     setCreateUserEmail("");
     setCreateSubject("");
-    setCreateCategory("BILLING");
+    setCreateCategory("WALLET_FUNDING");
     setCreatePriority("MEDIUM");
     setCreateMessage("");
     setShowCreateModal(true);
@@ -411,14 +411,17 @@ export default function AdminSupportPage() {
                     <label className="block text-xs font-bold text-dark dark:text-white mb-1">Category *</label>
                     <select
                       value={createCategory}
-                      onChange={(e) => setCreateCategory(e.target.value as any)}
+                      onChange={(e) => setCreateCategory(e.target.value as SupportTicket["category"])}
                       className="w-full px-3 py-2 text-xs rounded-xl border border-stroke dark:border-strokedark bg-gray-50 dark:bg-gray-dark text-dark dark:text-white focus:border-primary focus:outline-none"
                     >
-                      <option value="BILLING">Billing & Payments</option>
+                      <option value="WALLET_FUNDING">Wallet & Billing</option>
                       <option value="TECHNICAL">Technical Issue</option>
-                      <option value="NIN_VERIFICATION">NIN Verification</option>
+                      <option value="NIN_DESK">NIN Support Desk</option>
                       <option value="CAC_REGISTRATION">CAC Registration</option>
-                      <option value="GENERAL">General Inquiry</option>
+                      <option value="VTU_BILLS">VTU & Bill Payments</option>
+                      <option value="ORDERS">Orders & Deliveries</option>
+                      <option value="ACADEMY">Academy & Training</option>
+                      <option value="PRINTING_CENTRE">Business Centre & Printing</option>
                     </select>
                   </div>
                   <div>
@@ -548,14 +551,17 @@ export default function AdminSupportPage() {
                   <label className="block text-xs font-bold text-dark dark:text-white mb-1">Category</label>
                   <select
                     value={editCategory}
-                    onChange={(e) => setEditCategory(e.target.value as any)}
+                    onChange={(e) => setEditCategory(e.target.value as SupportTicket["category"])}
                     className="w-full px-3 py-2 text-xs rounded-xl border border-stroke dark:border-strokedark bg-gray-50 dark:bg-gray-dark text-dark dark:text-white focus:border-primary focus:outline-none"
                   >
-                    <option value="BILLING">Billing & Payments</option>
+                    <option value="WALLET_FUNDING">Wallet & Billing</option>
                     <option value="TECHNICAL">Technical Issue</option>
-                    <option value="NIN_VERIFICATION">NIN Verification</option>
+                    <option value="NIN_DESK">NIN Support Desk</option>
                     <option value="CAC_REGISTRATION">CAC Registration</option>
-                    <option value="GENERAL">General Inquiry</option>
+                    <option value="VTU_BILLS">VTU & Bill Payments</option>
+                    <option value="ORDERS">Orders & Deliveries</option>
+                    <option value="ACADEMY">Academy & Training</option>
+                    <option value="PRINTING_CENTRE">Business Centre & Printing</option>
                   </select>
                 </div>
 

@@ -1,4 +1,4 @@
-import { prisma } from "./db";
+import { prisma, isDatabaseReachable } from "./db";
 
 interface CachedSetting {
   value: string;
@@ -23,7 +23,8 @@ export class ConfigService {
     }
 
     try {
-      if (process.env.DATABASE_URL) {
+      const reachable = await isDatabaseReachable();
+      if (reachable) {
         const setting = await prisma.companySetting.findUnique({
           where: { key },
         });
@@ -49,7 +50,8 @@ export class ConfigService {
     }
 
     try {
-      if (process.env.DATABASE_URL) {
+      const reachable = await isDatabaseReachable();
+      if (reachable) {
         const setting = await prisma.systemSetting.findUnique({
           where: { key },
         });

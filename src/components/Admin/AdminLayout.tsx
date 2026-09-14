@@ -56,7 +56,39 @@ export default function AdminLayout({
     // Ensure admin user representation
     const cur = platformApi.getCurrentUser();
     setUser(cur);
+
+    // Fetch server session
+    fetch("/api/auth/me")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.success && data?.data?.user) {
+          const u = data.data.user;
+          const fullName = u.profile ? `${u.profile.firstName} ${u.profile.lastName}` : u.email;
+          setUser((prev) => ({
+            ...prev,
+            id: u.id,
+            fullName,
+            email: u.email,
+            phone: u.phone || prev.phone,
+            role: (u.role.slug as any) || prev.role,
+            status: (u.status as any) || prev.status,
+          }));
+        }
+      })
+      .catch(() => {
+        // graceful fallback to local state
+      });
   }, [pathname]);
+
+  const handleLogout = async () => {
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+    } catch {
+      // safe fallback
+    } finally {
+      router.push("/signin");
+    }
+  };
 
   const navSections = [
     {
@@ -221,6 +253,17 @@ export default function AdminLayout({
               </span>
               <ChevronRight className="w-3.5 h-3.5" />
             </Link>
+
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="w-full flex items-center justify-between px-3 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-xl transition cursor-pointer"
+            >
+              <span className="flex items-center gap-2">
+                <LogOut className="w-3.5 h-3.5" />
+                Sign Out Session
+              </span>
+            </button>
           </div>
         </div>
       </aside>
@@ -281,15 +324,27 @@ export default function AdminLayout({
             {/* Admin Avatar */}
             <div className="flex items-center gap-2 p-1.5 rounded-xl bg-gray-100 dark:bg-gray-dark">
               <div className="w-7 h-7 rounded-lg bg-primary text-white font-bold text-xs flex items-center justify-center">
-                A
+                {user.fullName.charAt(0)}
               </div>
               <div className="hidden md:block text-left pr-1.5">
-                <p className="text-xs font-bold text-dark dark:text-white leading-tight">Admin Desk</p>
-                <span className="text-[10px] text-emerald-600 font-semibold block leading-tight">
-                  Super Admin
+                <p className="text-xs font-bold text-dark dark:text-white leading-tight truncate max-w-[120px]">
+                  {user.fullName}
+                </p>
+                <span className="text-[10px] text-emerald-600 font-semibold block leading-tight uppercase">
+                  {user.role}
                 </span>
               </div>
             </div>
+
+            {/* Sign Out Header Button */}
+            <button
+              type="button"
+              onClick={handleLogout}
+              title="Sign Out"
+              className="p-2 rounded-xl border border-stroke dark:border-strokedark text-body-color hover:text-red-600 hover:border-red-300 dark:hover:border-red-800 transition"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
           </div>
         </header>
 

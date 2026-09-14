@@ -120,14 +120,14 @@ Planned Implementations:
 
 | Route Group | Base Path | Description | Status |
 |---|---|---|---|
-| **Auth** | `/api/v1/auth/*` | Login, Register, Password Reset, Refresh Token, Profile | PLANNED |
-| **Services** | `/api/v1/services/*` | Catalog, Service Orders, File Uploads, Tracking | PLANNED |
-| **Wallets** | `/api/v1/wallet/*` | Balance check, History, Top-up Init, Ledger Statement | PLANNED |
-| **Payments** | `/api/v1/payments/*` | Initialize checkout, Verify reference, Webhooks | PLANNED |
-| **Academy** | `/api/v1/academy/*` | Courses, Enrollment, Lessons, Certificate verification | PLANNED |
-| **Shop** | `/api/v1/shop/*` | Products, Categories, Cart, Order submission | PLANNED |
-| **Identity** | `/api/v1/identity/*` | NIN requests, BVN validation, Slip generation | PLANNED |
-| **Telecom** | `/api/v1/telecom/*` | Airtime purchase, Data bundle list and ordering | PLANNED |
-| **Admin** | `/api/v1/admin/*` | Order status management, User control, Pricing updates | PLANNED |
+| **Auth** | `/api/v1/auth/*` | Login, Register, Password Reset, Refresh Token, Profile | PLANNED (Schema Ready) |
+| **Services** | `/api/v1/services/*` | Catalog, Service Orders, File Uploads, Tracking | PLANNED (Schema Ready) |
+| **Wallets** | `/api/v1/wallet/*` | Balance check, History, Top-up Init, Ledger Statement | PLANNED (Schema Ready) |
+| **Payments** | `/api/v1/payments/*` | Initialize checkout, Verify reference, Webhooks | PLANNED (Schema Ready) |
+| **Academy** | `/api/v1/academy/*` | Courses, Enrollment, Lessons, Certificate verification | PLANNED (Schema Ready) |
+| **Shop** | `/api/v1/shop/*` | Products, Categories, Cart, Order submission | PLANNED (Schema Ready) |
+| **Identity** | `/api/v1/identity/*` | NIN requests, BVN validation, Slip generation | PLANNED (Schema Ready) |
+| **Telecom** | `/api/v1/telecom/*` | Airtime purchase, Data bundle list and ordering | PLANNED (Schema Ready) |
+| **Admin** | `/api/v1/admin/*` | Order status management, User control, Pricing updates | PLANNED (Schema Ready) |
 
-*Zero endpoints are active in Milestone 1.*
+*Milestone 3 note: Authoritative database schemas, constraints, and data contracts have been fully implemented in Prisma. Transitional client simulation in `src/lib/api-client/index.ts` bridges frontend components until API routes are wired in subsequent milestones.*

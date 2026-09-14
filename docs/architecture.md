@@ -142,7 +142,34 @@ In strict compliance with architectural verification directives:
 
 ## 5. Architectural Status Labels
 
-- **CONFIRMED:** Next.js 16 frontend, Tailwind CSS v4, TypeScript, Git workflow, official brand colors, and company information.
-- **KNOWN BUT NOT YET VERIFIED:** Exact cPanel PHP version, database user privileges, and SSL auto-renewal status on the hosting server.
-- **PLANNED:** PHP REST API, MySQL database schemas, Paystack/Flutterwave/Remita adapters, NIN/BVN providers.
-- **NOT IMPLEMENTED:** All business features (deliberately preserved for future milestones).
+- **CONFIRMED:** Next.js 16 frontend, Tailwind CSS v4, TypeScript, Prisma ORM 6.x configured for MySQL (`provider = "mysql"`), double-entry ledger architecture, centralized singleton database client (`src/lib/db.ts`), deterministic production seed, and type contracts.
+- **KNOWN BUT NOT YET VERIFIED:** Exact cPanel database host network latency, remote MySQL port exposure, and SSL certificate auto-renewal.
+- **ACTIVE (MILESTONE 3):** Authoritative MySQL schema, Prisma relational domain models, safe decimal Naira precision, idempotent database seed.
+- **TRANSITIONAL:** `src/lib/api-client/index.ts` frontend local state simulation (authoritative persistence mapped to MySQL).
+- **PLANNED (SUBSEQUENT MILESTONES):** Server-side API endpoints (`/api/*`), live Paystack/Flutterwave payment gateway adapters, telecom switches, NIMC identity APIs, CAC verification automation.
+
+---
+
+## 6. Real Database Architecture & Data Layer (Milestone 3)
+
+In Milestone 3, the authoritative relational data architecture for HambakTech has been established:
+
+```
+[ Frontend Client (Next.js 16 App Router) ]
+                |
+                v (Transitional: API Client / Future: Server API routes)
+[ Centralized Database Layer (`src/lib/db.ts`) ]
+                |
+                v
+[ Prisma Client (v6.4.1) ]
+                |
+                v (InnoDB / UTF8mb4)
+[ MySQL Database (Authoritative Source of Truth) ]
+```
+
+### Key Architectural Safeguards:
+1. **Ledger Integrity:** Zero direct writes to `Wallet.currentBalance` without creating a corresponding immutable `WalletLedgerEntry` record.
+2. **Precision Currency:** All price and balance fields use `@db.Decimal(14, 2)` to eliminate floating-point calculation drift.
+3. **Database Client Singleton:** Prisma Client is accessed exclusively through `src/lib/db.ts` to prevent connection pooling exhaustion.
+4. **PostgreSQL Portability:** Avoided MySQL-only proprietary extensions and primitive array lists so the entire data model can switch to `provider = "postgresql"` in the future without application code redesign.
+

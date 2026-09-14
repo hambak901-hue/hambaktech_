@@ -54,7 +54,46 @@ export default function DashboardLayout({
     const currentUser = platformApi.getCurrentUser();
     setUser(currentUser);
     setWallet(platformApi.getWallet());
+
+    // Fetch server session
+    fetch("/api/auth/me")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.success && data?.data?.user) {
+          const u = data.data.user;
+          const fullName = u.profile ? `${u.profile.firstName} ${u.profile.lastName}` : u.email;
+          setUser((prev) => ({
+            ...prev,
+            id: u.id,
+            fullName,
+            email: u.email,
+            phone: u.phone || prev.phone,
+            role: (u.role.slug as any) || prev.role,
+            status: (u.status as any) || prev.status,
+          }));
+          if (u.wallet) {
+            setWallet((prev) => ({
+              ...prev,
+              currentBalance: parseFloat(u.wallet.currentBalance) || prev.currentBalance,
+              ledgerBalance: parseFloat(u.wallet.ledgerBalance) || prev.ledgerBalance,
+            }));
+          }
+        }
+      })
+      .catch(() => {
+        // graceful fallback to local state
+      });
   }, [pathname]);
+
+  const handleLogout = async () => {
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+    } catch {
+      // safe fallback
+    } finally {
+      router.push("/signin");
+    }
+  };
 
   const navItems = [
     {
@@ -258,7 +297,7 @@ export default function DashboardLayout({
             </div>
           </div>
 
-          {/* Link back to public site */}
+          {/* Link back to public site & Logout */}
           <Link
             href="/"
             prefetch={false}
@@ -270,6 +309,17 @@ export default function DashboardLayout({
             </span>
             <ChevronRight className="w-3.5 h-3.5" />
           </Link>
+
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="w-full flex items-center justify-between px-3 py-2 text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-xl transition cursor-pointer"
+          >
+            <span className="flex items-center gap-2">
+              <LogOut className="w-3.5 h-3.5" />
+              Sign Out Session
+            </span>
+          </button>
         </div>
       </aside>
 

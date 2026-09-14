@@ -57,10 +57,10 @@ HambakTech operates 14 distinct business divisions designed to deliver comprehen
 - [x] Milestone 1: Technical foundation audit, git baseline, documentation suite
 - [x] Milestone 2: Public website launch, brand visual identity overhaul, interactive 9-category service showcase, and final blocker resolution pass
 
-### Phase 2: User Accounts & Commerce Core (Milestones 3 – 5)
-- [ ] Milestone 3: Customer, Staff, and Admin authentication & session management
-- [ ] Milestone 4: Customer dashboard, profile, and order tracking
-- [ ] Milestone 5: Double-entry wallet engine and payment gateway integrations (Paystack, Flutterwave, Moniepoint)
+### Phase 2: Database Architecture & Commerce Core (Milestones 3 – 5)
+- [x] Milestone 3: Real Database & Data Architecture (MySQL schema, Prisma ORM, double-entry financial ledger, safe decimal precision, deterministic seed)
+- [ ] Milestone 4: Customer, Staff, and Admin authentication & session management (RBAC)
+- [ ] Milestone 5: Customer dashboard, profile, order tracking, and live payment gateways (Paystack, Flutterwave, Moniepoint)
 
 ### Phase 3: Service Engines (Milestones 6 – 8)
 - [ ] Milestone 6: Business service request workflows (NIN/BVN, CAC, VTU telecom, Printing)

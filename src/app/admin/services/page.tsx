@@ -19,7 +19,7 @@ import {
 import AdminLayout from "@/components/Admin/AdminLayout";
 import AdminDataTable, { Column, FilterOption } from "@/components/Admin/AdminDataTable";
 import platformApi from "@/lib/api-client";
-import { ServiceCategory, ServiceStatus } from "@/types/service";
+import { ServiceCategory, ServiceStatus, OnlineAvailability } from "@/types/service";
 
 export default function AdminServicesPage() {
   const [services, setServices] = useState<ServiceCategory[]>([]);
@@ -39,7 +39,7 @@ export default function AdminServicesPage() {
   const [formShortDesc, setFormShortDesc] = useState("");
   const [formFullDesc, setFormFullDesc] = useState("");
   const [formStatus, setFormStatus] = useState<ServiceStatus>("available");
-  const [formChannel, setFormChannel] = useState("Online & Walk-in");
+  const [formChannel, setFormChannel] = useState<OnlineAvailability>("Physical Walk-in & Online");
   const [formTurnaround, setFormTurnaround] = useState("10–30 Minutes");
   const [formAudience, setFormAudience] = useState("Public, Agents, Corporates");
   const [formStartingPrice, setFormStartingPrice] = useState("₦1,000");
@@ -70,7 +70,7 @@ export default function AdminServicesPage() {
     setFormShortDesc("");
     setFormFullDesc("");
     setFormStatus("available");
-    setFormChannel("Online & Walk-in");
+    setFormChannel("Physical Walk-in & Online");
     setFormTurnaround("10–30 Minutes");
     setFormAudience("General Public, Agents");
     setFormStartingPrice("₦1,000");
@@ -116,10 +116,12 @@ export default function AdminServicesPage() {
         targetAudience: formAudience,
         startingPrice: formStartingPrice,
         featured: formFeatured,
-        icon: "Shield",
+        iconName: "Shield",
         features: features.length > 0 ? features : ["Fast processing", "Full compliance"],
         deliverables: deliverables.length > 0 ? deliverables : ["Official confirmation slip"],
-        subServices: [],
+        requirements: ["Valid government ID", "Application details"],
+        ctaText: "Request Service",
+        ctaLink: `/services/${slug}`,
       });
       setShowCreateModal(false);
       setActionFeedback("Service created successfully");

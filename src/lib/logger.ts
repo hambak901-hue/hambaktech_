@@ -1,4 +1,4 @@
-import { prisma } from "./db";
+import { prisma, isDatabaseReachable } from "./db";
 
 export type LogLevel = "debug" | "info" | "warn" | "error";
 
@@ -56,7 +56,8 @@ class Logger {
    */
   public async audit(entry: AuditLogEntry): Promise<void> {
     try {
-      if (process.env.DATABASE_URL) {
+      const reachable = await isDatabaseReachable();
+      if (reachable) {
         await prisma.auditLog.create({
           data: {
             actorId: entry.actorId,

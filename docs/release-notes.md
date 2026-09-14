@@ -2,6 +2,32 @@
 
 ---
 
+## Version 0.3.0-database (Milestone 3 — Real Database & Data Architecture)
+
+**Release Date:** Milestone 3 Execution  
+**Target Environment:** Authoritative Relational Database Architecture (MySQL)  
+**Status:** MILESTONE 3 100% COMPLETE & VERIFIED  
+
+### What is Included in Milestone 3:
+1. **MySQL Provider & Relational Architecture:**
+   - Switched Prisma ORM engine to `provider = "mysql"`.
+   - Designed 18 comprehensive domain models with foreign keys, index optimizations, and cascade policies.
+   - Preserved 100% PostgreSQL schema portability by avoiding MySQL-only proprietary datatypes and primitive arrays.
+2. **Double-Entry Financial Ledger & Monetary Integrity:**
+   - Implemented `WalletLedgerEntry` ensuring every balance change has an immutable debit/credit record with before/after state.
+   - Standardized all monetary figures to `@db.Decimal(14, 2)` eliminating floating-point calculation drift.
+3. **Database Client Singleton:**
+   - Unified database access via `src/lib/db.ts` with lazy initialization and production connection safeguards.
+4. **Deterministic & Idempotent Seed (`prisma/seed.ts`):**
+   - Seed scripts populate 6 roles, 15 permissions, company and system settings, headquarters branch schedules, 8 service categories, 12 core services, tiered pricing rules (`STANDARD`, `AGENT`, `CORPORATE`), upstream provider sandbox configs, and academy curriculum modules.
+   - Completely idempotent: running repeatedly does not create duplicate entries.
+5. **Transitional State Clarification:**
+   - Documented `localStorage` in `src/lib/api-client/index.ts` as transitional mock state for UI simulation, with MySQL established as the single authoritative future source of truth.
+6. **Zero Secrets Stored:**
+   - No production secrets, database credentials, or private API keys stored in codebase or seed scripts.
+
+---
+
 ## Version 0.2.0-website (Milestone 2 Completion & Blocker Resolution)
 
 **Release Date:** Milestone 2 Final Sign-off  

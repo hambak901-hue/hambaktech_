@@ -307,6 +307,8 @@ export interface SupportTicket {
 // --------------------------------------------------------------------------
 // Admin & Pricing Contracts
 // --------------------------------------------------------------------------
+export type CustomerTierSlug = "STANDARD" | "AGENT" | "CORPORATE" | "RESELLER" | "VIP";
+
 export interface PriceRule {
   id: string;
   serviceName: string;
@@ -316,7 +318,7 @@ export interface PriceRule {
   sellingPrice: number;
   markupPercent: number;
   serviceFee: number;
-  customerTier: "STANDARD" | "RESELLER" | "VIP";
+  customerTier: CustomerTierSlug;
   isActive: boolean;
   effectiveDate: string;
 }

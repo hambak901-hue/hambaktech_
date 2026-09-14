@@ -1,5 +1,19 @@
 "use client";
 
+/**
+ * ============================================================================
+ * TRANSITIONAL FRONTEND SIMULATION CLIENT
+ * ============================================================================
+ * NOTE: This client-side store and localStorage mechanism is strictly a
+ * TRANSITIONAL MOCK STATE to enable interactive frontend and admin testing
+ * without breaking existing UI components during Milestone 3.
+ * 
+ * The authoritative source of truth is the MySQL relational database defined in
+ * `prisma/schema.prisma`. In subsequent milestones, this file will be replaced
+ * by HTTP API client calls targeting server-side Next.js/PHP backend endpoints.
+ * ============================================================================
+ */
+
 import {
   User,
   RoleSlug,
@@ -1920,17 +1934,6 @@ class PlatformStore {
     this.transactions = this.transactions.filter((t) => t.id !== id && t.reference !== id);
     this.saveToStorage();
     this.logAuditEvent("DELETE", "TRANSACTION", id, "SUCCESS", `Voided transaction ${exists.reference}`);
-    return true;
-  }
-
-  // --- Wallets Management ---
-  updateWalletStatus(userId: string, status: Wallet["status"]): boolean {
-    if (userId === this.user.id || userId === this.wallet.userId) {
-      this.wallet.status = status;
-      this.wallet.updatedAt = new Date().toISOString();
-      this.saveToStorage();
-      return true;
-    }
     return true;
   }
 

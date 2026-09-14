@@ -1,5 +1,5 @@
 datasource db {
-  provider = "postgresql"
+  provider = "mysql"
   url      = env("DATABASE_URL")
 }
 
@@ -18,17 +18,35 @@ enum UserStatus {
   PENDING_VERIFICATION
 }
 
+enum RoleSlug {
+  super_admin
+  admin
+  staff
+  agent
+  customer
+  student
+  manager
+  developer
+}
+
+enum CustomerTier {
+  STANDARD
+  AGENT
+  CORPORATE
+}
+
 model User {
   id                String       @id @default(uuid())
   email             String       @unique
   phone             String?      @unique
   passwordHash      String
   status            UserStatus   @default(ACTIVE)
+  customerTier      CustomerTier @default(STANDARD)
   emailVerifiedAt   DateTime?
   phoneVerifiedAt   DateTime?
   roleId            String
   role              Role         @relation(fields: [roleId], references: [id], onDelete: Restrict)
-  
+
   profile           UserProfile?
   wallet            Wallet?
   orders            Order[]
@@ -36,13 +54,24 @@ model User {
   transactions      Transaction[]
   auditLogs         AuditLog[]
   notifications     Notification[]
+  sessions          UserSession[]
+  verificationTokens VerificationToken[]
+  notificationPref  NotificationPreference?
+
+  academyEnrollments CourseEnrollment[]
+  ninRequests        NINRequest[]
+  cacRequests        CACRequest[]
+  businessRequests   BusinessServiceRequest[]
+  supportTickets     SupportTicket[]
 
   createdAt         DateTime     @default(now())
   updatedAt         DateTime     @updatedAt
 
   @@index([roleId])
   @@index([email])
+  @@index([phone])
   @@index([status])
+  @@index([customerTier])
   @@map("users")
 }
 
@@ -52,7 +81,7 @@ model Role {
   slug            String           @unique
   description     String?
   isSystem        Boolean          @default(false)
-  
+
   users           User[]
   rolePermissions RolePermission[]
 
@@ -91,11 +120,70 @@ model RolePermission {
   @@map("role_permissions")
 }
 
+model UserSession {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash   String   @unique
+  ipAddress   String?
+  userAgent   String?
+  expiresAt   DateTime
+  isRevoked   Boolean  @default(false)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId, expiresAt])
+  @@map("user_sessions")
+}
+
+enum TokenType {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+  PHONE_VERIFICATION
+}
+
+model VerificationToken {
+  id          String    @id @default(uuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash   String    @unique
+  type        TokenType
+  expiresAt   DateTime
+  isUsed      Boolean   @default(false)
+  usedAt      DateTime?
+  metadata    String?   @db.Text
+
+  createdAt   DateTime  @default(now())
+
+  @@index([userId, type])
+  @@index([tokenHash])
+  @@map("verification_tokens")
+}
+
+// --------------------------------------------------
+// 2. User Profile & KYC Verification
+// --------------------------------------------------
+
+enum KYCTier {
+  TIER_0
+  TIER_1
+  TIER_2
+  TIER_3
+}
+
+enum KYCStatus {
+  UNVERIFIED
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
 model UserProfile {
-  id               String   @id @default(uuid())
-  userId           String   @unique
-  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+  id               String    @id @default(uuid())
+  userId           String    @unique
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   firstName        String?
   lastName         String?
   avatarUrl        String?
@@ -105,14 +193,22 @@ model UserProfile {
   nextOfKinName    String?
   nextOfKinPhone   String?
 
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  kycTier          KYCTier   @default(TIER_0)
+  kycStatus        KYCStatus @default(UNVERIFIED)
+  ninVerified      Boolean   @default(false)
+  bvnVerified      Boolean   @default(false)
+  idDocumentType   String?
+  idDocumentRef    String?
+  verifiedAt       DateTime?
+
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   @@map("user_profiles")
 }
 
 // --------------------------------------------------
-// 2. Settings & System Configuration (Nothing Hardcoded)
+// 3. Company Settings, System Config & Physical Branches
 // --------------------------------------------------
 
 enum SettingGroup {
@@ -124,10 +220,17 @@ enum SettingGroup {
   SERVICES
 }
 
+enum SettingType {
+  STRING
+  NUMBER
+  BOOLEAN
+  JSON
+}
+
 model CompanySetting {
   id          String       @id @default(uuid())
   key         String       @unique
-  value       String
+  value       String       @db.Text
   group       SettingGroup @default(GENERAL)
   description String?
   isPublic    Boolean      @default(false)
@@ -139,17 +242,10 @@ model CompanySetting {
   @@map("company_settings")
 }
 
-enum SettingType {
-  STRING
-  NUMBER
-  BOOLEAN
-  JSON
-}
-
 model SystemSetting {
   id          String      @id @default(uuid())
   key         String      @unique
-  value       String
+  value       String      @db.Text
   type        SettingType @default(STRING)
   isEncrypted Boolean     @default(false)
   description String?
@@ -160,15 +256,65 @@ model SystemSetting {
   @@map("system_settings")
 }
 
+model Branch {
+  id               String                   @id @default(uuid())
+  name             String
+  code             String                   @unique
+  address          String                   @db.Text
+  state            String
+  lga              String
+  phone            String
+  email            String
+  isHeadOffice     Boolean                  @default(false)
+  isActive         Boolean                  @default(true)
+
+  businessHours    BusinessHour[]
+  ninRequests      NINRequest[]
+  businessRequests BusinessServiceRequest[]
+
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+
+  @@map("branches")
+}
+
+model BusinessHour {
+  id        String   @id @default(uuid())
+  branchId  String
+  branch    Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  dayOfWeek Int      // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+  opensAt   String   // e.g. "08:00"
+  closesAt  String   // e.g. "18:00"
+  isClosed  Boolean  @default(false)
+
+  @@unique([branchId, dayOfWeek])
+  @@map("business_hours")
+}
+
 // --------------------------------------------------
-// 3. Service Categories, Services & Pricing Rules
+// 4. Service Catalog, Categories, Variants & Features
 // --------------------------------------------------
+
+enum ServiceStatus {
+  ACTIVE
+  INACTIVE
+  MAINTENANCE
+  COMING_SOON
+}
+
+enum ServiceAvailability {
+  WALK_IN_AND_ONLINE
+  ONLINE_ONLY
+  WALK_IN_ONLY
+  COMING_SOON
+}
 
 model ServiceCategory {
   id           String    @id @default(uuid())
   name         String
   slug         String    @unique
-  description  String?
+  code         String    @unique
+  description  String?   @db.Text
   icon         String?
   displayOrder Int       @default(0)
   isActive     Boolean   @default(true)
@@ -182,84 +328,89 @@ model ServiceCategory {
 }
 
 model Service {
-  id             String          @id @default(uuid())
-  categoryId     String
-  category       ServiceCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  name           String
-  slug           String          @unique
-  description    String?
-  basePrice      Decimal         @default(0.0) @db.Decimal(12, 2)
-  dynamicPricing Boolean         @default(false)
-  isActive       Boolean         @default(true)
+  id                 String              @id @default(uuid())
+  categoryId         String
+  category           ServiceCategory     @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  name               String
+  slug               String              @unique
+  code               String              @unique
+  shortDescription   String?
+  fullDescription    String?             @db.Text
+  basePrice          Decimal             @default(0.0) @db.Decimal(14, 2)
+  dynamicPricing     Boolean             @default(false)
+  status             ServiceStatus       @default(ACTIVE)
+  availability       ServiceAvailability @default(WALK_IN_AND_ONLINE)
+  turnaroundSLA      String              @default("Instant")
+  requiresDocuments  Boolean             @default(false)
+  displayOrder       Int                 @default(0)
 
-  pricingRules   PricingRule[]
-  orders         Order[]
+  variants           ServiceVariant[]
+  features           ServiceFeature[]
+  pricingRules       PricingRule[]
+  servicePrices      ServicePrice[]
+  providerMappings   ProviderService[]
+  orderItems         OrderItem[]
 
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
 
   @@index([categoryId])
+  @@index([slug])
+  @@index([status])
   @@map("services")
 }
 
-enum RuleType {
-  MARKUP
-  DISCOUNT
-  SURCHARGE
-  COMMISSION
-}
+model ServiceVariant {
+  id           String      @id @default(uuid())
+  serviceId    String
+  service      Service     @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  name         String
+  code         String      @unique
+  costPrice    Decimal     @db.Decimal(14, 2)
+  sellingPrice Decimal     @db.Decimal(14, 2)
+  isActive     Boolean     @default(true)
 
-enum FeeCalculationType {
-  FLAT
-  PERCENTAGE
-}
+  orderItems   OrderItem[]
 
-model PricingRule {
-  id          String             @id @default(uuid())
-  serviceId   String
-  service     Service            @relation(fields: [serviceId], references: [id], onDelete: Cascade)
-  name        String
-  ruleType    RuleType           @default(MARKUP)
-  feeType     FeeCalculationType @default(FLAT)
-  feeValue    Decimal            @db.Decimal(12, 2)
-  minFee      Decimal?           @db.Decimal(12, 2)
-  maxFee      Decimal?           @db.Decimal(12, 2)
-  isActive    Boolean            @default(true)
-
-  createdAt   DateTime           @default(now())
-  updatedAt   DateTime           @updatedAt
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
 
   @@index([serviceId])
-  @@map("pricing_rules")
+  @@map("service_variants")
+}
+
+enum ServiceFeatureType {
+  FEATURE
+  DELIVERABLE
+  REQUIREMENT
+}
+
+model ServiceFeature {
+  id           String             @id @default(uuid())
+  serviceId    String
+  service      Service            @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  type         ServiceFeatureType @default(FEATURE)
+  content      String             @db.Text
+  displayOrder Int                @default(0)
+
+  createdAt    DateTime           @default(now())
+
+  @@index([serviceId, type])
+  @@map("service_features")
 }
 
 // --------------------------------------------------
-// 4. Providers & Provider Configurations
+// 5. Providers, Configuration & Health Monitoring
 // --------------------------------------------------
 
 enum ProviderType {
   PAYMENT_GATEWAY
   IDENTITY_VERIFICATION
   TELECOM_VTU
+  UTILITY_DISCO
+  CABLE_TV
   SMS_GATEWAY
   EMAIL_SERVICE
-}
-
-model Provider {
-  id              String           @id @default(uuid())
-  name            String
-  code            String           @unique
-  type            ProviderType
-  isActive        Boolean          @default(true)
-
-  providerConfigs ProviderConfig[]
-  transactions    Transaction[]
-
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
-
-  @@index([type])
-  @@map("providers")
 }
 
 enum Environment {
@@ -267,12 +418,38 @@ enum Environment {
   PRODUCTION
 }
 
+enum ProviderHealthStatus {
+  HEALTHY
+  DEGRADED
+  DOWN
+  MAINTENANCE
+}
+
+model Provider {
+  id           String            @id @default(uuid())
+  name         String
+  code         String            @unique
+  type         ProviderType
+  isActive     Boolean           @default(true)
+
+  configs      ProviderConfig[]
+  services     ProviderService[]
+  healthLogs   ProviderHealth[]
+  transactions Transaction[]
+
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  @@index([type])
+  @@map("providers")
+}
+
 model ProviderConfig {
   id             String      @id @default(uuid())
   providerId     String
   provider       Provider    @relation(fields: [providerId], references: [id], onDelete: Cascade)
   environment    Environment @default(SANDBOX)
-  credentialsKey String
+  credentialsKey String      // Environment variable key reference, never raw secret
   settingsJson   String?     @db.Text
   isDefault      Boolean     @default(false)
 
@@ -283,8 +460,92 @@ model ProviderConfig {
   @@map("provider_configs")
 }
 
+model ProviderService {
+  id                  String   @id @default(uuid())
+  providerId          String
+  provider            Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  serviceId           String
+  service             Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  providerServiceCode String   // Upstream switch code (e.g. "MTN-DATA-1GB")
+  providerCost        Decimal  @db.Decimal(14, 2)
+  isPrimary           Boolean  @default(true)
+  priority            Int      @default(1)
+  isActive            Boolean  @default(true)
+
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@unique([providerId, serviceId])
+  @@map("provider_services")
+}
+
+model ProviderHealth {
+  id            String               @id @default(uuid())
+  providerId    String
+  provider      Provider             @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  status        ProviderHealthStatus @default(HEALTHY)
+  latencyMs     Int                  @default(0)
+  successRate   Decimal              @default(100.0) @db.Decimal(5, 2)
+  lastCheckedAt DateTime             @default(now())
+  remarks       String?
+
+  @@index([providerId])
+  @@map("provider_health")
+}
+
 // --------------------------------------------------
-// 5. Orders & Payments
+// 6. Pricing Rules & Service Pricing Matrix
+// --------------------------------------------------
+
+enum PricingRuleType {
+  MARKUP_FLAT
+  MARKUP_PERCENTAGE
+  DISCOUNT_FLAT
+  DISCOUNT_PERCENTAGE
+  COMMISSION
+}
+
+model PricingRule {
+  id            String          @id @default(uuid())
+  serviceId     String
+  service       Service         @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  name          String
+  customerTier  CustomerTier    @default(STANDARD)
+  ruleType      PricingRuleType @default(MARKUP_FLAT)
+  ruleValue     Decimal         @db.Decimal(14, 2)
+  minPrice      Decimal?        @db.Decimal(14, 2)
+  maxPrice      Decimal?        @db.Decimal(14, 2)
+  effectiveFrom DateTime        @default(now())
+  effectiveTo   DateTime?
+  isActive      Boolean         @default(true)
+
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  @@index([serviceId, customerTier, isActive])
+  @@map("pricing_rules")
+}
+
+model ServicePrice {
+  id            String       @id @default(uuid())
+  serviceId     String
+  service       Service      @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  customerTier  CustomerTier @default(STANDARD)
+  providerCost  Decimal      @db.Decimal(14, 2)
+  markupAmount  Decimal      @db.Decimal(14, 2)
+  sellingPrice  Decimal      @db.Decimal(14, 2)
+  effectiveDate DateTime     @default(now())
+  isActive      Boolean      @default(true)
+
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@unique([serviceId, customerTier])
+  @@map("service_prices")
+}
+
+// --------------------------------------------------
+// 7. Orders & Fulfillment History
 // --------------------------------------------------
 
 enum OrderStatus {
@@ -294,40 +555,156 @@ enum OrderStatus {
   COMPLETED
   CANCELLED
   REFUNDED
+  REVERSED
 }
 
-enum PaymentStatus {
+enum OrderPaymentStatus {
   UNPAID
   PARTIALLY_PAID
   PAID
-  FAILED
   REFUNDED
+  REVERSED
+}
+
+enum DeliveryType {
+  INSTANT_DIGITAL
+  PHYSICAL_PICKUP
+  COURIER_DELIVERY
+  ONLINE_PORTAL
 }
 
 model Order {
-  id            String        @id @default(uuid())
-  orderNumber   String        @unique
-  userId        String
-  user          User          @relation(fields: [userId], references: [id], onDelete: Restrict)
-  serviceId     String
-  service       Service       @relation(fields: [serviceId], references: [id], onDelete: Restrict)
-  
-  status        OrderStatus   @default(PENDING)
-  paymentStatus PaymentStatus @default(UNPAID)
-  totalAmount   Decimal       @db.Decimal(12, 2)
-  feeAmount     Decimal       @default(0.0) @db.Decimal(12, 2)
-  metadata      String?       @db.Text
+  id             String              @id @default(uuid())
+  orderNumber    String              @unique // HT-ORD-YYYY-XXXX
+  userId         String
+  user           User                @relation(fields: [userId], references: [id], onDelete: Restrict)
+  status         OrderStatus         @default(PENDING)
+  paymentStatus  OrderPaymentStatus  @default(UNPAID)
+  deliveryType   DeliveryType        @default(INSTANT_DIGITAL)
+  subtotalAmount Decimal             @db.Decimal(14, 2)
+  feeAmount      Decimal             @default(0.0) @db.Decimal(14, 2)
+  totalAmount    Decimal             @db.Decimal(14, 2)
+  currency       String              @default("NGN")
+  metadata       String?             @db.Text
+  notes          String?             @db.Text
 
-  payments      Payment[]
+  items          OrderItem[]
+  statusHistory  OrderStatusHistory[]
+  payments       Payment[]
+  transactions   Transaction[]
 
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
 
   @@index([userId])
-  @@index([serviceId])
+  @@index([orderNumber])
   @@index([status])
+  @@index([paymentStatus])
+  @@index([createdAt])
   @@map("orders")
 }
+
+model OrderItem {
+  id         String          @id @default(uuid())
+  orderId    String
+  order      Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  serviceId  String
+  service    Service         @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+  variantId  String?
+  variant    ServiceVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+  title      String
+  quantity   Int             @default(1)
+  unitPrice  Decimal         @db.Decimal(14, 2)
+  totalPrice Decimal         @db.Decimal(14, 2)
+  metadata   String?         @db.Text
+
+  @@index([orderId])
+  @@index([serviceId])
+  @@map("order_items")
+}
+
+model OrderStatusHistory {
+  id          String      @id @default(uuid())
+  orderId     String
+  order       Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  status      OrderStatus
+  changedById String?
+  note        String      @db.Text
+  createdAt   DateTime    @default(now())
+
+  @@index([orderId, createdAt])
+  @@map("order_status_history")
+}
+
+// --------------------------------------------------
+// 8. Wallets & Immutable Financial Ledger
+// --------------------------------------------------
+
+enum WalletStatus {
+  ACTIVE
+  FROZEN
+  SUSPENDED
+}
+
+enum LedgerEntryType {
+  CREDIT
+  DEBIT
+}
+
+enum LedgerReferenceType {
+  WALLET_FUNDING
+  SERVICE_PURCHASE
+  ORDER_PAYMENT
+  REFUND
+  REVERSAL
+  ADJUSTMENT
+  BONUS
+}
+
+model Wallet {
+  id             String              @id @default(uuid())
+  userId         String              @unique
+  user           User                @relation(fields: [userId], references: [id], onDelete: Restrict)
+  currency       String              @default("NGN")
+  currentBalance Decimal             @default(0.0) @db.Decimal(14, 2)
+  ledgerBalance  Decimal             @default(0.0) @db.Decimal(14, 2)
+  lockedBalance  Decimal             @default(0.0) @db.Decimal(14, 2)
+  status         WalletStatus        @default(ACTIVE)
+
+  ledgerEntries  WalletLedgerEntry[]
+  transactions   Transaction[]
+
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@map("wallets")
+}
+
+model WalletLedgerEntry {
+  id            String              @id @default(uuid())
+  walletId      String
+  wallet        Wallet              @relation(fields: [walletId], references: [id], onDelete: Restrict)
+  entryType     LedgerEntryType
+  amount        Decimal             @db.Decimal(14, 2)
+  balanceBefore Decimal             @db.Decimal(14, 2)
+  balanceAfter  Decimal             @db.Decimal(14, 2)
+  referenceType LedgerReferenceType
+  referenceId   String
+  description   String              @db.Text
+
+  createdAt     DateTime            @default(now())
+
+  @@index([walletId])
+  @@index([referenceType, referenceId])
+  @@index([createdAt])
+  @@map("wallet_ledger_entries")
+}
+
+// --------------------------------------------------
+// 9. Payments & Webhook Idempotency Events
+// --------------------------------------------------
 
 enum PaymentChannel {
   WALLET
@@ -338,93 +715,85 @@ enum PaymentChannel {
   CASH
 }
 
-model Payment {
-  id          String         @id @default(uuid())
-  paymentRef  String         @unique
-  orderId     String?
-  order       Order?         @relation(fields: [orderId], references: [id], onDelete: SetNull)
-  userId      String
-  user        User           @relation(fields: [userId], references: [id], onDelete: Restrict)
-  amount      Decimal        @db.Decimal(12, 2)
-  currency    String         @default("NGN")
-  channel     PaymentChannel @default(WALLET)
-  status      PaymentStatus  @default(UNPAID)
-  providerRef String?
-  metadata    String?        @db.Text
-  paidAt      DateTime?
+enum PaymentStatus {
+  INITIALIZED
+  PENDING
+  SUCCESSFUL
+  FAILED
+  EXPIRED
+  REFUNDED
+  REVERSED
+}
 
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
+model Payment {
+  id               String                @id @default(uuid())
+  paymentRef       String                @unique // HT-PAY-YYYY-XXXX
+  orderId          String?
+  order            Order?                @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  userId           String
+  user             User                  @relation(fields: [userId], references: [id], onDelete: Restrict)
+  amount           Decimal               @db.Decimal(14, 2)
+  fee              Decimal               @default(0.0) @db.Decimal(14, 2)
+  currency         String                @default("NGN")
+  channel          PaymentChannel        @default(WALLET)
+  status           PaymentStatus         @default(INITIALIZED)
+  providerRef      String?
+  providerResponse String?               @db.Text
+  metadata         String?               @db.Text
+  paidAt           DateTime?
+
+  webhookEvents    PaymentWebhookEvent[]
+
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
 
   @@index([userId])
   @@index([orderId])
+  @@index([paymentRef])
   @@index([status])
+  @@index([providerRef])
   @@map("payments")
 }
 
-// --------------------------------------------------
-// 6. Wallets & Double-Entry Financial Ledger
-// --------------------------------------------------
+model PaymentWebhookEvent {
+  id             String    @id @default(uuid())
+  paymentId      String?
+  payment        Payment?  @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  gateway        String    // PAYSTACK, FLUTTERWAVE, MONIEPOINT
+  event          String    // charge.success, transfer.success
+  idempotencyKey String    @unique
+  payload        String    @db.Text
+  signature      String?   @db.Text
+  isProcessed    Boolean   @default(false)
+  processedAt    DateTime?
 
-enum WalletStatus {
-  ACTIVE
-  FROZEN
-  SUSPENDED
-}
+  createdAt      DateTime  @default(now())
 
-model Wallet {
-  id             String              @id @default(uuid())
-  userId         String              @unique
-  user           User                @relation(fields: [userId], references: [id], onDelete: Restrict)
-  currency       String              @default("NGN")
-  currentBalance Decimal             @default(0.0) @db.Decimal(12, 2)
-  ledgerBalance  Decimal             @default(0.0) @db.Decimal(12, 2)
-  lockedBalance  Decimal             @default(0.0) @db.Decimal(12, 2)
-  status         WalletStatus        @default(ACTIVE)
-
-  ledgerEntries  WalletLedgerEntry[]
-  transactions   Transaction[]
-
-  createdAt      DateTime            @default(now())
-  updatedAt      DateTime            @updatedAt
-
-  @@map("wallets")
-}
-
-enum LedgerEntryType {
-  CREDIT
-  DEBIT
-}
-
-model WalletLedgerEntry {
-  id            String          @id @default(uuid())
-  walletId      String
-  wallet        Wallet          @relation(fields: [walletId], references: [id], onDelete: Restrict)
-  entryType     LedgerEntryType
-  amount        Decimal         @db.Decimal(12, 2)
-  balanceAfter  Decimal         @db.Decimal(12, 2)
-  referenceType String
-  referenceId   String
-  description   String
-
-  createdAt     DateTime        @default(now())
-
-  @@index([walletId])
-  @@index([referenceType, referenceId])
-  @@map("wallet_ledger_entries")
+  @@index([gateway, event])
+  @@index([isProcessed])
+  @@map("payment_webhook_events")
 }
 
 // --------------------------------------------------
-// 7. Transactions
+// 10. Financial Transactions Ledger
 // --------------------------------------------------
 
 enum TransactionType {
   WALLET_TOPUP
-  SERVICE_PAYMENT
   ORDER_PAYMENT
+  SERVICE_PURCHASE
+  VTU_AIRTIME
+  VTU_DATA
+  ELECTRICITY_BILL
+  CABLE_TV
+  CAC_SERVICE
+  NIN_SERVICE
+  PRINTING_ORDER
+  ACADEMY_ENROLLMENT
+  BUSINESS_CENTRE
   REFUND
-  TRANSFER_IN
-  TRANSFER_OUT
+  REVERSAL
+  ADJUSTMENT
   FEE
 }
 
@@ -436,55 +805,447 @@ enum TransactionStatus {
 }
 
 model Transaction {
-  id         String            @id @default(uuid())
-  reference  String            @unique
-  userId     String
-  user       User              @relation(fields: [userId], references: [id], onDelete: Restrict)
-  walletId   String?
-  wallet     Wallet?           @relation(fields: [walletId], references: [id], onDelete: SetNull)
-  providerId String?
-  provider   Provider?         @relation(fields: [providerId], references: [id], onDelete: SetNull)
+  id          String            @id @default(uuid())
+  reference   String            @unique // HT-TXN-YYYY-XXXX
+  userId      String
+  user        User              @relation(fields: [userId], references: [id], onDelete: Restrict)
+  walletId    String?
+  wallet      Wallet?           @relation(fields: [walletId], references: [id], onDelete: SetNull)
+  orderId     String?
+  order       Order?            @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  providerId  String?
+  provider    Provider?         @relation(fields: [providerId], references: [id], onDelete: SetNull)
 
-  type       TransactionType
-  amount     Decimal           @db.Decimal(12, 2)
-  fee        Decimal           @default(0.0) @db.Decimal(12, 2)
-  currency   String            @default("NGN")
-  status     TransactionStatus @default(PENDING)
-  gatewayRef String?
-  metadata   String?           @db.Text
+  type        TransactionType
+  amount      Decimal           @db.Decimal(14, 2)
+  fee         Decimal           @default(0.0) @db.Decimal(14, 2)
+  currency    String            @default("NGN")
+  status      TransactionStatus @default(PENDING)
+  channel     PaymentChannel    @default(WALLET)
+  description String            @db.Text
+  providerRef String?
+  metadata    String?           @db.Text
 
-  createdAt  DateTime          @default(now())
-  updatedAt  DateTime          @updatedAt
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
 
   @@index([userId])
   @@index([walletId])
-  @@index([providerId])
+  @@index([orderId])
+  @@index([reference])
   @@index([status])
+  @@index([type])
+  @@index([createdAt])
   @@map("transactions")
 }
 
 // --------------------------------------------------
-// 8. Audit Logs & Notifications
+// 11. Academy & IT Institute
 // --------------------------------------------------
 
-model AuditLog {
-  id         String   @id @default(uuid())
-  actorId    String?
-  actor      User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
-  action     String
-  entityType String
-  entityId   String?
-  ipAddress  String?
-  userAgent  String?
-  beforeState String? @db.Text
-  afterState  String? @db.Text
-
-  createdAt  DateTime @default(now())
-
-  @@index([actorId])
-  @@index([entityType, entityId])
-  @@map("audit_logs")
+enum CourseLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+  PROFESSIONAL
 }
+
+enum EnrollmentStatus {
+  ENROLLED
+  IN_PROGRESS
+  COMPLETED
+  SUSPENDED
+  DROPPED
+}
+
+model CourseCategory {
+  id           String   @id @default(uuid())
+  name         String
+  slug         String   @unique
+  description  String?  @db.Text
+  displayOrder Int      @default(0)
+  isActive     Boolean  @default(true)
+
+  courses      Course[]
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("course_categories")
+}
+
+model Course {
+  id                   String             @id @default(uuid())
+  categoryId           String?
+  category             CourseCategory?    @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  code                 String             @unique // HT-CRS-DIT
+  title                String
+  slug                 String             @unique
+  shortDescription     String?
+  fullDescription      String?            @db.Text
+  level                CourseLevel        @default(BEGINNER)
+  durationWeeks        Int                @default(4)
+  tuitionFee           Decimal            @default(0.0) @db.Decimal(14, 2)
+  isCertificateIncluded Boolean           @default(true)
+  isActive             Boolean            @default(true)
+
+  modules              CourseModule[]
+  enrollments          CourseEnrollment[]
+
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  @@index([slug])
+  @@index([code])
+  @@index([isActive])
+  @@map("courses")
+}
+
+model CourseModule {
+  id             String           @id @default(uuid())
+  courseId       String
+  course         Course           @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  moduleOrder    Int              @default(1)
+  title          String
+  description    String?          @db.Text
+  durationHours  Int              @default(2)
+
+  courseProgress CourseProgress[]
+
+  createdAt      DateTime         @default(now())
+
+  @@unique([courseId, moduleOrder])
+  @@map("course_modules")
+}
+
+model CourseEnrollment {
+  id               String           @id @default(uuid())
+  enrollmentNumber String           @unique // HT-STU-YYYY-XXXX
+  userId           String
+  user             User             @relation(fields: [userId], references: [id], onDelete: Restrict)
+  courseId         String
+  course           Course           @relation(fields: [courseId], references: [id], onDelete: Restrict)
+  cohort           String           // e.g. "Batch Q1 2026"
+  status           EnrollmentStatus @default(ENROLLED)
+  progressPercent  Int              @default(0)
+  enrolledAt       DateTime         @default(now())
+  completedAt      DateTime?
+
+  certificate      Certificate?
+  progress         CourseProgress[]
+
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  @@unique([userId, courseId])
+  @@index([userId])
+  @@index([courseId])
+  @@index([status])
+  @@map("course_enrollments")
+}
+
+model CourseProgress {
+  id           String           @id @default(uuid())
+  enrollmentId String
+  enrollment   CourseEnrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  moduleId     String
+  module       CourseModule     @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  isCompleted  Boolean          @default(false)
+  completedAt  DateTime?
+
+  createdAt    DateTime         @default(now())
+
+  @@unique([enrollmentId, moduleId])
+  @@map("course_progress")
+}
+
+model Certificate {
+  id                String           @id @default(uuid())
+  certificateNumber String           @unique // HT-CERT-YYYY-XXXX
+  verificationHash  String           @unique // Public SHA256 verification hash
+  enrollmentId      String           @unique
+  enrollment        CourseEnrollment @relation(fields: [enrollmentId], references: [id], onDelete: Restrict)
+  studentName       String
+  courseTitle       String
+  grade             String?          // Distinction, Merit, Pass
+  issuedAt          DateTime         @default(now())
+  issuedById        String?
+  isRevoked         Boolean          @default(false)
+  revokedReason     String?
+
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  @@index([certificateNumber])
+  @@index([verificationHash])
+  @@map("certificates")
+}
+
+// --------------------------------------------------
+// 12. NIN Centre & National Identity Desk
+// --------------------------------------------------
+
+enum NINServiceType {
+  SLIP_RETRIEVAL
+  DATA_MODIFICATION
+  PLASTIC_ID_CARD
+  BVN_HARMONIZATION
+  PRE_ENROLLMENT_ASSISTANCE
+}
+
+enum NINRequestStatus {
+  SUBMITTED
+  DOCUMENT_VERIFICATION
+  PARTNER_PROCESSING
+  READY_FOR_PICKUP
+  COMPLETED
+  QUERY_ISSUED
+  CANCELLED
+}
+
+model NINRequest {
+  id             String                   @id @default(uuid())
+  trackingNumber String                   @unique // HT-NIN-YYYY-XXXX
+  userId         String?
+  user           User?                    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  branchId       String?
+  branch         Branch?                  @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  applicantName  String
+  applicantPhone String
+  applicantEmail String
+  serviceType    NINServiceType
+  status         NINRequestStatus         @default(SUBMITTED)
+  deliveryType   DeliveryType             @default(PHYSICAL_PICKUP)
+  pickupOffice   String                   @default("Origanrigan cele Area, Lagos")
+  queryReason    String?                  @db.Text
+  notes          String?                  @db.Text
+
+  statusHistory  NINRequestStatusHistory[]
+
+  submittedAt    DateTime                 @default(now())
+  completedAt    DateTime?
+  createdAt      DateTime                 @default(now())
+  updatedAt      DateTime                 @updatedAt
+
+  @@index([trackingNumber])
+  @@index([userId])
+  @@index([status])
+  @@index([serviceType])
+  @@map("nin_requests")
+}
+
+model NINRequestStatusHistory {
+  id           String           @id @default(uuid())
+  ninRequestId String
+  ninRequest   NINRequest       @relation(fields: [ninRequestId], references: [id], onDelete: Cascade)
+  status       NINRequestStatus
+  note         String           @db.Text
+  changedById  String?
+  createdAt    DateTime         @default(now())
+
+  @@index([ninRequestId, createdAt])
+  @@map("nin_request_status_history")
+}
+
+// --------------------------------------------------
+// 13. CAC & Corporate Affairs Commission Desk
+// --------------------------------------------------
+
+enum CACOrganizationType {
+  BUSINESS_NAME
+  PRIVATE_LIMITED_COMPANY
+  INCORPORATED_TRUSTEE_NGO
+}
+
+enum CACRequestStatus {
+  DRAFT
+  NAME_RESERVATION
+  DOCUMENT_PREPARATION
+  SUBMITTED_TO_PORTAL
+  QUERIED
+  APPROVED_CERTIFICATE_READY
+  COMPLETED
+  REJECTED
+}
+
+model CACRequest {
+  id                  String                   @id @default(uuid())
+  trackingNumber      String                   @unique // HT-CAC-YYYY-XXXX
+  userId              String?
+  user                User?                    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  entityType          CACOrganizationType      @default(BUSINESS_NAME)
+  proposedName1       String
+  proposedName2       String
+  natureOfBusiness    String                   @db.Text
+  applicantName       String
+  applicantPhone      String
+  applicantEmail      String
+  directorsCount      Int                      @default(1)
+  status              CACRequestStatus         @default(NAME_RESERVATION)
+  portalSubmissionRef String?
+  rcNumber            String?
+  tinNumber           String?
+  notes               String?                  @db.Text
+  queryReason         String?                  @db.Text
+
+  statusHistory       CACRequestStatusHistory[]
+
+  submittedAt         DateTime                 @default(now())
+  completedAt         DateTime?
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
+
+  @@index([trackingNumber])
+  @@index([userId])
+  @@index([status])
+  @@index([entityType])
+  @@map("cac_requests")
+}
+
+model CACRequestStatusHistory {
+  id           String           @id @default(uuid())
+  cacRequestId String
+  cacRequest   CACRequest       @relation(fields: [cacRequestId], references: [id], onDelete: Cascade)
+  status       CACRequestStatus
+  note         String           @db.Text
+  changedById  String?
+  createdAt    DateTime         @default(now())
+
+  @@index([cacRequestId, createdAt])
+  @@map("cac_request_status_history")
+}
+
+// --------------------------------------------------
+// 14. Business Centre & Document Production Desk
+// --------------------------------------------------
+
+enum BusinessServiceType {
+  PRINTING
+  PHOTOCOPYING
+  TYPING
+  SCANNING
+  LAMINATION
+  BINDING
+  PASSPORT_PHOTOS
+  CV_SERVICES
+  ONLINE_APPLICATION
+  GRAPHICS_DESIGN
+}
+
+enum ServiceRequestStatus {
+  SUBMITTED
+  IN_REVIEW
+  IN_PRODUCTION
+  READY_FOR_PICKUP
+  COMPLETED
+  CANCELLED
+}
+
+model BusinessServiceRequest {
+  id            String               @id @default(uuid())
+  requestNumber String               @unique // HT-BC-YYYY-XXXX
+  userId        String?
+  user          User?                @relation(fields: [userId], references: [id], onDelete: SetNull)
+  branchId      String?
+  branch        Branch?              @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  serviceType   BusinessServiceType
+  customerName  String
+  customerPhone String
+  customerEmail String
+  status        ServiceRequestStatus @default(SUBMITTED)
+  pagesCount    Int                  @default(1)
+  copiesCount   Int                  @default(1)
+  colorType     String               @default("MONOCHROME") // MONOCHROME, FULL_COLOR
+  paperSize     String               @default("A4") // A4, A3, LETTER
+  bindingType   String?              // SPIRAL, HARDCOVER, NONE
+  deliveryType  DeliveryType         @default(PHYSICAL_PICKUP)
+  estimatedCost Decimal              @default(0.0) @db.Decimal(14, 2)
+  notes         String?              @db.Text
+
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+
+  @@index([requestNumber])
+  @@index([userId])
+  @@index([status])
+  @@index([serviceType])
+  @@map("business_service_requests")
+}
+
+// --------------------------------------------------
+// 15. Support Ticketing & Messaging
+// --------------------------------------------------
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  WAITING_ON_CUSTOMER
+  RESOLVED
+  CLOSED
+}
+
+enum TicketCategory {
+  WALLET
+  WALLET_FUNDING
+  VTU_BILLS
+  ORDERS
+  NIN_DESK
+  CAC_DESK
+  CAC_REGISTRATION
+  ACADEMY
+  PRINTING_CENTRE
+  TECHNICAL
+}
+
+model SupportTicket {
+  id           String          @id @default(uuid())
+  ticketNumber String          @unique // HT-TKT-YYYY-XXXX
+  userId       String
+  user         User            @relation(fields: [userId], references: [id], onDelete: Restrict)
+  category     TicketCategory  @default(TECHNICAL)
+  subject      String
+  priority     TicketPriority  @default(MEDIUM)
+  status       TicketStatus    @default(OPEN)
+  assignedToId String?
+
+  messages     TicketMessage[]
+
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  @@index([ticketNumber])
+  @@index([userId])
+  @@index([status])
+  @@index([priority])
+  @@index([category])
+  @@map("support_tickets")
+}
+
+model TicketMessage {
+  id         String        @id @default(uuid())
+  ticketId   String
+  ticket     SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  senderId   String
+  senderName String
+  senderRole String        @default("customer")
+  content    String        @db.Text
+
+  createdAt  DateTime      @default(now())
+
+  @@index([ticketId])
+  @@map("ticket_messages")
+}
+
+// --------------------------------------------------
+// 16. System Notifications & User Preferences
+// --------------------------------------------------
 
 enum NotificationChannel {
   IN_APP
@@ -495,9 +1256,11 @@ enum NotificationChannel {
 
 enum NotificationType {
   TRANSACTION
+  ORDER
   SECURITY
-  SERVICE_UPDATE
+  ANNOUNCEMENT
   SYSTEM
+  SERVICE_UPDATE
 }
 
 model Notification {
@@ -505,16 +1268,132 @@ model Notification {
   userId    String
   user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   title     String
-  message   String
+  message   String              @db.Text
   type      NotificationType    @default(SYSTEM)
   channel   NotificationChannel @default(IN_APP)
   isRead    Boolean             @default(false)
   readAt    DateTime?
+  actionUrl String?
   metadata  String?             @db.Text
 
   createdAt DateTime            @default(now())
 
   @@index([userId])
   @@index([isRead])
+  @@index([createdAt])
   @@map("notifications")
+}
+
+model NotificationPreference {
+  id               String   @id @default(uuid())
+  userId           String   @unique
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emailTxAlerts    Boolean  @default(true)
+  smsTxAlerts      Boolean  @default(false)
+  inAppAlerts      Boolean  @default(true)
+  marketingUpdates Boolean  @default(false)
+
+  updatedAt        DateTime @updatedAt
+
+  @@map("notification_preferences")
+}
+
+// --------------------------------------------------
+// 17. Content Management System (CMS) & Announcements
+// --------------------------------------------------
+
+enum CMSAnnouncementCategory {
+  GENERAL
+  MAINTENANCE
+  PROMOTION
+  ALERT
+}
+
+model CMSAnnouncement {
+  id          String                  @id @default(uuid())
+  title       String
+  message     String                  @db.Text
+  category    CMSAnnouncementCategory @default(GENERAL)
+  isActive    Boolean                 @default(true)
+  publishedAt DateTime                @default(now())
+  expiresAt   DateTime?
+
+  createdAt   DateTime                @default(now())
+  updatedAt   DateTime                @updatedAt
+
+  @@index([isActive, category])
+  @@map("cms_announcements")
+}
+
+model BlogPost {
+  id          String   @id @default(uuid())
+  title       String
+  slug        String   @unique
+  summary     String   @db.Text
+  content     String   @db.Text
+  category    String
+  author      String   @default("HambakTech Editorial")
+  isPublished Boolean  @default(true)
+  publishedAt DateTime @default(now())
+  isFeatured  Boolean  @default(false)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([slug])
+  @@index([isPublished, publishedAt])
+  @@map("blog_posts")
+}
+
+model CMSPage {
+  id              String   @id @default(uuid())
+  slug            String   @unique
+  title           String
+  content         String   @db.Text
+  metaDescription String?  @db.Text
+  isPublished     Boolean  @default(true)
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("cms_pages")
+}
+
+model FAQ {
+  id           String   @id @default(uuid())
+  category     String   @default("General")
+  question     String
+  answer       String   @db.Text
+  displayOrder Int      @default(0)
+  isActive     Boolean  @default(true)
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("faqs")
+}
+
+// --------------------------------------------------
+// 18. System Audit Logs
+// --------------------------------------------------
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  actorId     String?
+  actor       User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  action      String
+  entityType  String
+  entityId    String?
+  ipAddress   String?
+  userAgent   String?
+  beforeState String?  @db.Text
+  afterState  String?  @db.Text
+  status      String   @default("SUCCESS")
+
+  createdAt   DateTime @default(now())
+
+  @@index([actorId])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
 }
