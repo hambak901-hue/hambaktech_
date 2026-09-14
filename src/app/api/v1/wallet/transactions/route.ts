@@ -36,9 +36,9 @@ export async function GET(req: NextRequest) {
           totalPages: Math.ceil(total / limit) || 1,
         },
       },
-      undefined,
+      "Transactions retrieved successfully.",
       200,
-      { timestamp: new Date().toISOString() }
+      { page, limit, total }
     );
   } catch (error) {
     return errorResponse(error, "Failed to retrieve transactions");

@@ -31,6 +31,7 @@ import {
   BlogPost,
   CMSPage,
   ServiceCategoryRecord,
+  CustomerTierSlug,
 } from "@/types/platform";
 import { ServiceCategory } from "@/types/service";
 import { servicesData } from "@/data/servicesData";
@@ -2027,8 +2028,14 @@ export const AcademyService = {
     });
   },
 
-  async getCertificates(): Promise<CertificateRecord[]> {
+  async getCertificates(studentId?: string): Promise<CertificateRecord[]> {
     const store = getStore();
+    if (studentId) {
+      const studentEnrollmentIds = new Set(
+        store.enrollments.filter((e) => e.userId === studentId).map((e) => e.id)
+      );
+      return store.certificates.filter((c) => studentEnrollmentIds.has(c.enrollmentId));
+    }
     return store.certificates;
   },
 
@@ -3070,6 +3077,7 @@ export const OrderService = {
     serviceTitle: string;
     items: Array<{ title: string; quantity: number; unitPrice: number; serviceId?: string }>;
     paymentMethod: "WALLET" | "PAYSTACK" | "FLUTTERWAVE" | "MONIEPOINT" | "BANK_TRANSFER";
+    deliveryType?: "INSTANT_DIGITAL" | "PHYSICAL_PICKUP" | "COURIER_DELIVERY" | "ONLINE_PORTAL";
     notes?: string;
   }): Promise<Order> {
     const store = getStore();
@@ -3130,6 +3138,7 @@ export const OrderService = {
         },
       ],
       notes: payload.notes,
+      deliveryType: payload.deliveryType || "INSTANT_DIGITAL",
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -3291,7 +3300,7 @@ export const ServicesCatalogService = {
   async getServices(categorySlug?: string) {
     const store = getStore();
     if (categorySlug) {
-      return store.services.filter((s) => s.categorySlug === categorySlug);
+      return store.services.filter((s) => s.slug === categorySlug || s.id === categorySlug);
     }
     return store.services;
   },
@@ -3311,7 +3320,8 @@ export const ServicesCatalogService = {
         p.isActive
     );
 
-    const basePrice = priceRule ? priceRule.sellingPrice : (service?.basePrice || 1000);
+    const startingPriceNum = service?.startingPrice ? parseInt(service.startingPrice.replace(/[^0-9]/g, ""), 10) : 1000;
+    const basePrice = priceRule ? priceRule.sellingPrice : (startingPriceNum || 1000);
     const serviceFee = priceRule ? priceRule.serviceFee : 0;
     const unitPrice = basePrice + serviceFee;
     const totalPrice = unitPrice * Math.max(1, quantity);
