@@ -65,16 +65,18 @@ function SigninContent() {
           email: user.email,
           phone: user.phone || "08147837664",
         });
-        const roleCategory = ["super_admin", "admin", "staff", "manager", "developer"].includes(user.role.slug)
+        const roleSlug = typeof user.role === "string" ? user.role : user.role?.slug || "";
+        const roleCategory = ["super_admin", "admin", "staff", "manager", "developer"].includes(roleSlug)
           ? "ADMIN"
           : "CUSTOMER";
         platformApi.switchRole(roleCategory);
       }
 
       // Route according to redirect parameter or user role
+      const userRoleSlug = typeof user.role === "string" ? user.role : user.role?.slug || "";
       if (redirectTarget) {
         router.push(redirectTarget);
-      } else if (["super_admin", "admin", "staff", "manager", "developer"].includes(user.role.slug)) {
+      } else if (["super_admin", "admin", "staff", "manager", "developer"].includes(userRoleSlug)) {
         router.push("/admin");
       } else {
         router.push("/dashboard");

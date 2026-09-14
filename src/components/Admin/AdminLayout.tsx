@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
+  Shield,
   ShieldAlert,
   LayoutDashboard,
   Users,
@@ -70,7 +71,7 @@ export default function AdminLayout({
             fullName,
             email: u.email,
             phone: u.phone || prev.phone,
-            role: (u.role.slug as any) || prev.role,
+            role: ((typeof u.role === "string" ? u.role : u.role?.slug) as any) || prev.role,
             status: (u.status as any) || prev.status,
           }));
         }

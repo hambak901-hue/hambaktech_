@@ -5,7 +5,11 @@ import { NDPR_COMPLIANCE_STATEMENT } from "@/lib/privacy";
 export async function GET(req: NextRequest) {
   // Session check (optional for status inspection, role-checked for full review)
   const session = await getServerSession(req);
-  const isAdmin = session?.user.role.slug === "admin" || session?.user.role.slug === "super_admin";
+  const isAdmin =
+    session?.role === "admin" ||
+    session?.role === "super_admin" ||
+    session?.user?.role?.slug === "admin" ||
+    session?.user?.role?.slug === "super_admin";
 
   const complianceReport = {
     framework: "HambakTech M12 Security & Compliance Architecture",

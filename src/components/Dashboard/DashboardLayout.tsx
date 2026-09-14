@@ -68,7 +68,7 @@ export default function DashboardLayout({
             fullName,
             email: u.email,
             phone: u.phone || prev.phone,
-            role: (u.role.slug as any) || prev.role,
+            role: ((typeof u.role === "string" ? u.role : u.role?.slug) as any) || prev.role,
             status: (u.status as any) || prev.status,
           }));
           if (u.wallet) {

@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
     AuditService.log({
       actorName: session.fullName || session.email,
       actorEmail: session.email,
-      role: session.role.slug as any,
+      role: (typeof session.role === "string" ? session.role : (session.role as any)?.slug) as any,
       action: "AUTH_PASSWORD_CHANGED",
       entity: "USER_SECURITY",
       entityId: session.userId,

@@ -44,7 +44,7 @@ export async function PATCH(req: NextRequest) {
     AuditService.log({
       actorName: session.fullName || session.email,
       actorEmail: session.email,
-      role: session.role.slug as any,
+      role: (typeof session.role === "string" ? session.role : (session.role as any)?.slug) as any,
       action: "PROFILE_UPDATED",
       entity: "USER_PROFILE",
       entityId: session.userId,
