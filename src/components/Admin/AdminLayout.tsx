@@ -111,9 +111,10 @@ export default function AdminLayout({
       group: "Operations & Requests",
       items: [
         { label: "Orders & Fulfillment", href: "/admin/orders", icon: ShoppingBag },
+        { label: "Shop & Inventory", href: "/admin/shop", icon: ShoppingBag },
         { label: "NIN Operations Desk", href: "/admin/nin", icon: ShieldCheck },
         { label: "CAC Liaison Desk", href: "/admin/cac", icon: Building2 },
-        { label: "Academy Students", href: "/admin/academy", icon: GraduationCap },
+        { label: "Academy & Courses", href: "/admin/academy", icon: GraduationCap },
         { label: "Support Tickets", href: "/admin/support", icon: LifeBuoy },
       ],
     },

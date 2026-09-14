@@ -59,6 +59,8 @@ model User {
   notificationPref  NotificationPreference?
 
   academyEnrollments CourseEnrollment[]
+  assignmentSubmissions AssignmentSubmission[]
+  studentIdCards     StudentIdCard[]
   ninRequests        NINRequest[]
   cacRequests        CACRequest[]
   businessRequests   BusinessServiceRequest[]
@@ -608,10 +610,12 @@ model OrderItem {
   id         String          @id @default(uuid())
   orderId    String
   order      Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  serviceId  String
-  service    Service         @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+  serviceId  String?
+  service    Service?        @relation(fields: [serviceId], references: [id], onDelete: SetNull)
   variantId  String?
   variant    ServiceVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+  productId  String?
+  product    Product?        @relation(fields: [productId], references: [id], onDelete: SetNull)
   title      String
   quantity   Int             @default(1)
   unitPrice  Decimal         @db.Decimal(14, 2)
@@ -620,6 +624,7 @@ model OrderItem {
 
   @@index([orderId])
   @@index([serviceId])
+  @@index([productId])
   @@map("order_items")
 }
 
@@ -858,6 +863,26 @@ enum EnrollmentStatus {
   DROPPED
 }
 
+model Instructor {
+  id             String    @id @default(uuid())
+  name           String
+  title          String
+  bio            String?   @db.Text
+  avatarUrl      String?
+  email          String    @unique
+  phone          String?
+  specialization String
+  rating         Decimal   @default(5.0) @db.Decimal(3, 2)
+  isActive       Boolean   @default(true)
+
+  courses        Course[]
+
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@map("instructors")
+}
+
 model CourseCategory {
   id           String   @id @default(uuid())
   name         String
@@ -878,6 +903,8 @@ model Course {
   id                   String             @id @default(uuid())
   categoryId           String?
   category             CourseCategory?    @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  instructorId         String?
+  instructor           Instructor?        @relation(fields: [instructorId], references: [id], onDelete: SetNull)
   code                 String             @unique // HT-CRS-DIT
   title                String
   slug                 String             @unique
@@ -891,6 +918,7 @@ model Course {
 
   modules              CourseModule[]
   enrollments          CourseEnrollment[]
+  assignments          CourseAssignment[]
 
   createdAt            DateTime           @default(now())
   updatedAt            DateTime           @updatedAt
@@ -898,6 +926,7 @@ model Course {
   @@index([slug])
   @@index([code])
   @@index([isActive])
+  @@index([instructorId])
   @@map("courses")
 }
 
@@ -910,6 +939,7 @@ model CourseModule {
   description    String?          @db.Text
   durationHours  Int              @default(2)
 
+  lessons        Lesson[]
   courseProgress CourseProgress[]
 
   createdAt      DateTime         @default(now())
@@ -918,24 +948,65 @@ model CourseModule {
   @@map("course_modules")
 }
 
+model Lesson {
+  id              String       @id @default(uuid())
+  moduleId        String
+  module          CourseModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  title           String
+  slug            String
+  description     String?      @db.Text
+  content         String?      @db.Text
+  videoUrl        String?
+  durationMinutes Int          @default(30)
+  lessonOrder     Int          @default(1)
+  isFreePreview   Boolean      @default(false)
+
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@unique([moduleId, lessonOrder])
+  @@map("lessons")
+}
+
+model CourseAssignment {
+  id          String                 @id @default(uuid())
+  courseId    String
+  course      Course                 @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  title       String
+  description String                 @db.Text
+  maxScore    Int                    @default(100)
+  dueDate     DateTime?
+  isActive    Boolean                @default(true)
+
+  submissions AssignmentSubmission[]
+
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+
+  @@index([courseId])
+  @@map("course_assignments")
+}
+
 model CourseEnrollment {
-  id               String           @id @default(uuid())
-  enrollmentNumber String           @unique // HT-STU-YYYY-XXXX
+  id               String                 @id @default(uuid())
+  enrollmentNumber String                 @unique // HT-STU-YYYY-XXXX
   userId           String
-  user             User             @relation(fields: [userId], references: [id], onDelete: Restrict)
+  user             User                   @relation(fields: [userId], references: [id], onDelete: Restrict)
   courseId         String
-  course           Course           @relation(fields: [courseId], references: [id], onDelete: Restrict)
-  cohort           String           // e.g. "Batch Q1 2026"
-  status           EnrollmentStatus @default(ENROLLED)
-  progressPercent  Int              @default(0)
-  enrolledAt       DateTime         @default(now())
+  course           Course                 @relation(fields: [courseId], references: [id], onDelete: Restrict)
+  cohort           String                 // e.g. "Batch Q1 2026"
+  status           EnrollmentStatus       @default(ENROLLED)
+  progressPercent  Int                    @default(0)
+  enrolledAt       DateTime               @default(now())
   completedAt      DateTime?
 
   certificate      Certificate?
+  idCard           StudentIdCard?
   progress         CourseProgress[]
+  submissions      AssignmentSubmission[]
 
-  createdAt        DateTime         @default(now())
-  updatedAt        DateTime         @updatedAt
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
 
   @@unique([userId, courseId])
   @@index([userId])
@@ -959,6 +1030,29 @@ model CourseProgress {
   @@map("course_progress")
 }
 
+model AssignmentSubmission {
+  id           String           @id @default(uuid())
+  assignmentId String
+  assignment   CourseAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  enrollmentId String
+  enrollment   CourseEnrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  studentId    String
+  student      User             @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  content      String           @db.Text
+  fileUrl      String?
+  score        Int?
+  grade        String?          // Distinction, Pass, Merit
+  feedback     String?          @db.Text
+  status       String           @default("SUBMITTED") // SUBMITTED, GRADED, REJECTED
+  submittedAt  DateTime         @default(now())
+  gradedAt     DateTime?
+
+  @@index([assignmentId])
+  @@index([enrollmentId])
+  @@index([studentId])
+  @@map("assignment_submissions")
+}
+
 model Certificate {
   id                String           @id @default(uuid())
   certificateNumber String           @unique // HT-CERT-YYYY-XXXX
@@ -979,6 +1073,130 @@ model Certificate {
   @@index([certificateNumber])
   @@index([verificationHash])
   @@map("certificates")
+}
+
+model StudentIdCard {
+  id               String           @id @default(uuid())
+  cardNumber       String           @unique // HT-ID-YYYY-XXXX
+  enrollmentId     String           @unique
+  enrollment       CourseEnrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  studentId        String
+  student          User             @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  issueDate        DateTime         @default(now())
+  expiryDate       DateTime
+  qrCodeData       String           @db.Text
+  status           String           @default("ACTIVE") // ACTIVE, EXPIRED, SUSPENDED
+  bloodGroup       String?
+  emergencyContact String?
+
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  @@index([cardNumber])
+  @@index([studentId])
+  @@map("student_id_cards")
+}
+
+// --------------------------------------------------
+// 11B. Shop, Stationery & Physical Inventory
+// --------------------------------------------------
+
+enum ProductStatus {
+  ACTIVE
+  OUT_OF_STOCK
+  INACTIVE
+  DISCONTINUED
+}
+
+model ProductCategory {
+  id           String    @id @default(uuid())
+  name         String
+  slug         String    @unique
+  code         String    @unique
+  description  String?   @db.Text
+  icon         String?
+  displayOrder Int       @default(0)
+  isActive     Boolean   @default(true)
+
+  products     Product[]
+
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@map("product_categories")
+}
+
+model Product {
+  id                String              @id @default(uuid())
+  categoryId        String
+  category          ProductCategory     @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  name              String
+  slug              String              @unique
+  sku               String              @unique // HT-SKU-XXXX
+  shortDescription  String?
+  fullDescription   String?             @db.Text
+  costPrice         Decimal             @db.Decimal(14, 2)
+  sellingPrice      Decimal             @db.Decimal(14, 2)
+  discountPrice     Decimal?            @db.Decimal(14, 2)
+  stockQuantity     Int                 @default(0)
+  minStockThreshold Int                 @default(5)
+  isDigital         Boolean             @default(false)
+  requiresDelivery  Boolean             @default(true)
+  status            ProductStatus       @default(ACTIVE)
+  imageUrl          String?
+  imagesJson        String?             @db.Text
+  weightKg          Decimal?            @default(0.5) @db.Decimal(6, 2)
+
+  inventoryLogs     ProductInventoryLog[]
+  orderItems        OrderItem[]
+
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  @@index([categoryId])
+  @@index([slug])
+  @@index([status])
+  @@map("products")
+}
+
+enum InventoryChangeType {
+  RESTOCK
+  SALE
+  ADJUSTMENT
+  RETURN
+  DAMAGE
+}
+
+model ProductInventoryLog {
+  id            String              @id @default(uuid())
+  productId     String
+  product       Product             @relation(fields: [productId], references: [id], onDelete: Cascade)
+  changeType    InventoryChangeType
+  quantity      Int
+  balanceBefore Int
+  balanceAfter  Int
+  notes         String?             @db.Text
+  actorId       String?
+  createdAt     DateTime            @default(now())
+
+  @@index([productId])
+  @@index([createdAt])
+  @@map("product_inventory_logs")
+}
+
+model DeliveryZone {
+  id            String   @id @default(uuid())
+  name          String
+  code          String   @unique
+  state         String   @default("Lagos")
+  fee           Decimal  @db.Decimal(14, 2)
+  estimatedDays String   @default("1-2 business days")
+  isActive      Boolean  @default(true)
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("delivery_zones")
 }
 
 // --------------------------------------------------

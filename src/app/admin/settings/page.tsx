@@ -29,14 +29,47 @@ export default function AdminSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState(false);
 
-  const handleSave = (e: React.FormEvent) => {
+  React.useEffect(() => {
+    fetch("/api/admin/settings")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.data) {
+          if (data.data.systemStatus) {
+            setMaintenanceMode(Boolean(data.data.systemStatus.maintenanceMode));
+            setUserRegistration(Boolean(data.data.systemStatus.userRegistration));
+            setVtuAutoDispatch(Boolean(data.data.systemStatus.vtuAutoDispatch));
+          }
+          if (data.data.companyConfig) {
+            setConfig((prev) => ({ ...prev, ...data.data.companyConfig }));
+          }
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    setTimeout(() => {
-      setSaving(false);
+    try {
+      await fetch("/api/admin/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          companyConfig: config,
+          systemStatus: {
+            maintenanceMode,
+            userRegistration,
+            vtuAutoDispatch,
+          },
+        }),
+      });
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
-    }, 600);
+    } catch {
+      // ignore
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleExportBackup = () => {

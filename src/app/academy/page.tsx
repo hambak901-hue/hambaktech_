@@ -60,6 +60,13 @@ export default function AcademyPublicPage() {
                 <span>Student Portal & Enrollment</span>
                 <ArrowRight className="w-4 h-4" />
               </Link>
+              <Link
+                href="/verify"
+                className="px-6 py-3 rounded-2xl bg-white dark:bg-dark border border-stroke dark:border-strokedark text-dark dark:text-white font-semibold text-sm hover:border-primary transition inline-flex items-center gap-2"
+              >
+                <Award className="w-4 h-4 text-primary" />
+                <span>Verify a Certificate</span>
+              </Link>
               <a
                 href="#courses"
                 className="px-6 py-3 rounded-2xl border border-stroke dark:border-strokedark text-dark dark:text-white font-semibold text-sm hover:bg-gray-100 dark:hover:bg-gray-dark transition inline-flex items-center gap-2"

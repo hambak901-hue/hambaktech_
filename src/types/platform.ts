@@ -245,21 +245,225 @@ export interface CACRequest {
 // --------------------------------------------------------------------------
 // Academy Contracts
 // --------------------------------------------------------------------------
+export interface InstructorRecord {
+  id: string;
+  name: string;
+  title: string;
+  bio?: string;
+  avatarUrl?: string;
+  email: string;
+  phone?: string;
+  specialization: string;
+  rating: number;
+  isActive: boolean;
+}
+
+export interface LessonRecord {
+  id: string;
+  moduleId: string;
+  title: string;
+  slug: string;
+  description?: string;
+  content?: string;
+  videoUrl?: string;
+  durationMinutes: number;
+  lessonOrder: number;
+  isFreePreview: boolean;
+}
+
+export interface CourseModuleRecord {
+  id: string;
+  courseId: string;
+  title: string;
+  description?: string;
+  durationHours: number;
+  moduleOrder: number;
+  lessons: LessonRecord[];
+}
+
+export interface CourseAssignmentRecord {
+  id: string;
+  courseId: string;
+  title: string;
+  description: string;
+  maxScore: number;
+  dueDate?: string;
+  isActive: boolean;
+}
+
+export interface AssignmentSubmissionRecord {
+  id: string;
+  assignmentId: string;
+  assignmentTitle?: string;
+  enrollmentId: string;
+  studentId: string;
+  studentName?: string;
+  content: string;
+  fileUrl?: string;
+  score?: number;
+  grade?: string;
+  feedback?: string;
+  status: "SUBMITTED" | "GRADED" | "REJECTED";
+  submittedAt: string;
+  gradedAt?: string;
+}
+
+export interface CourseRecord {
+  id: string;
+  categoryId?: string;
+  categoryName?: string;
+  instructorId?: string;
+  instructorName?: string;
+  instructorTitle?: string;
+  code: string;
+  title: string;
+  slug: string;
+  shortDescription: string;
+  fullDescription: string;
+  level: "BEGINNER" | "INTERMEDIATE" | "ADVANCED" | "PROFESSIONAL";
+  durationWeeks: number;
+  tuitionFee: number;
+  isCertificateIncluded: boolean;
+  isActive: boolean;
+  modulesCount?: number;
+  lessonsCount?: number;
+  enrolledStudentsCount?: number;
+  modules?: CourseModuleRecord[];
+  assignments?: CourseAssignmentRecord[];
+}
+
 export interface AcademyEnrollment {
   id: string;
+  enrollmentNumber: string;
   userId: string;
   courseId: string;
   courseTitle: string;
+  courseCode?: string;
   studentName: string;
   studentEmail: string;
+  studentPhone?: string;
   cohort: string;
   progressPercent: number;
-  status: "ENROLLED" | "IN_PROGRESS" | "COMPLETED" | "DROPPED";
+  status: "ENROLLED" | "IN_PROGRESS" | "COMPLETED" | "DROPPED" | "SUSPENDED";
   completedModules: number[];
+  completedLessons?: string[];
   certificateIssued: boolean;
   certificateNumber?: string;
+  certificateHash?: string;
   certificateDate?: string;
+  hasIdCard?: boolean;
+  idCardNumber?: string;
   enrolledAt: string;
+  completedAt?: string;
+}
+
+export interface CertificateRecord {
+  id: string;
+  certificateNumber: string; // HT-CERT-YYYY-XXXX
+  verificationHash: string; // Public SHA256 verification hash
+  enrollmentId: string;
+  studentName: string;
+  courseTitle: string;
+  courseCode?: string;
+  grade?: string;
+  issuedAt: string;
+  issuedByName?: string;
+  isRevoked: boolean;
+  revokedReason?: string;
+  verificationUrl: string;
+}
+
+export interface StudentIdCardRecord {
+  id: string;
+  cardNumber: string; // HT-ID-YYYY-XXXX
+  enrollmentId: string;
+  studentId: string;
+  studentName: string;
+  studentEmail: string;
+  courseTitle: string;
+  courseCode: string;
+  cohort: string;
+  issueDate: string;
+  expiryDate: string;
+  qrCodeData: string;
+  status: "ACTIVE" | "EXPIRED" | "SUSPENDED";
+  bloodGroup?: string;
+  emergencyContact?: string;
+}
+
+export interface CertificateVerificationResult {
+  valid: boolean;
+  certificateNumber: string;
+  verificationHash: string;
+  studentInitialsOrPublicName: string;
+  courseTitle: string;
+  courseCode?: string;
+  issuedAt: string;
+  grade?: string;
+  status: "VALID" | "REVOKED" | "NOT_FOUND";
+  issuingInstitution: string;
+  accreditedSkills?: string[];
+  verificationUrl: string;
+}
+
+// --------------------------------------------------------------------------
+// Shop & Inventory Contracts
+// --------------------------------------------------------------------------
+export interface ProductCategoryRecord {
+  id: string;
+  name: string;
+  slug: string;
+  code: string;
+  description?: string;
+  icon?: string;
+  displayOrder: number;
+  isActive: boolean;
+  productsCount?: number;
+}
+
+export interface ProductRecord {
+  id: string;
+  categoryId: string;
+  categoryName?: string;
+  name: string;
+  slug: string;
+  sku: string;
+  shortDescription?: string;
+  fullDescription?: string;
+  costPrice: number;
+  sellingPrice: number;
+  discountPrice?: number;
+  stockQuantity: number;
+  minStockThreshold: number;
+  isDigital: boolean;
+  requiresDelivery: boolean;
+  status: "ACTIVE" | "OUT_OF_STOCK" | "INACTIVE" | "DISCONTINUED";
+  imageUrl?: string;
+  weightKg?: number;
+}
+
+export interface ProductInventoryLogRecord {
+  id: string;
+  productId: string;
+  productName?: string;
+  changeType: "RESTOCK" | "SALE" | "ADJUSTMENT" | "RETURN" | "DAMAGE";
+  quantity: number;
+  balanceBefore: number;
+  balanceAfter: number;
+  notes?: string;
+  actorId?: string;
+  actorName?: string;
+  createdAt: string;
+}
+
+export interface DeliveryZoneRecord {
+  id: string;
+  name: string;
+  code: string;
+  state: string;
+  fee: number;
+  estimatedDays: string;
+  isActive: boolean;
 }
 
 // --------------------------------------------------------------------------

@@ -21,6 +21,7 @@ import AdminLayout from "@/components/Admin/AdminLayout";
 export default function AdminPricingPage() {
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Pricing State
   const [pricing, setPricing] = useState({
@@ -40,14 +41,37 @@ export default function AdminPricingPage() {
     academyDataAnalysis: 50000,
   });
 
-  const handleSave = (e: React.FormEvent) => {
+  React.useEffect(() => {
+    fetch("/api/admin/pricing")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.data) {
+          setPricing((prev) => ({ ...prev, ...data.data }));
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    setTimeout(() => {
-      setSaving(false);
+    setError(null);
+    try {
+      const res = await fetch("/api/admin/pricing", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(pricing),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message || "Failed to update pricing");
+
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
-    }, 600);
+    } catch (err: any) {
+      setError(err.message || "Failed to save");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (

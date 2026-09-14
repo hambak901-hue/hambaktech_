@@ -114,6 +114,11 @@ export default function DashboardLayout({
       icon: ShoppingBag,
     },
     {
+      label: "Hardware & Stationery Shop",
+      href: "/dashboard/shop",
+      icon: ShoppingBag,
+    },
+    {
       label: "Digital Services Hub",
       href: "/dashboard/services",
       icon: Grid,

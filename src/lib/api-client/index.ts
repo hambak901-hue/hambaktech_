@@ -26,6 +26,17 @@ import {
   NINRequest,
   CACRequest,
   AcademyEnrollment,
+  InstructorRecord,
+  CourseRecord,
+  CourseAssignmentRecord,
+  AssignmentSubmissionRecord,
+  CertificateRecord,
+  StudentIdCardRecord,
+  CertificateVerificationResult,
+  ProductCategoryRecord,
+  ProductRecord,
+  ProductInventoryLogRecord,
+  DeliveryZoneRecord,
   SupportTicket,
   PriceRule,
   SystemProvider,
@@ -1534,6 +1545,267 @@ class PlatformStore {
     return this.enrollments[idx];
   }
 
+  // --- Real API Server Integrations (M8 - Academy) ---
+  async fetchCourses(): Promise<CourseRecord[]> {
+    try {
+      const res = await fetch("/api/academy/courses");
+      if (res.ok) {
+        const json = await res.json();
+        return json.data || [];
+      }
+    } catch (e) {
+      console.error("fetchCourses failed:", e);
+    }
+    return [];
+  }
+
+  async fetchCourseById(id: string): Promise<CourseRecord | null> {
+    try {
+      const res = await fetch(`/api/academy/courses/${id}`);
+      if (res.ok) {
+        const json = await res.json();
+        return json.data || null;
+      }
+    } catch (e) {
+      console.error("fetchCourseById failed:", e);
+    }
+    return null;
+  }
+
+  async fetchInstructors(): Promise<InstructorRecord[]> {
+    try {
+      const res = await fetch("/api/academy/instructors");
+      if (res.ok) {
+        const json = await res.json();
+        return json.data || [];
+      }
+    } catch (e) {
+      console.error("fetchInstructors failed:", e);
+    }
+    return [];
+  }
+
+  async fetchRemoteEnrollments(userId?: string): Promise<AcademyEnrollment[]> {
+    try {
+      const url = userId ? `/api/academy/enrollments?userId=${userId}` : "/api/academy/enrollments";
+      const res = await fetch(url);
+      if (res.ok) {
+        const json = await res.json();
+        return json.data || [];
+      }
+    } catch (e) {
+      console.error("fetchRemoteEnrollments failed:", e);
+    }
+    return this.enrollments;
+  }
+
+  async enrollCourseRemote(courseId: string, options?: { payWithWallet?: boolean; studentPhone?: string; cohort?: string }): Promise<any> {
+    const res = await fetch("/api/academy/enrollments", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ courseId, ...options }),
+    });
+    const json = await res.json();
+    if (!res.ok) {
+      throw new Error(json.message || "Enrollment failed");
+    }
+    return json.data;
+  }
+
+  async updateLessonProgress(enrollmentId: string, lessonId: string, moduleId: number): Promise<AcademyEnrollment> {
+    const res = await fetch("/api/academy/progress", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enrollmentId, lessonId, moduleId }),
+    });
+    const json = await res.json();
+    if (!res.ok) {
+      throw new Error(json.message || "Failed to update lesson progress");
+    }
+    return json.data;
+  }
+
+  async fetchAssignments(courseId?: string): Promise<CourseAssignmentRecord[]> {
+    try {
+      const url = courseId ? `/api/academy/assignments?courseId=${courseId}` : "/api/academy/assignments";
+      const res = await fetch(url);
+      if (res.ok) {
+        const json = await res.json();
+        return json.data || [];
+      }
+    } catch (e) {
+      console.error("fetchAssignments failed:", e);
+    }
+    return [];
+  }
+
+  async submitAssignmentRemote(payload: { assignmentId: string; enrollmentId: string; content: string; fileUrl?: string }): Promise<AssignmentSubmissionRecord> {
+    const res = await fetch("/api/academy/assignments", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const json = await res.json();
+    if (!res.ok) {
+      throw new Error(json.message || "Failed to submit assignment");
+    }
+    return json.data;
+  }
+
+  async fetchCertificates(): Promise<CertificateRecord[]> {
+    try {
+      const res = await fetch("/api/academy/certificates");
+      if (res.ok) {
+        const json = await res.json();
+        return json.data || [];
+      }
+    } catch (e) {
+      console.error("fetchCertificates failed:", e);
+    }
+    return [];
+  }
+
+  async verifyCertificateRemote(code: string): Promise<CertificateVerificationResult> {
+    const res = await fetch(`/api/academy/verify/${encodeURIComponent(code)}`);
+    const json = await res.json();
+    if (!res.ok) {
+      throw new Error(json.message || "Verification request failed");
+    }
+    return json.data;
+  }
+
+  async fetchIdCards(): Promise<StudentIdCardRecord[]> {
+    try {
+      const res = await fetch("/api/academy/id-cards");
+      if (res.ok) {
+        const json = await res.json();
+        return json.data || [];
+      }
+    } catch (e) {
+      console.error("fetchIdCards failed:", e);
+    }
+    return [];
+  }
+
+  // --- Real API Server Integrations (M9 - Shop) ---
+  async fetchProductCategories(): Promise<ProductCategoryRecord[]> {
+    try {
+      const res = await fetch("/api/shop/categories");
+      if (res.ok) {
+        const json = await res.json();
+        return json.data || [];
+      }
+    } catch (e) {
+      console.error("fetchProductCategories failed:", e);
+    }
+    return [];
+  }
+
+  async fetchProducts(categoryId?: string, query?: string): Promise<ProductRecord[]> {
+    try {
+      let url = "/api/shop/products";
+      const params = new URLSearchParams();
+      if (categoryId) params.set("categoryId", categoryId);
+      if (query) params.set("q", query);
+      const queryString = params.toString();
+      if (queryString) url += `?${queryString}`;
+
+      const res = await fetch(url);
+      if (res.ok) {
+        const json = await res.json();
+        return json.data || [];
+      }
+    } catch (e) {
+      console.error("fetchProducts failed:", e);
+    }
+    return [];
+  }
+
+  async fetchProductById(id: string): Promise<ProductRecord | null> {
+    try {
+      const res = await fetch(`/api/shop/products/${id}`);
+      if (res.ok) {
+        const json = await res.json();
+        return json.data || null;
+      }
+    } catch (e) {
+      console.error("fetchProductById failed:", e);
+    }
+    return null;
+  }
+
+  async fetchDeliveryZones(): Promise<DeliveryZoneRecord[]> {
+    try {
+      const res = await fetch("/api/shop/delivery-zones");
+      if (res.ok) {
+        const json = await res.json();
+        return json.data || [];
+      }
+    } catch (e) {
+      console.error("fetchDeliveryZones failed:", e);
+    }
+    return [];
+  }
+
+  async createShopOrderRemote(payload: {
+    items: Array<{ productId: string; quantity: number }>;
+    deliveryZoneId: string;
+    deliveryAddress?: string;
+    paymentMethod?: "WALLET" | "PAYSTACK" | "MONIEPOINT" | "BANK_TRANSFER";
+    notes?: string;
+  }): Promise<Order> {
+    const res = await fetch("/api/shop/orders", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const json = await res.json();
+    if (!res.ok) {
+      throw new Error(json.message || "Failed to place shop order");
+    }
+    return json.data;
+  }
+
+  async fetchShopOrders(): Promise<Order[]> {
+    try {
+      const res = await fetch("/api/shop/orders");
+      if (res.ok) {
+        const json = await res.json();
+        return json.data || [];
+      }
+    } catch (e) {
+      console.error("fetchShopOrders failed:", e);
+    }
+    return [];
+  }
+
+  async fetchInventoryLogs(productId?: string): Promise<ProductInventoryLogRecord[]> {
+    try {
+      const url = productId ? `/api/shop/inventory?productId=${productId}` : "/api/shop/inventory";
+      const res = await fetch(url);
+      if (res.ok) {
+        const json = await res.json();
+        return json.data || [];
+      }
+    } catch (e) {
+      console.error("fetchInventoryLogs failed:", e);
+    }
+    return [];
+  }
+
+  async adjustStockRemote(productId: string, changeType: string, quantity: number, notes?: string): Promise<ProductRecord> {
+    const res = await fetch("/api/shop/inventory", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ productId, changeType, quantity, notes }),
+    });
+    const json = await res.json();
+    if (!res.ok) {
+      throw new Error(json.message || "Failed to adjust stock");
+    }
+    return json.data;
+  }
+
   // --- Support ---
   getSupportTickets(): SupportTicket[] {
     return this.tickets;
@@ -2513,6 +2785,176 @@ class PlatformStore {
       openTickets: this.tickets.filter((t) => t.status !== "RESOLVED" && t.status !== "CLOSED").length,
       vtuWalletBalance: 420800,
     };
+  }
+
+  // --- Real API Server Integrations (M10 - Admin) ---
+  async fetchAdminPricing(): Promise<PriceRule[]> {
+    try {
+      const res = await fetch("/api/admin/pricing");
+      if (res.ok) {
+        const json = await res.json();
+        return json.data || [];
+      }
+    } catch (e) {
+      console.error("fetchAdminPricing failed:", e);
+    }
+    return this.priceRules;
+  }
+
+  async updateAdminPriceRule(rule: Partial<PriceRule> & { id: string }): Promise<PriceRule> {
+    const res = await fetch("/api/admin/pricing", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(rule),
+    });
+    const json = await res.json();
+    if (!res.ok) {
+      throw new Error(json.message || "Failed to update price rule");
+    }
+    return json.data;
+  }
+
+  async fetchAdminOrders(): Promise<Order[]> {
+    try {
+      const res = await fetch("/api/admin/orders");
+      if (res.ok) {
+        const json = await res.json();
+        return json.data || [];
+      }
+    } catch (e) {
+      console.error("fetchAdminOrders failed:", e);
+    }
+    return this.orders;
+  }
+
+  async updateAdminOrderStatus(orderId: string, status: OrderStatus, note?: string): Promise<Order> {
+    const res = await fetch("/api/admin/orders", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ orderId, status, note }),
+    });
+    const json = await res.json();
+    if (!res.ok) {
+      throw new Error(json.message || "Failed to update order status");
+    }
+    return json.data;
+  }
+
+  async fetchAdminUsers(): Promise<User[]> {
+    try {
+      const res = await fetch("/api/admin/users");
+      if (res.ok) {
+        const json = await res.json();
+        return json.data || [];
+      }
+    } catch (e) {
+      console.error("fetchAdminUsers failed:", e);
+    }
+    return this.allUsers;
+  }
+
+  async updateAdminUser(userId: string, updates: Partial<User>): Promise<User> {
+    const res = await fetch("/api/admin/users", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId, ...updates }),
+    });
+    const json = await res.json();
+    if (!res.ok) {
+      throw new Error(json.message || "Failed to update user");
+    }
+    return json.data;
+  }
+
+  async fetchAdminWallets(): Promise<Wallet[]> {
+    try {
+      const res = await fetch("/api/admin/wallets");
+      if (res.ok) {
+        const json = await res.json();
+        return json.data || [];
+      }
+    } catch (e) {
+      console.error("fetchAdminWallets failed:", e);
+    }
+    return [this.wallet];
+  }
+
+  async adjustAdminWallet(userId: string, amount: number, type: "CREDIT" | "DEBIT", description: string): Promise<Wallet> {
+    const res = await fetch("/api/admin/wallets", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId, amount, type, description }),
+    });
+    const json = await res.json();
+    if (!res.ok) {
+      throw new Error(json.message || "Failed to adjust wallet balance");
+    }
+    return json.data;
+  }
+
+  async fetchAdminProviders(): Promise<SystemProvider[]> {
+    try {
+      const res = await fetch("/api/admin/providers");
+      if (res.ok) {
+        const json = await res.json();
+        return json.data || [];
+      }
+    } catch (e) {
+      console.error("fetchAdminProviders failed:", e);
+    }
+    return this.providers;
+  }
+
+  async fetchAdminAuditLogs(): Promise<AuditLogEntry[]> {
+    try {
+      const res = await fetch("/api/admin/audit-logs");
+      if (res.ok) {
+        const json = await res.json();
+        return json.data || [];
+      }
+    } catch (e) {
+      console.error("fetchAdminAuditLogs failed:", e);
+    }
+    return this.auditLogs;
+  }
+
+  async fetchAdminReports(): Promise<any> {
+    try {
+      const res = await fetch("/api/admin/reports");
+      if (res.ok) {
+        const json = await res.json();
+        return json.data;
+      }
+    } catch (e) {
+      console.error("fetchAdminReports failed:", e);
+    }
+    return this.getReportMetrics();
+  }
+
+  async fetchAdminSettings(): Promise<any> {
+    try {
+      const res = await fetch("/api/admin/settings");
+      if (res.ok) {
+        const json = await res.json();
+        return json.data;
+      }
+    } catch (e) {
+      console.error("fetchAdminSettings failed:", e);
+    }
+    return null;
+  }
+
+  async updateAdminSettings(updates: any): Promise<any> {
+    const res = await fetch("/api/admin/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(updates),
+    });
+    const json = await res.json();
+    if (!res.ok) {
+      throw new Error(json.message || "Failed to update settings");
+    }
+    return json.data;
   }
 }
 

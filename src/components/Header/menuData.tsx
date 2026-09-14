@@ -81,6 +81,18 @@ const menuData: Menu[] = [
     newTab: false,
   },
   {
+    id: 301,
+    title: "Shop",
+    path: "/shop",
+    newTab: false,
+  },
+  {
+    id: 302,
+    title: "Verify",
+    path: "/verify",
+    newTab: false,
+  },
+  {
     id: 31,
     title: "Customer Dashboard",
     path: "/dashboard",

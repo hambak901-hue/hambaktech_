@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Link from "next/link";
 import {
   GraduationCap,
   Award,
@@ -10,799 +11,856 @@ import {
   User,
   Mail,
   FileCheck,
-  Percent,
   Plus,
   Edit2,
   Trash2,
   Eye,
   X,
+  FileText,
+  ShieldCheck,
+  QrCode,
+  Search,
+  ExternalLink,
+  RefreshCw,
+  AlertCircle,
+  Phone,
+  Calendar,
 } from "lucide-react";
 import AdminLayout from "@/components/Admin/AdminLayout";
-import AdminDataTable, { Column, FilterOption } from "@/components/Admin/AdminDataTable";
+import QRCodeView from "@/components/common/QRCodeView";
 import platformApi from "@/lib/api-client";
-import { AcademyEnrollment } from "@/types/platform";
+import {
+  CourseRecord,
+  InstructorRecord,
+  AcademyEnrollment,
+  CourseAssignmentRecord,
+  CertificateRecord,
+  StudentIdCardRecord,
+} from "@/types/platform";
 
 export default function AdminAcademyPage() {
+  const [activeTab, setActiveTab] = useState<
+    "courses" | "instructors" | "enrollments" | "assignments" | "certificates" | "idcards"
+  >("courses");
+
+  // State collections
+  const [courses, setCourses] = useState<CourseRecord[]>([]);
+  const [instructors, setInstructors] = useState<InstructorRecord[]>([]);
   const [enrollments, setEnrollments] = useState<AcademyEnrollment[]>([]);
+  const [assignments, setAssignments] = useState<CourseAssignmentRecord[]>([]);
+  const [certificates, setCertificates] = useState<CertificateRecord[]>([]);
+  const [idCards, setIdCards] = useState<StudentIdCardRecord[]>([]);
+  
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [actionFeedback, setActionFeedback] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   // Modals
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [viewingEnrollment, setViewingEnrollment] = useState<AcademyEnrollment | null>(null);
-  const [editingEnrollment, setEditingEnrollment] = useState<AcademyEnrollment | null>(null);
-  const [deletingEnrollment, setDeletingEnrollment] = useState<AcademyEnrollment | null>(null);
+  const [showCourseModal, setShowCourseModal] = useState(false);
+  const [courseForm, setCourseForm] = useState({
+    title: "",
+    code: "",
+    description: "",
+    duration: "8 Weeks",
+    price: 35000,
+    schedule: "Mon, Wed, Fri (10 AM - 1 PM)",
+    instructorId: "",
+  });
 
-  // Form states
-  const [formStudentName, setFormStudentName] = useState("");
-  const [formStudentEmail, setFormStudentEmail] = useState("");
-  const [formCourseTitle, setFormCourseTitle] = useState("Professional Web Development Bootcamp");
-  const [formCohort, setFormCohort] = useState("Q4-2026");
-  const [formProgress, setFormProgress] = useState(0);
-  const [formStatus, setFormStatus] = useState<AcademyEnrollment["status"]>("ENROLLED");
-  const [formCertIssued, setFormCertIssued] = useState(false);
-  const [formCertNumber, setFormCertNumber] = useState("");
+  const [showInstructorModal, setShowInstructorModal] = useState(false);
+  const [instructorForm, setInstructorForm] = useState({
+    fullName: "",
+    email: "",
+    phone: "",
+    specialization: "Web Engineering & Software",
+    bio: "",
+  });
 
-  const loadStudents = () => {
+  // Grading modal
+  const [gradingSubmission, setGradingSubmission] = useState<{
+    assignmentId: string;
+    submissionId: string;
+    studentName: string;
+    content: string;
+    maxScore: number;
+    score: number;
+    feedback: string;
+  } | null>(null);
+
+  // Load all admin academy collections
+  const loadData = async () => {
     try {
       setLoading(true);
-      const list = platformApi.getAcademyEnrollments();
-      setEnrollments([...list]);
-      setError(null);
+      const [cList, iList, eList, aList, certList, idList] = await Promise.all([
+        platformApi.fetchCourses(),
+        platformApi.fetchInstructors(),
+        platformApi.fetchRemoteEnrollments(),
+        platformApi.fetchAssignments(),
+        platformApi.fetchCertificates(),
+        platformApi.fetchIdCards(),
+      ]);
+
+      setCourses(cList);
+      setInstructors(iList);
+      setEnrollments(eList);
+      setAssignments(aList);
+      setCertificates(certList);
+      setIdCards(idList);
+
+      if (iList.length > 0 && !courseForm.instructorId) {
+        setCourseForm((prev) => ({ ...prev, instructorId: iList[0].id }));
+      }
     } catch (err: any) {
-      setError(err.message || "Failed to load student enrollments");
+      console.error("Admin academy data load error:", err);
+      setFeedback({ type: "error", message: "Failed to load academy administrative records" });
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadStudents();
+    loadData();
   }, []);
 
-  const openCreateModal = () => {
-    setFormStudentName("");
-    setFormStudentEmail("");
-    setFormCourseTitle("Professional Web Development Bootcamp");
-    setFormCohort("Q4-2026");
-    setFormProgress(0);
-    setFormStatus("ENROLLED");
-    setFormCertIssued(false);
-    setFormCertNumber("");
-    setShowCreateModal(true);
-  };
-
-  const openEditModal = (e: AcademyEnrollment) => {
-    setEditingEnrollment(e);
-    setFormStudentName(e.studentName);
-    setFormStudentEmail(e.studentEmail);
-    setFormCourseTitle(e.courseTitle);
-    setFormCohort(e.cohort);
-    setFormProgress(e.progressPercent);
-    setFormStatus(e.status);
-    setFormCertIssued(e.certificateIssued);
-    setFormCertNumber(e.certificateNumber || "");
-  };
-
-  const handleCreateStudent = (e: React.FormEvent) => {
+  // Handle Course Creation
+  const handleSaveCourse = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formStudentName.trim() || !formStudentEmail.trim()) return;
-
     try {
-      platformApi.createAcademyEnrollment({
-        studentName: formStudentName.trim(),
-        studentEmail: formStudentEmail.trim(),
-        courseTitle: formCourseTitle,
-        cohort: formCohort,
-        progressPercent: Number(formProgress),
-        status: formStatus,
-        certificateIssued: formCertIssued,
-        certificateNumber: formCertIssued
-          ? formCertNumber || `HT-CERT-${Date.now().toString().slice(-6)}`
-          : undefined,
-        certificateDate: formCertIssued ? new Date().toISOString() : undefined,
+      const res = await fetch("/api/academy/courses", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(courseForm),
       });
-      setShowCreateModal(false);
-      setActionFeedback("Student enrollment recorded.");
-      setTimeout(() => setActionFeedback(null), 3500);
-      loadStudents();
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message || "Failed to create course");
+
+      setFeedback({ type: "success", message: `Course "${json.data.title}" published to catalog!` });
+      setShowCourseModal(false);
+      setCourseForm({
+        title: "",
+        code: "",
+        description: "",
+        duration: "8 Weeks",
+        price: 35000,
+        schedule: "Mon, Wed, Fri (10 AM - 1 PM)",
+        instructorId: instructors[0]?.id || "",
+      });
+      await loadData();
+      setTimeout(() => setFeedback(null), 4000);
     } catch (err: any) {
-      alert(err.message || "Failed to create student enrollment");
+      setFeedback({ type: "error", message: err.message });
     }
   };
 
-  const handleUpdateStudent = (e: React.FormEvent) => {
+  // Handle Instructor Creation
+  const handleSaveInstructor = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingEnrollment) return;
-
     try {
-      platformApi.updateAcademyEnrollment(editingEnrollment.id, {
-        studentName: formStudentName.trim(),
-        studentEmail: formStudentEmail.trim(),
-        courseTitle: formCourseTitle,
-        cohort: formCohort,
-        progressPercent: Number(formProgress),
-        status: formStatus,
-        certificateIssued: formCertIssued,
-        certificateNumber: formCertIssued
-          ? formCertNumber || `HT-CERT-${Date.now().toString().slice(-6)}`
-          : undefined,
-        certificateDate: formCertIssued
-          ? editingEnrollment.certificateDate || new Date().toISOString()
-          : undefined,
+      const res = await fetch("/api/academy/instructors", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(instructorForm),
       });
-      setEditingEnrollment(null);
-      setActionFeedback("Student enrollment updated.");
-      setTimeout(() => setActionFeedback(null), 3500);
-      loadStudents();
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message || "Failed to create instructor");
+
+      setFeedback({ type: "success", message: `Instructor ${json.data.fullName} registered successfully!` });
+      setShowInstructorModal(false);
+      setInstructorForm({
+        fullName: "",
+        email: "",
+        phone: "",
+        specialization: "Web Engineering & Software",
+        bio: "",
+      });
+      await loadData();
+      setTimeout(() => setFeedback(null), 4000);
     } catch (err: any) {
-      alert(err.message || "Failed to update enrollment");
+      setFeedback({ type: "error", message: err.message });
     }
   };
 
-  const handleDeleteStudent = () => {
-    if (!deletingEnrollment) return;
+  // Handle Grade Submission
+  const handleSaveGrade = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!gradingSubmission) return;
     try {
-      platformApi.deleteAcademyEnrollment(deletingEnrollment.id);
-      setDeletingEnrollment(null);
-      setActionFeedback(`Enrollment for ${deletingEnrollment.studentName} deleted.`);
-      setTimeout(() => setActionFeedback(null), 3500);
-      loadStudents();
+      const res = await fetch(`/api/academy/assignments/${gradingSubmission.assignmentId}/grade`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          submissionId: gradingSubmission.submissionId,
+          score: Number(gradingSubmission.score),
+          feedback: gradingSubmission.feedback,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message || "Failed to submit grade");
+
+      setFeedback({ type: "success", message: "Assignment grade and evaluation feedback saved!" });
+      setGradingSubmission(null);
+      await loadData();
+      setTimeout(() => setFeedback(null), 4000);
     } catch (err: any) {
-      alert(err.message || "Failed to delete enrollment");
+      setFeedback({ type: "error", message: err.message });
     }
   };
-
-  const handleToggleCert = (enrollment: AcademyEnrollment) => {
-    const nextCert = !enrollment.certificateIssued;
-    platformApi.updateAcademyEnrollment(enrollment.id, {
-      certificateIssued: nextCert,
-      certificateNumber: nextCert ? `HT-CERT-${Date.now().toString().slice(-6)}` : undefined,
-      certificateDate: nextCert ? new Date().toISOString() : undefined,
-    });
-    loadStudents();
-  };
-
-  const handleQuickStatus = (enrollment: AcademyEnrollment, nextStatus: AcademyEnrollment["status"]) => {
-    platformApi.updateAcademyEnrollment(enrollment.id, {
-      status: nextStatus,
-      progressPercent: nextStatus === "COMPLETED" ? 100 : enrollment.progressPercent,
-      certificateIssued: nextStatus === "COMPLETED" ? true : enrollment.certificateIssued,
-      certificateNumber:
-        nextStatus === "COMPLETED" && !enrollment.certificateNumber
-          ? `HT-CERT-${Date.now().toString().slice(-6)}`
-          : enrollment.certificateNumber,
-    });
-    loadStudents();
-  };
-
-  const columns: Column<AcademyEnrollment>[] = [
-    {
-      key: "studentName",
-      header: "Student Information",
-      sortable: true,
-      render: (s) => (
-        <div>
-          <span className="font-bold text-dark dark:text-white text-xs block">{s.studentName}</span>
-          <span className="text-[11px] text-body-color">{s.studentEmail}</span>
-        </div>
-      ),
-    },
-    {
-      key: "courseTitle",
-      header: "Course & Cohort",
-      sortable: true,
-      render: (s) => (
-        <div>
-          <span className="font-bold text-dark dark:text-white text-xs block">{s.courseTitle}</span>
-          <span className="text-[11px] font-mono text-primary font-semibold">{s.cohort}</span>
-        </div>
-      ),
-    },
-    {
-      key: "progressPercent",
-      header: "Curriculum Progress",
-      sortable: true,
-      render: (s) => (
-        <div className="w-28 space-y-1">
-          <div className="flex justify-between text-[10px] text-body-color font-semibold">
-            <span>{s.progressPercent}%</span>
-            <span>{s.status}</span>
-          </div>
-          <div className="w-full h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-            <div
-              className={`h-full rounded-full ${
-                s.progressPercent >= 100
-                  ? "bg-emerald-500"
-                  : s.progressPercent > 50
-                  ? "bg-primary"
-                  : "bg-amber-500"
-              }`}
-              style={{ width: `${s.progressPercent}%` }}
-            />
-          </div>
-        </div>
-      ),
-    },
-    {
-      key: "status",
-      header: "Enrollment Status",
-      sortable: true,
-      render: (s) => {
-        const styles: Record<string, string> = {
-          COMPLETED: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300",
-          IN_PROGRESS: "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300",
-          ENROLLED: "bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300",
-          DROPPED: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300",
-        };
-        return (
-          <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${styles[s.status] || styles.ENROLLED}`}>
-            {s.status.replace("_", " ")}
-          </span>
-        );
-      },
-    },
-    {
-      key: "certificateIssued",
-      header: "Certificate",
-      sortable: true,
-      render: (s) => (
-        <button
-          type="button"
-          onClick={() => handleToggleCert(s)}
-          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold transition ${
-            s.certificateIssued
-              ? "bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300"
-              : "bg-gray-100 text-body-color hover:bg-gray-200"
-          }`}
-          title="Click to toggle certificate"
-        >
-          <Award className="w-3 h-3" />
-          <span>{s.certificateIssued ? s.certificateNumber || "Issued" : "Pending"}</span>
-        </button>
-      ),
-    },
-    {
-      key: "actions",
-      header: "Actions",
-      align: "right",
-      render: (s) => (
-        <div className="flex items-center justify-end gap-1.5">
-          <button
-            type="button"
-            onClick={() => setViewingEnrollment(s)}
-            className="p-1.5 rounded-lg border border-stroke dark:border-strokedark hover:bg-gray-100 dark:hover:bg-gray-dark text-body-color hover:text-dark dark:hover:text-white transition"
-            title="View Student"
-          >
-            <Eye className="w-3.5 h-3.5" />
-          </button>
-          <button
-            type="button"
-            onClick={() => openEditModal(s)}
-            className="p-1.5 rounded-lg border border-stroke dark:border-strokedark hover:bg-gray-100 dark:hover:bg-gray-dark text-body-color hover:text-amber-600 transition"
-            title="Edit Enrollment"
-          >
-            <Edit2 className="w-3.5 h-3.5" />
-          </button>
-          {s.status !== "COMPLETED" ? (
-            <button
-              type="button"
-              onClick={() => handleQuickStatus(s, "COMPLETED")}
-              className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition"
-            >
-              Graduate
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={() => handleQuickStatus(s, "IN_PROGRESS")}
-              className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-gray-100 dark:bg-gray-800 text-body-color hover:bg-gray-200 transition"
-            >
-              Reset
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={() => setDeletingEnrollment(s)}
-            className="p-1.5 rounded-lg border border-rose-200 dark:border-rose-900/40 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-600 transition"
-            title="Delete Enrollment"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      ),
-    },
-  ];
-
-  const filters: FilterOption[] = [
-    {
-      key: "status",
-      label: "Status",
-      options: [
-        { label: "Enrolled", value: "ENROLLED" },
-        { label: "In Progress", value: "IN_PROGRESS" },
-        { label: "Completed", value: "COMPLETED" },
-        { label: "Dropped", value: "DROPPED" },
-      ],
-    },
-  ];
 
   return (
     <AdminLayout
-      pageTitle="Computer Training Academy Student Records"
-      breadcrumbs={[{ label: "Academy Students" }]}
-    >
-      <div className="space-y-6">
-        {/* Top Header & New Student Button */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h2 className="text-lg font-bold text-dark dark:text-white">Academy Student Administration</h2>
-            <p className="text-xs text-body-color">Manage cohorts, progress tracking, graduations, and certificates.</p>
-          </div>
+      pageTitle="Academy Administration & Academic Registry"
+      breadcrumbs={[{ label: "Operations" }, { label: "Academy" }]}
+      actionButton={
+        activeTab === "courses" ? (
           <button
-            type="button"
-            onClick={openCreateModal}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-white text-xs font-bold shadow-sm transition"
+            onClick={() => setShowCourseModal(true)}
+            className="px-4 py-2 rounded-xl bg-primary text-white font-bold text-xs hover:bg-primary/90 transition flex items-center gap-1.5 shadow-sm"
           >
             <Plus className="w-4 h-4" />
-            <span>Enroll New Student</span>
+            <span>Create New Course</span>
           </button>
+        ) : activeTab === "instructors" ? (
+          <button
+            onClick={() => setShowInstructorModal(true)}
+            className="px-4 py-2 rounded-xl bg-primary text-white font-bold text-xs hover:bg-primary/90 transition flex items-center gap-1.5 shadow-sm"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Add Instructor</span>
+          </button>
+        ) : null
+      }
+    >
+      <div className="space-y-6">
+        {/* Feedback Alert */}
+        {feedback && (
+          <div
+            className={`p-4 rounded-2xl flex items-center justify-between text-xs font-semibold ${
+              feedback.type === "success"
+                ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800"
+                : "bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800"
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              {feedback.type === "success" ? (
+                <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+              ) : (
+                <AlertCircle className="w-4 h-4 text-rose-500" />
+              )}
+              <span>{feedback.message}</span>
+            </div>
+            <button onClick={() => setFeedback(null)} className="text-xs opacity-75 hover:opacity-100">
+              ✕
+            </button>
+          </div>
+        )}
+
+        {/* Metric Counters */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+          <div className="p-4 rounded-2xl bg-white dark:bg-dark border border-stroke dark:border-strokedark shadow-sm">
+            <span className="text-[11px] font-bold text-body-color uppercase block">Courses</span>
+            <span className="text-xl font-bold text-dark dark:text-white mt-1 block">{courses.length}</span>
+          </div>
+          <div className="p-4 rounded-2xl bg-white dark:bg-dark border border-stroke dark:border-strokedark shadow-sm">
+            <span className="text-[11px] font-bold text-body-color uppercase block">Instructors</span>
+            <span className="text-xl font-bold text-dark dark:text-white mt-1 block">{instructors.length}</span>
+          </div>
+          <div className="p-4 rounded-2xl bg-white dark:bg-dark border border-stroke dark:border-strokedark shadow-sm">
+            <span className="text-[11px] font-bold text-body-color uppercase block">Enrollments</span>
+            <span className="text-xl font-bold text-dark dark:text-white mt-1 block">{enrollments.length}</span>
+          </div>
+          <div className="p-4 rounded-2xl bg-white dark:bg-dark border border-stroke dark:border-strokedark shadow-sm">
+            <span className="text-[11px] font-bold text-body-color uppercase block">Assignments</span>
+            <span className="text-xl font-bold text-dark dark:text-white mt-1 block">{assignments.length}</span>
+          </div>
+          <div className="p-4 rounded-2xl bg-white dark:bg-dark border border-stroke dark:border-strokedark shadow-sm">
+            <span className="text-[11px] font-bold text-body-color uppercase block">Certificates</span>
+            <span className="text-xl font-bold text-dark dark:text-white mt-1 block">{certificates.length}</span>
+          </div>
+          <div className="p-4 rounded-2xl bg-white dark:bg-dark border border-stroke dark:border-strokedark shadow-sm">
+            <span className="text-[11px] font-bold text-body-color uppercase block">ID Cards</span>
+            <span className="text-xl font-bold text-dark dark:text-white mt-1 block">{idCards.length}</span>
+          </div>
         </div>
 
-        {/* Action feedback */}
-        {actionFeedback && (
-          <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-xl text-emerald-800 dark:text-emerald-300 text-xs font-semibold flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4" />
-            <span>{actionFeedback}</span>
-          </div>
-        )}
-
-        {/* Metric Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <div className="p-4 bg-white dark:bg-dark rounded-2xl border border-stroke dark:border-strokedark shadow-sm">
-            <span className="text-xs text-body-color font-semibold block">Total Enrolled Students</span>
-            <p className="text-xl font-bold text-dark dark:text-white mt-1">{enrollments.length}</p>
-          </div>
-          <div className="p-4 bg-white dark:bg-dark rounded-2xl border border-stroke dark:border-strokedark shadow-sm">
-            <span className="text-xs text-body-color font-semibold block">In Active Training</span>
-            <p className="text-xl font-bold text-primary mt-1">
-              {enrollments.filter((e) => e.status === "IN_PROGRESS" || e.status === "ENROLLED").length}
-            </p>
-          </div>
-          <div className="p-4 bg-white dark:bg-dark rounded-2xl border border-stroke dark:border-strokedark shadow-sm">
-            <span className="text-xs text-body-color font-semibold block">Graduated Alumni</span>
-            <p className="text-xl font-bold text-emerald-600 mt-1">
-              {enrollments.filter((e) => e.status === "COMPLETED").length}
-            </p>
-          </div>
-          <div className="p-4 bg-white dark:bg-dark rounded-2xl border border-stroke dark:border-strokedark shadow-sm">
-            <span className="text-xs text-body-color font-semibold block">Certificates Issued</span>
-            <p className="text-xl font-bold text-purple-600 mt-1">
-              {enrollments.filter((e) => e.certificateIssued).length} Verified
-            </p>
-          </div>
+        {/* Navigation Tabs */}
+        <div className="flex flex-wrap items-center gap-2 border-b border-stroke dark:border-strokedark pb-2">
+          {[
+            { id: "courses", label: "Courses & Curriculum", icon: BookOpen },
+            { id: "instructors", label: "Instructors", icon: User },
+            { id: "enrollments", label: "Students & Enrollments", icon: GraduationCap },
+            { id: "assignments", label: "Grading Desk", icon: FileText },
+            { id: "certificates", label: "Certificates & Verification", icon: Award },
+            { id: "idcards", label: "Student ID Cards", icon: QrCode },
+          ].map((tab) => {
+            const Icon = tab.icon;
+            const isCurrent = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as any)}
+                className={`px-4 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 transition ${
+                  isCurrent
+                    ? "bg-primary text-white shadow-sm"
+                    : "bg-white dark:bg-dark text-body-color hover:text-dark dark:hover:text-white border border-stroke dark:border-strokedark"
+                }`}
+              >
+                <Icon className="w-4 h-4" />
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
         </div>
 
-        {/* Enrollments Table */}
-        <AdminDataTable
-          columns={columns}
-          data={enrollments}
-          loading={loading}
-          error={error}
-          onRetry={loadStudents}
-          searchPlaceholder="Search student name, email, or course..."
-          searchKeys={["studentName", "studentEmail", "courseTitle", "cohort"]}
-          filters={filters}
-          emptyTitle="No student records found"
-          emptyDescription="Enrollments from the online academy portal will be listed here."
-        />
-
-        {/* View Student Modal */}
-        {viewingEnrollment && (
-          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-white dark:bg-dark rounded-2xl max-w-md w-full p-6 border border-stroke dark:border-strokedark shadow-xl space-y-4">
-              <div className="flex items-center justify-between pb-3 border-b border-stroke dark:border-strokedark">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
-                    <GraduationCap className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h3 className="text-base font-bold text-dark dark:text-white">{viewingEnrollment.studentName}</h3>
-                    <p className="text-xs text-body-color">{viewingEnrollment.studentEmail}</p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setViewingEnrollment(null)}
-                  className="p-1 rounded-lg text-body-color hover:bg-gray-100 dark:hover:bg-gray-dark"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-
-              <div className="space-y-2.5 text-xs bg-gray-50 dark:bg-gray-dark p-4 rounded-xl">
-                <div className="flex justify-between">
-                  <span className="text-body-color">Enrolled Course:</span>
-                  <span className="font-bold text-dark dark:text-white text-right max-w-[200px]">{viewingEnrollment.courseTitle}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-body-color">Cohort:</span>
-                  <span className="font-mono font-bold text-primary">{viewingEnrollment.cohort}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-body-color">Progress:</span>
-                  <span className="font-bold text-dark dark:text-white">{viewingEnrollment.progressPercent}%</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-body-color">Status:</span>
-                  <span className="font-bold text-primary">{viewingEnrollment.status}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-body-color">Certificate:</span>
-                  <span className="font-bold text-purple-600">
-                    {viewingEnrollment.certificateIssued ? viewingEnrollment.certificateNumber || "Issued" : "Not Issued"}
-                  </span>
-                </div>
-                {viewingEnrollment.enrolledAt && (
-                  <div className="flex justify-between">
-                    <span className="text-body-color">Enrolled Date:</span>
-                    <span className="text-body-color">{new Date(viewingEnrollment.enrolledAt).toLocaleDateString()}</span>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    const e = viewingEnrollment;
-                    setViewingEnrollment(null);
-                    openEditModal(e);
-                  }}
-                  className="px-4 py-2 text-xs font-bold rounded-xl bg-primary text-white hover:bg-primary/90 transition"
-                >
-                  Edit Student
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setViewingEnrollment(null)}
-                  className="px-4 py-2 text-xs font-semibold rounded-xl border border-stroke dark:border-strokedark text-dark dark:text-white hover:bg-gray-100 dark:hover:bg-gray-dark"
-                >
-                  Close
-                </button>
+        {/* TAB 1: COURSES & CURRICULUM */}
+        {activeTab === "courses" && (
+          <div className="bg-white dark:bg-dark rounded-3xl border border-stroke dark:border-strokedark p-6 shadow-sm space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-bold text-dark dark:text-white">Active Academic Programs</h3>
+                <p className="text-xs text-body-color">Manage accredited course offerings, pricing, and curriculum modules.</p>
               </div>
             </div>
-          </div>
-        )}
 
-        {/* Create Student Modal */}
-        {showCreateModal && (
-          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-white dark:bg-dark rounded-2xl max-w-lg w-full p-6 border border-stroke dark:border-strokedark shadow-xl space-y-4 max-h-[90vh] overflow-y-auto">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
-                    <Plus className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h3 className="text-base font-bold text-dark dark:text-white">Enroll New Student</h3>
-                    <p className="text-xs text-body-color">Register a student into the Hambak Academy portal</p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setShowCreateModal(false)}
-                  className="p-1.5 rounded-lg text-body-color hover:bg-gray-100 dark:hover:bg-gray-dark"
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pt-2">
+              {courses.map((course) => (
+                <div
+                  key={course.id}
+                  className="p-5 rounded-2xl border border-stroke dark:border-strokedark bg-gray-50/50 dark:bg-gray-900/30 flex flex-col justify-between"
                 >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-
-              <form onSubmit={handleCreateStudent} className="space-y-3 pt-2">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-bold text-dark dark:text-white mb-1">Student Full Name *</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="e.g. Samuel Okon"
-                      value={formStudentName}
-                      onChange={(e) => setFormStudentName(e.target.value)}
-                      className="w-full px-3 py-2 text-xs rounded-xl border border-stroke dark:border-strokedark bg-gray-50 dark:bg-gray-dark text-dark dark:text-white focus:border-primary focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-dark dark:text-white mb-1">Student Email *</label>
-                    <input
-                      type="email"
-                      required
-                      placeholder="samuel@gmail.com"
-                      value={formStudentEmail}
-                      onChange={(e) => setFormStudentEmail(e.target.value)}
-                      className="w-full px-3 py-2 text-xs rounded-xl border border-stroke dark:border-strokedark bg-gray-50 dark:bg-gray-dark text-dark dark:text-white focus:border-primary focus:outline-none"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-bold text-dark dark:text-white mb-1">Course Title *</label>
-                    <select
-                      value={formCourseTitle}
-                      onChange={(e) => setFormCourseTitle(e.target.value)}
-                      className="w-full px-3 py-2 text-xs rounded-xl border border-stroke dark:border-strokedark bg-gray-50 dark:bg-gray-dark text-dark dark:text-white focus:border-primary focus:outline-none"
-                    >
-                      <option value="Professional Web Development Bootcamp">Professional Web Development Bootcamp</option>
-                      <option value="Data Analytics & Python Masterclass">Data Analytics & Python Masterclass</option>
-                      <option value="Computer Fundamentals & Office Productivity">Computer Fundamentals & Office Productivity</option>
-                      <option value="Cybersecurity Essentials & Network Defense">Cybersecurity Essentials & Network Defense</option>
-                      <option value="Graphic Design & UI/UX Essentials">Graphic Design & UI/UX Essentials</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-dark dark:text-white mb-1">Cohort Batch</label>
-                    <input
-                      type="text"
-                      value={formCohort}
-                      onChange={(e) => setFormCohort(e.target.value)}
-                      placeholder="e.g. Q4-2026 or Batch-A"
-                      className="w-full px-3 py-2 text-xs rounded-xl border border-stroke dark:border-strokedark bg-gray-50 dark:bg-gray-dark text-dark dark:text-white focus:border-primary focus:outline-none"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-bold text-dark dark:text-white mb-1">Progress (%)</label>
-                    <input
-                      type="number"
-                      min={0}
-                      max={100}
-                      value={formProgress}
-                      onChange={(e) => setFormProgress(Math.min(100, Math.max(0, parseInt(e.target.value) || 0)))}
-                      className="w-full px-3 py-2 text-xs rounded-xl border border-stroke dark:border-strokedark bg-gray-50 dark:bg-gray-dark text-dark dark:text-white focus:border-primary focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-dark dark:text-white mb-1">Status</label>
-                    <select
-                      value={formStatus}
-                      onChange={(e) => setFormStatus(e.target.value as any)}
-                      className="w-full px-3 py-2 text-xs rounded-xl border border-stroke dark:border-strokedark bg-gray-50 dark:bg-gray-dark text-dark dark:text-white focus:border-primary focus:outline-none"
-                    >
-                      <option value="ENROLLED">ENROLLED</option>
-                      <option value="IN_PROGRESS">IN_PROGRESS</option>
-                      <option value="COMPLETED">COMPLETED</option>
-                      <option value="DROPPED">DROPPED</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="p-3 bg-gray-50 dark:bg-gray-dark rounded-xl space-y-2 border border-stroke dark:border-strokedark">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-bold text-dark dark:text-white cursor-pointer" htmlFor="certCheckbox">
-                      Issue Academy Certificate
-                    </label>
-                    <input
-                      id="certCheckbox"
-                      type="checkbox"
-                      checked={formCertIssued}
-                      onChange={(e) => setFormCertIssued(e.target.checked)}
-                      className="w-4 h-4 rounded text-primary focus:ring-primary"
-                    />
-                  </div>
-                  {formCertIssued && (
-                    <div>
-                      <input
-                        type="text"
-                        placeholder="Certificate No (leave blank to auto-generate)"
-                        value={formCertNumber}
-                        onChange={(e) => setFormCertNumber(e.target.value)}
-                        className="w-full px-3 py-1.5 text-xs rounded-lg border border-stroke dark:border-strokedark bg-white dark:bg-dark text-dark dark:text-white focus:border-primary focus:outline-none"
-                      />
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded bg-primary/10 text-primary">
+                        {course.code}
+                      </span>
+                      <span className="text-xs font-bold text-emerald-600">
+                        ₦{course.price.toLocaleString()}
+                      </span>
                     </div>
-                  )}
-                </div>
 
-                <div className="flex items-center justify-end gap-2 pt-3 border-t border-stroke dark:border-strokedark">
-                  <button
-                    type="button"
-                    onClick={() => setShowCreateModal(false)}
-                    className="px-4 py-2 text-xs font-semibold rounded-xl border border-stroke dark:border-strokedark text-dark dark:text-white hover:bg-gray-100 dark:hover:bg-gray-dark"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-4 py-2 text-xs font-bold rounded-xl bg-primary text-white hover:bg-primary/90 transition shadow-sm"
-                  >
-                    Enroll Student
-                  </button>
+                    <h4 className="font-bold text-sm text-dark dark:text-white">{course.title}</h4>
+                    <p className="text-xs text-body-color line-clamp-2">{course.description}</p>
+
+                    <div className="pt-2 border-t border-stroke dark:border-strokedark text-xs text-body-color space-y-1">
+                      <div className="flex justify-between">
+                        <span>Duration:</span>
+                        <span className="font-semibold text-dark dark:text-white">{course.duration}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Curriculum Modules:</span>
+                        <span className="font-semibold text-dark dark:text-white">{course.modules?.length || 0}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Schedule:</span>
+                        <span className="font-semibold text-dark dark:text-white truncate max-w-[150px]">{course.schedule}</span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              </form>
+              ))}
             </div>
           </div>
         )}
 
-        {/* Edit Student Modal */}
-        {editingEnrollment && (
-          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-white dark:bg-dark rounded-2xl max-w-lg w-full p-6 border border-stroke dark:border-strokedark shadow-xl space-y-4 max-h-[90vh] overflow-y-auto">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center">
-                    <Edit2 className="w-5 h-5" />
+        {/* TAB 2: INSTRUCTORS */}
+        {activeTab === "instructors" && (
+          <div className="bg-white dark:bg-dark rounded-3xl border border-stroke dark:border-strokedark p-6 shadow-sm space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-bold text-dark dark:text-white">Instructors & Mentors</h3>
+                <p className="text-xs text-body-color">Manage faculty credentials and assigned training disciplines.</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pt-2">
+              {instructors.map((inst) => (
+                <div
+                  key={inst.id}
+                  className="p-5 rounded-2xl border border-stroke dark:border-strokedark bg-gray-50/50 dark:bg-gray-900/30 space-y-3"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold">
+                      {inst.fullName.charAt(0)}
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-sm text-dark dark:text-white">{inst.fullName}</h4>
+                      <span className="text-[11px] text-body-color block">{inst.specialization}</span>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="text-base font-bold text-dark dark:text-white">Edit Student Enrollment</h3>
-                    <p className="text-xs text-body-color">{editingEnrollment.studentName}</p>
+
+                  <p className="text-xs text-body-color line-clamp-2">{inst.bio}</p>
+
+                  <div className="pt-2 border-t border-stroke dark:border-strokedark text-xs text-body-color space-y-1">
+                    <div className="flex items-center gap-1.5">
+                      <Mail className="w-3.5 h-3.5 text-primary" />
+                      <span>{inst.email}</span>
+                    </div>
+                    {inst.phone && (
+                      <div className="flex items-center gap-1.5">
+                        <Phone className="w-3.5 h-3.5 text-primary" />
+                        <span>{inst.phone}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
-                <button
-                  onClick={() => setEditingEnrollment(null)}
-                  className="p-1.5 rounded-lg text-body-color hover:bg-gray-100 dark:hover:bg-gray-dark"
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* TAB 3: STUDENTS & ENROLLMENTS */}
+        {activeTab === "enrollments" && (
+          <div className="bg-white dark:bg-dark rounded-3xl border border-stroke dark:border-strokedark p-6 shadow-sm space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-bold text-dark dark:text-white">Active Student Enrollments</h3>
+                <p className="text-xs text-body-color">Live cohort registry, completion tracking, and student status.</p>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-stroke dark:border-strokedark text-body-color uppercase font-bold text-[11px]">
+                    <th className="pb-3">Student</th>
+                    <th className="pb-3">Program</th>
+                    <th className="pb-3">Cohort</th>
+                    <th className="pb-3">Progress</th>
+                    <th className="pb-3">Status</th>
+                    <th className="pb-3">Certificate</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-stroke/60 dark:divide-strokedark/60">
+                  {enrollments.map((enr) => (
+                    <tr key={enr.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-900/30 transition">
+                      <td className="py-3.5">
+                        <span className="font-bold text-dark dark:text-white block">{enr.studentName}</span>
+                        <span className="text-[11px] text-body-color">{enr.studentEmail}</span>
+                      </td>
+                      <td className="py-3.5 font-medium">{enr.courseTitle}</td>
+                      <td className="py-3.5">{enr.cohort}</td>
+                      <td className="py-3.5">
+                        <div className="flex items-center gap-2">
+                          <div className="w-16 h-2 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+                            <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${enr.progressPercent}%` }} />
+                          </div>
+                          <span className="font-bold">{enr.progressPercent}%</span>
+                        </div>
+                      </td>
+                      <td className="py-3.5">
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-primary/10 text-primary">
+                          {enr.status}
+                        </span>
+                      </td>
+                      <td className="py-3.5">
+                        {enr.certificateIssued ? (
+                          <span className="text-emerald-600 font-bold flex items-center gap-1">
+                            <CheckCircle2 className="w-3.5 h-3.5" /> Issued
+                          </span>
+                        ) : (
+                          <span className="text-body-color">Pending</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 4: ASSIGNMENTS & GRADING DESK */}
+        {activeTab === "assignments" && (
+          <div className="bg-white dark:bg-dark rounded-3xl border border-stroke dark:border-strokedark p-6 shadow-sm space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-bold text-dark dark:text-white">Assignment & Project Grading Desk</h3>
+                <p className="text-xs text-body-color">Review student submissions and assign official continuous assessment grades.</p>
+              </div>
+            </div>
+
+            <div className="space-y-6">
+              {assignments.map((assignment) => (
+                <div
+                  key={assignment.id}
+                  className="p-5 rounded-2xl border border-stroke dark:border-strokedark bg-gray-50/50 dark:bg-gray-900/30 space-y-4"
                 >
-                  <X className="w-4 h-4" />
-                </button>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-bold text-sm text-dark dark:text-white">{assignment.title}</h4>
+                      <p className="text-xs text-body-color">{assignment.description}</p>
+                    </div>
+                    <span className="text-xs font-mono font-bold px-2.5 py-0.5 rounded bg-primary/10 text-primary">
+                      Max: {assignment.maxScore} pts
+                    </span>
+                  </div>
+
+                  {/* Submissions List */}
+                  <div className="space-y-2 pt-2 border-t border-stroke dark:border-strokedark">
+                    <h5 className="text-xs font-bold text-body-color uppercase">Student Submissions</h5>
+                    {assignment.submissions && assignment.submissions.length > 0 ? (
+                      assignment.submissions.map((sub) => (
+                        <div
+                          key={sub.id}
+                          className="p-3 rounded-xl bg-white dark:bg-dark border border-stroke dark:border-strokedark flex items-center justify-between text-xs"
+                        >
+                          <div>
+                            <span className="font-bold text-dark dark:text-white block">{sub.studentName}</span>
+                            <span className="text-body-color text-[11px] line-clamp-1">{sub.content}</span>
+                          </div>
+
+                          <div className="flex items-center gap-3">
+                            {sub.graded ? (
+                              <span className="font-bold text-emerald-600">
+                                {sub.score} / {assignment.maxScore} pts
+                              </span>
+                            ) : (
+                              <button
+                                onClick={() =>
+                                  setGradingSubmission({
+                                    assignmentId: assignment.id,
+                                    submissionId: sub.id,
+                                    studentName: sub.studentName,
+                                    content: sub.content,
+                                    maxScore: assignment.maxScore,
+                                    score: assignment.maxScore,
+                                    feedback: "Excellent practical implementation.",
+                                  })
+                                }
+                                className="px-3 py-1.5 rounded-lg bg-primary text-white font-bold text-xs hover:bg-primary/90 transition"
+                              >
+                                Grade Submission
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-xs text-body-color italic">No student submissions yet for this task.</p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* TAB 5: CERTIFICATES & VERIFICATION */}
+        {activeTab === "certificates" && (
+          <div className="bg-white dark:bg-dark rounded-3xl border border-stroke dark:border-strokedark p-6 shadow-sm space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-bold text-dark dark:text-white">Academic Certificates Registry</h3>
+                <p className="text-xs text-body-color">All issued credentials linked to public verification URLs and QR codes.</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+              {certificates.map((cert) => {
+                const verifyUrl = `https://hambaktech.com.ng/verify/certificate/${cert.certificateNumber}`;
+
+                return (
+                  <div
+                    key={cert.id}
+                    className="p-5 rounded-2xl border border-stroke dark:border-strokedark bg-gray-50/60 dark:bg-gray-900/40 flex items-center justify-between gap-4"
+                  >
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-2">
+                        <Award className="w-4 h-4 text-amber-500" />
+                        <span className="font-mono font-bold text-xs text-primary">{cert.certificateNumber}</span>
+                      </div>
+                      <h4 className="font-bold text-sm text-dark dark:text-white">{cert.studentName}</h4>
+                      <p className="text-xs text-body-color">{cert.courseTitle} &bull; {cert.grade}</p>
+                      <span className="text-[11px] text-body-color block">
+                        Issued: {new Date(cert.issuedAt).toLocaleDateString()}
+                      </span>
+                      <Link
+                        href={`/verify/certificate/${cert.certificateNumber}`}
+                        target="_blank"
+                        className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline pt-1"
+                      >
+                        <span>Test Public Verification</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </Link>
+                    </div>
+
+                    <div className="p-2 bg-white rounded-xl border border-stroke shrink-0">
+                      <QRCodeView value={verifyUrl} size={70} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* TAB 6: STUDENT ID CARDS */}
+        {activeTab === "idcards" && (
+          <div className="bg-white dark:bg-dark rounded-3xl border border-stroke dark:border-strokedark p-6 shadow-sm space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-bold text-dark dark:text-white">Student Identification Cards</h3>
+                <p className="text-xs text-body-color">Active matriculation cards for lab access and biometric attendance.</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 pt-2">
+              {idCards.map((card) => (
+                <div
+                  key={card.id}
+                  className="p-5 rounded-2xl border border-stroke dark:border-strokedark bg-gray-50/50 dark:bg-gray-900/30 space-y-3"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono text-xs font-bold text-primary">{card.cardNumber}</span>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300">
+                      {card.status}
+                    </span>
+                  </div>
+
+                  <div>
+                    <h4 className="font-bold text-sm text-dark dark:text-white">{card.studentName}</h4>
+                    <span className="text-xs text-body-color">{card.courseTitle}</span>
+                  </div>
+
+                  <div className="text-[11px] text-body-color pt-2 border-t border-stroke dark:border-strokedark flex justify-between">
+                    <span>Cohort: {card.cohort}</span>
+                    <span>Valid: {card.validUntil}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Modal: Create Course */}
+        {showCourseModal && (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="w-full max-w-lg bg-white dark:bg-dark rounded-3xl border border-stroke dark:border-strokedark p-6 sm:p-8 shadow-2xl space-y-4 animate-in zoom-in-95 duration-200">
+              <div className="flex items-center justify-between border-b border-stroke dark:border-strokedark pb-3">
+                <h4 className="text-base font-bold text-dark dark:text-white">Create New Course Offering</h4>
+                <button onClick={() => setShowCourseModal(false)} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg">✕</button>
               </div>
 
-              <form onSubmit={handleUpdateStudent} className="space-y-3 pt-2">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-bold text-dark dark:text-white mb-1">Student Full Name *</label>
-                    <input
-                      type="text"
-                      required
-                      value={formStudentName}
-                      onChange={(e) => setFormStudentName(e.target.value)}
-                      className="w-full px-3 py-2 text-xs rounded-xl border border-stroke dark:border-strokedark bg-gray-50 dark:bg-gray-dark text-dark dark:text-white focus:border-primary focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-dark dark:text-white mb-1">Student Email *</label>
-                    <input
-                      type="email"
-                      required
-                      value={formStudentEmail}
-                      onChange={(e) => setFormStudentEmail(e.target.value)}
-                      className="w-full px-3 py-2 text-xs rounded-xl border border-stroke dark:border-strokedark bg-gray-50 dark:bg-gray-dark text-dark dark:text-white focus:border-primary focus:outline-none"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-bold text-dark dark:text-white mb-1">Course Title</label>
-                    <select
-                      value={formCourseTitle}
-                      onChange={(e) => setFormCourseTitle(e.target.value)}
-                      className="w-full px-3 py-2 text-xs rounded-xl border border-stroke dark:border-strokedark bg-gray-50 dark:bg-gray-dark text-dark dark:text-white focus:border-primary focus:outline-none"
-                    >
-                      <option value="Professional Web Development Bootcamp">Professional Web Development Bootcamp</option>
-                      <option value="Data Analytics & Python Masterclass">Data Analytics & Python Masterclass</option>
-                      <option value="Computer Fundamentals & Office Productivity">Computer Fundamentals & Office Productivity</option>
-                      <option value="Cybersecurity Essentials & Network Defense">Cybersecurity Essentials & Network Defense</option>
-                      <option value="Graphic Design & UI/UX Essentials">Graphic Design & UI/UX Essentials</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-dark dark:text-white mb-1">Cohort Batch</label>
-                    <input
-                      type="text"
-                      value={formCohort}
-                      onChange={(e) => setFormCohort(e.target.value)}
-                      className="w-full px-3 py-2 text-xs rounded-xl border border-stroke dark:border-strokedark bg-gray-50 dark:bg-gray-dark text-dark dark:text-white focus:border-primary focus:outline-none"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-bold text-dark dark:text-white mb-1">Progress (%)</label>
-                    <input
-                      type="number"
-                      min={0}
-                      max={100}
-                      value={formProgress}
-                      onChange={(e) => setFormProgress(Math.min(100, Math.max(0, parseInt(e.target.value) || 0)))}
-                      className="w-full px-3 py-2 text-xs rounded-xl border border-stroke dark:border-strokedark bg-gray-50 dark:bg-gray-dark text-dark dark:text-white focus:border-primary focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-dark dark:text-white mb-1">Status</label>
-                    <select
-                      value={formStatus}
-                      onChange={(e) => setFormStatus(e.target.value as any)}
-                      className="w-full px-3 py-2 text-xs rounded-xl border border-stroke dark:border-strokedark bg-gray-50 dark:bg-gray-dark text-dark dark:text-white focus:border-primary focus:outline-none"
-                    >
-                      <option value="ENROLLED">ENROLLED</option>
-                      <option value="IN_PROGRESS">IN_PROGRESS</option>
-                      <option value="COMPLETED">COMPLETED</option>
-                      <option value="DROPPED">DROPPED</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="p-3 bg-gray-50 dark:bg-gray-dark rounded-xl space-y-2 border border-stroke dark:border-strokedark">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-bold text-dark dark:text-white cursor-pointer" htmlFor="editCertCheckbox">
-                      Certificate Issued
-                    </label>
-                    <input
-                      id="editCertCheckbox"
-                      type="checkbox"
-                      checked={formCertIssued}
-                      onChange={(e) => setFormCertIssued(e.target.checked)}
-                      className="w-4 h-4 rounded text-primary focus:ring-primary"
-                    />
-                  </div>
-                  {formCertIssued && (
-                    <div>
-                      <input
-                        type="text"
-                        placeholder="Certificate Number"
-                        value={formCertNumber}
-                        onChange={(e) => setFormCertNumber(e.target.value)}
-                        className="w-full px-3 py-1.5 text-xs rounded-lg border border-stroke dark:border-strokedark bg-white dark:bg-dark text-dark dark:text-white focus:border-primary focus:outline-none"
-                      />
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex items-center justify-end gap-2 pt-3 border-t border-stroke dark:border-strokedark">
-                  <button
-                    type="button"
-                    onClick={() => setEditingEnrollment(null)}
-                    className="px-4 py-2 text-xs font-semibold rounded-xl border border-stroke dark:border-strokedark text-dark dark:text-white hover:bg-gray-100 dark:hover:bg-gray-dark"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-4 py-2 text-xs font-bold rounded-xl bg-primary text-white hover:bg-primary/90 transition shadow-sm"
-                  >
-                    Save Changes
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {/* Delete Student Modal */}
-        {deletingEnrollment && (
-          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-white dark:bg-dark rounded-2xl max-w-md w-full p-6 border border-stroke dark:border-strokedark shadow-xl space-y-4">
-              <div className="flex items-center gap-3 text-rose-600">
-                <div className="w-10 h-10 rounded-xl bg-rose-500/10 flex items-center justify-center">
-                  <Trash2 className="w-5 h-5" />
-                </div>
+              <form onSubmit={handleSaveCourse} className="space-y-3 text-xs">
                 <div>
-                  <h3 className="text-base font-bold text-dark dark:text-white">Delete Enrollment</h3>
-                  <p className="text-xs text-body-color">Permanently remove student from roster</p>
+                  <label className="block font-bold uppercase mb-1">Course Title</label>
+                  <input
+                    type="text"
+                    required
+                    value={courseForm.title}
+                    onChange={(e) => setCourseForm({ ...courseForm, title: e.target.value })}
+                    placeholder="e.g. Cybersecurity Fundamentals"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-stroke dark:border-strokedark bg-gray-50 dark:bg-gray-900 text-dark dark:text-white font-medium"
+                  />
                 </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-bold uppercase mb-1">Course Code</label>
+                    <input
+                      type="text"
+                      required
+                      value={courseForm.code}
+                      onChange={(e) => setCourseForm({ ...courseForm, code: e.target.value })}
+                      placeholder="e.g. HT-CRS-SEC"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-stroke dark:border-strokedark bg-gray-50 dark:bg-gray-900 text-dark dark:text-white font-medium"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold uppercase mb-1">Tuition Fee (₦)</label>
+                    <input
+                      type="number"
+                      required
+                      value={courseForm.price}
+                      onChange={(e) => setCourseForm({ ...courseForm, price: Number(e.target.value) })}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-stroke dark:border-strokedark bg-gray-50 dark:bg-gray-900 text-dark dark:text-white font-medium"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block font-bold uppercase mb-1">Description</label>
+                  <textarea
+                    required
+                    rows={3}
+                    value={courseForm.description}
+                    onChange={(e) => setCourseForm({ ...courseForm, description: e.target.value })}
+                    placeholder="Comprehensive program curriculum outline..."
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-stroke dark:border-strokedark bg-gray-50 dark:bg-gray-900 text-dark dark:text-white font-medium"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-bold uppercase mb-1">Duration</label>
+                    <input
+                      type="text"
+                      value={courseForm.duration}
+                      onChange={(e) => setCourseForm({ ...courseForm, duration: e.target.value })}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-stroke dark:border-strokedark bg-gray-50 dark:bg-gray-900 text-dark dark:text-white font-medium"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold uppercase mb-1">Lead Instructor</label>
+                    <select
+                      value={courseForm.instructorId}
+                      onChange={(e) => setCourseForm({ ...courseForm, instructorId: e.target.value })}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-stroke dark:border-strokedark bg-gray-50 dark:bg-gray-900 text-dark dark:text-white font-medium"
+                    >
+                      {instructors.map((i) => (
+                        <option key={i.id} value={i.id}>
+                          {i.fullName}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-3 border-t border-stroke dark:border-strokedark">
+                  <button type="button" onClick={() => setShowCourseModal(false)} className="px-4 py-2 rounded-xl border border-stroke font-semibold">
+                    Cancel
+                  </button>
+                  <button type="submit" className="px-5 py-2 rounded-xl bg-primary text-white font-bold hover:bg-primary/90 transition">
+                    Publish Course
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Modal: Add Instructor */}
+        {showInstructorModal && (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="w-full max-w-lg bg-white dark:bg-dark rounded-3xl border border-stroke dark:border-strokedark p-6 sm:p-8 shadow-2xl space-y-4 animate-in zoom-in-95 duration-200">
+              <div className="flex items-center justify-between border-b border-stroke dark:border-strokedark pb-3">
+                <h4 className="text-base font-bold text-dark dark:text-white">Add Faculty Instructor</h4>
+                <button onClick={() => setShowInstructorModal(false)} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg">✕</button>
               </div>
 
-              <p className="text-xs text-body-color leading-relaxed">
-                Are you sure you want to delete <strong className="text-dark dark:text-white">{deletingEnrollment.studentName}</strong> from <span className="font-semibold text-dark dark:text-white">{deletingEnrollment.courseTitle}</span>? All module progress will be removed.
-              </p>
+              <form onSubmit={handleSaveInstructor} className="space-y-3 text-xs">
+                <div>
+                  <label className="block font-bold uppercase mb-1">Full Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={instructorForm.fullName}
+                    onChange={(e) => setInstructorForm({ ...instructorForm, fullName: e.target.value })}
+                    placeholder="e.g. Engr. Babatunde Lawal"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-stroke dark:border-strokedark bg-gray-50 dark:bg-gray-900 text-dark dark:text-white font-medium"
+                  />
+                </div>
 
-              <div className="flex items-center justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setDeletingEnrollment(null)}
-                  className="px-4 py-2 text-xs font-semibold rounded-xl border border-stroke dark:border-strokedark text-dark dark:text-white hover:bg-gray-100 dark:hover:bg-gray-dark"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleDeleteStudent}
-                  className="px-4 py-2 text-xs font-bold rounded-xl bg-rose-600 text-white hover:bg-rose-700 transition"
-                >
-                  Confirm Delete
-                </button>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-bold uppercase mb-1">Email</label>
+                    <input
+                      type="email"
+                      required
+                      value={instructorForm.email}
+                      onChange={(e) => setInstructorForm({ ...instructorForm, email: e.target.value })}
+                      placeholder="instructor@hambaktech.com.ng"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-stroke dark:border-strokedark bg-gray-50 dark:bg-gray-900 text-dark dark:text-white font-medium"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold uppercase mb-1">Phone</label>
+                    <input
+                      type="tel"
+                      value={instructorForm.phone}
+                      onChange={(e) => setInstructorForm({ ...instructorForm, phone: e.target.value })}
+                      placeholder="08033221100"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-stroke dark:border-strokedark bg-gray-50 dark:bg-gray-900 text-dark dark:text-white font-medium"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block font-bold uppercase mb-1">Specialization</label>
+                  <input
+                    type="text"
+                    required
+                    value={instructorForm.specialization}
+                    onChange={(e) => setInstructorForm({ ...instructorForm, specialization: e.target.value })}
+                    placeholder="e.g. Full-Stack Web & Mobile Architecture"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-stroke dark:border-strokedark bg-gray-50 dark:bg-gray-900 text-dark dark:text-white font-medium"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold uppercase mb-1">Biography</label>
+                  <textarea
+                    rows={3}
+                    value={instructorForm.bio}
+                    onChange={(e) => setInstructorForm({ ...instructorForm, bio: e.target.value })}
+                    placeholder="Instructor background and industry credentials..."
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-stroke dark:border-strokedark bg-gray-50 dark:bg-gray-900 text-dark dark:text-white font-medium"
+                  />
+                </div>
+
+                <div className="flex justify-end gap-2 pt-3 border-t border-stroke dark:border-strokedark">
+                  <button type="button" onClick={() => setShowInstructorModal(false)} className="px-4 py-2 rounded-xl border border-stroke font-semibold">
+                    Cancel
+                  </button>
+                  <button type="submit" className="px-5 py-2 rounded-xl bg-primary text-white font-bold hover:bg-primary/90 transition">
+                    Register Instructor
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Modal: Grading Submission */}
+        {gradingSubmission && (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="w-full max-w-lg bg-white dark:bg-dark rounded-3xl border border-stroke dark:border-strokedark p-6 sm:p-8 shadow-2xl space-y-4 animate-in zoom-in-95 duration-200">
+              <div className="flex items-center justify-between border-b border-stroke dark:border-strokedark pb-3">
+                <h4 className="text-base font-bold text-dark dark:text-white">
+                  Grade Student Submission: {gradingSubmission.studentName}
+                </h4>
+                <button onClick={() => setGradingSubmission(null)} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg">✕</button>
               </div>
+
+              <div className="p-3.5 rounded-xl bg-gray-50 dark:bg-gray-900 border border-stroke dark:border-strokedark text-xs">
+                <span className="font-bold text-dark dark:text-white block mb-1">Student Answer:</span>
+                <p className="text-body-color">{gradingSubmission.content}</p>
+              </div>
+
+              <form onSubmit={handleSaveGrade} className="space-y-3 text-xs">
+                <div>
+                  <label className="block font-bold uppercase mb-1">
+                    Score (out of {gradingSubmission.maxScore})
+                  </label>
+                  <input
+                    type="number"
+                    max={gradingSubmission.maxScore}
+                    min={0}
+                    required
+                    value={gradingSubmission.score}
+                    onChange={(e) => setGradingSubmission({ ...gradingSubmission, score: Number(e.target.value) })}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-stroke dark:border-strokedark bg-gray-50 dark:bg-gray-900 text-dark dark:text-white font-medium"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold uppercase mb-1">Instructor Feedback</label>
+                  <textarea
+                    rows={3}
+                    required
+                    value={gradingSubmission.feedback}
+                    onChange={(e) => setGradingSubmission({ ...gradingSubmission, feedback: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-stroke dark:border-strokedark bg-gray-50 dark:bg-gray-900 text-dark dark:text-white font-medium"
+                  />
+                </div>
+
+                <div className="flex justify-end gap-2 pt-3 border-t border-stroke dark:border-strokedark">
+                  <button type="button" onClick={() => setGradingSubmission(null)} className="px-4 py-2 rounded-xl border border-stroke font-semibold">
+                    Cancel
+                  </button>
+                  <button type="submit" className="px-5 py-2 rounded-xl bg-primary text-white font-bold hover:bg-primary/90 transition">
+                    Save Grade & Feedback
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         )}
@@ -810,4 +868,3 @@ export default function AdminAcademyPage() {
     </AdminLayout>
   );
 }
-

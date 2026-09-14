@@ -40,11 +40,9 @@ export default function RootLayout({
     <html suppressHydrationWarning lang="en">
       <body className={`bg-[#FCFCFC] dark:bg-black ${inter.className}`}>
         <Providers>
-          <div className="isolate">
-            <Header />
-            {children}
-            <Footer />
-          </div>
+          <Header />
+          {children}
+          <Footer />
           <HambakTechAssistant />
           <ScrollToTop />
         </Providers>
