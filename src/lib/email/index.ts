@@ -28,12 +28,14 @@ export class SmtpEmailProvider implements EmailProvider {
   private isConfigured: boolean;
 
   constructor() {
-    this.host = process.env.SMTP_HOST || "";
-    this.port = parseInt(process.env.SMTP_PORT || "587", 10);
-    this.user = process.env.SMTP_USER || "";
-    this.pass = process.env.SMTP_PASSWORD || "";
-    this.from = process.env.SMTP_FROM || "HambakTech <noreply@hambaktech.com.ng>";
-    this.secure = process.env.SMTP_SECURE === "true" || this.port === 465;
+    this.host = process.env.SMTP_HOST || process.env.MAIL_HOST || "";
+    this.port = parseInt(process.env.SMTP_PORT || process.env.MAIL_PORT || "587", 10);
+    this.user = process.env.SMTP_USER || process.env.MAIL_USERNAME || "";
+    this.pass = process.env.SMTP_PASSWORD || process.env.MAIL_PASSWORD || "";
+    const fromName = process.env.MAIL_FROM_NAME || "HambakTech";
+    const fromAddress = process.env.SMTP_FROM || process.env.MAIL_FROM_ADDRESS || "noreply@hambaktech.com.ng";
+    this.from = fromAddress.includes("<") ? fromAddress : `${fromName} <${fromAddress}>`;
+    this.secure = process.env.SMTP_SECURE === "true" || process.env.MAIL_ENCRYPTION === "tls" || this.port === 465;
     this.isConfigured = Boolean(this.host && this.user && this.pass);
   }
 

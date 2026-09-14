@@ -4,6 +4,7 @@ import { validateData, ForgotPasswordSchema } from "@/lib/validation";
 import { successResponse, errorResponse } from "@/lib/api-response";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { emailService } from "@/lib/email";
+import { TooManyRequestsError } from "@/lib/errors";
 
 export async function POST(req: NextRequest) {
   try {
@@ -13,11 +14,11 @@ export async function POST(req: NextRequest) {
 
     const rateLimit = enforceRateLimit(req, "AUTH_FORGOT_PASSWORD", validated.email);
     if (!rateLimit.success) {
-      return errorResponse(
-        new Error("Too many password reset requests. Please try again later."),
-        429,
-        "TOO_MANY_REQUESTS"
+      const resp = errorResponse(
+        new TooManyRequestsError("Too many password reset requests. Please try again later.")
       );
+      Object.entries(rateLimit.headers).forEach(([k, v]) => resp.headers.set(k, v));
+      return resp;
     }
 
     // 2. Generate single-use reset token and dispatch via email only

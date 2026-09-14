@@ -2707,6 +2707,7 @@ export const AdminService = {
     note?: string,
     actorId = "Admin"
   ): Promise<Order | null> {
+    await assertAuthoritativePersistence("updateOrderStatus");
     const store = getStore();
     const order = store.orders.find((o) => o.id === orderId || o.orderNumber === orderId);
     if (!order) return null;

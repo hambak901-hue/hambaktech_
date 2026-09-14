@@ -6,6 +6,7 @@ import { setSessionCookie } from "@/lib/auth";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { verifyCsrf } from "@/lib/csrf";
 import { AuditService } from "@/lib/server/platform-store";
+import { emailService } from "@/lib/email";
 
 export async function POST(req: NextRequest) {
   // 1. Enforce CSRF verification for browser contexts
@@ -38,6 +39,11 @@ export async function POST(req: NextRequest) {
       userAgent,
     });
 
+    // Dispatch verification email
+    if (verificationToken) {
+      await emailService.sendVerificationEmail(validated.email, verificationToken, validated.firstName);
+    }
+
     AuditService.log({
       actorName: `${validated.firstName} ${validated.lastName}`,
       actorEmail: validated.email,
@@ -55,7 +61,8 @@ export async function POST(req: NextRequest) {
         token: sessionData.sessionToken,
         tokenType: "Bearer",
         expiresAt: sessionData.expiresAt.toISOString(),
-        verificationToken,
+        // Only provide token in response in non-production environments for developer/test convenience
+        verificationToken: process.env.NODE_ENV === "production" ? undefined : verificationToken,
       },
       "Account registered successfully.",
       201
