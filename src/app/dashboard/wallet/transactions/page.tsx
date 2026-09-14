@@ -22,14 +22,54 @@ export default function WalletTransactionsHistoryPage() {
   const [search, setSearch] = useState("");
   const [selectedType, setSelectedType] = useState("ALL");
   const [selectedStatus, setSelectedStatus] = useState("ALL");
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const list = platformApi.getTransactions({
-      type: selectedType,
-      status: selectedStatus,
-      search,
-    });
-    setTransactions(list);
+    let isMounted = true;
+    async function fetchTx() {
+      setLoading(true);
+      try {
+        const queryParams = new URLSearchParams();
+        if (selectedType !== "ALL") queryParams.append("type", selectedType);
+        if (selectedStatus !== "ALL") queryParams.append("status", selectedStatus);
+        queryParams.append("limit", "50");
+
+        const res = await fetch(`/api/v1/wallet/transactions?${queryParams.toString()}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && data.data?.transactions && isMounted) {
+            let list = data.data.transactions;
+            if (search.trim()) {
+              const q = search.toLowerCase();
+              list = list.filter((t: any) =>
+                t.reference?.toLowerCase().includes(q) ||
+                t.description?.toLowerCase().includes(q)
+              );
+            }
+            setTransactions(list);
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn("[WalletTransactions] Falling back to client cache:", err);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+
+      if (isMounted) {
+        const list = platformApi.getTransactions({
+          type: selectedType,
+          status: selectedStatus,
+          search,
+        });
+        setTransactions(list);
+      }
+    }
+
+    fetchTx();
+    return () => {
+      isMounted = false;
+    };
   }, [search, selectedType, selectedStatus]);
 
   const loadTransactions = () => {

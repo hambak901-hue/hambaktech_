@@ -21,13 +21,52 @@ export default function CustomerOrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [search, setSearch] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("ALL");
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const list = platformApi.getOrders({
-      status: selectedStatus,
-      search,
-    });
-    setOrders(list);
+    let isMounted = true;
+    async function fetchOrders() {
+      setLoading(true);
+      try {
+        const queryParams = new URLSearchParams();
+        if (selectedStatus !== "ALL") queryParams.append("status", selectedStatus);
+        queryParams.append("limit", "50");
+
+        const res = await fetch(`/api/v1/orders?${queryParams.toString()}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && data.data?.orders && isMounted) {
+            let list = data.data.orders;
+            if (search.trim()) {
+              const q = search.toLowerCase();
+              list = list.filter((o: any) =>
+                o.orderNumber?.toLowerCase().includes(q) ||
+                o.serviceTitle?.toLowerCase().includes(q)
+              );
+            }
+            setOrders(list);
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn("[OrdersPage] Falling back to client store cache:", err);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+
+      if (isMounted) {
+        const list = platformApi.getOrders({
+          status: selectedStatus,
+          search,
+        });
+        setOrders(list);
+      }
+    }
+
+    fetchOrders();
+    return () => {
+      isMounted = false;
+    };
   }, [search, selectedStatus]);
 
   const loadOrders = () => {

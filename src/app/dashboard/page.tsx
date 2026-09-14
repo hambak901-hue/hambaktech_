@@ -41,9 +41,50 @@ export default function DashboardOverviewPage() {
   } | null>(null);
 
   useEffect(() => {
-    setWallet(platformApi.getWallet());
-    setOrders(platformApi.getOrders().slice(0, 5));
-    setTransactions(platformApi.getTransactions().slice(0, 5));
+    let isMounted = true;
+
+    async function loadDashboardData() {
+      try {
+        const [walletRes, ordersRes, txRes] = await Promise.all([
+          fetch("/api/v1/wallet"),
+          fetch("/api/v1/orders?limit=5"),
+          fetch("/api/v1/wallet/transactions?limit=5"),
+        ]);
+
+        if (walletRes.ok) {
+          const wJson = await walletRes.json();
+          if (wJson.success && wJson.data?.wallet && isMounted) {
+            setWallet(wJson.data.wallet);
+          }
+        }
+
+        if (ordersRes.ok) {
+          const oJson = await ordersRes.json();
+          if (oJson.success && oJson.data?.orders && isMounted) {
+            setOrders(oJson.data.orders);
+          }
+        }
+
+        if (txRes.ok) {
+          const tJson = await txRes.json();
+          if (tJson.success && tJson.data?.transactions && isMounted) {
+            setTransactions(tJson.data.transactions);
+          }
+        }
+      } catch (err) {
+        console.warn("[DashboardOverview] Falling back to client store cache:", err);
+        if (isMounted) {
+          setWallet(platformApi.getWallet());
+          setOrders(platformApi.getOrders().slice(0, 5));
+          setTransactions(platformApi.getTransactions().slice(0, 5));
+        }
+      }
+    }
+
+    loadDashboardData();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const handleQuickTrack = (e: React.FormEvent) => {

@@ -3,8 +3,23 @@ import { requireAuth } from "@/lib/auth";
 import { PaymentService } from "@/lib/server/platform-store";
 import { successResponse, errorResponse } from "@/lib/api-response";
 import { ValidationError } from "@/lib/errors";
+import { enforceRateLimit } from "@/lib/rate-limit";
+import { verifyCsrf } from "@/lib/csrf";
 
 export async function POST(req: NextRequest) {
+  verifyCsrf(req);
+
+  const rateLimit = enforceRateLimit(req, "WALLET_FUND");
+  if (!rateLimit.success) {
+    const resp = errorResponse(
+      new Error("Payment initialization rate limit exceeded. Please wait a moment."),
+      "Too many requests",
+      429
+    );
+    Object.entries(rateLimit.headers).forEach(([k, v]) => resp.headers.set(k, v));
+    return resp;
+  }
+
   try {
     const session = await requireAuth(req);
     const body = await req.json();
@@ -30,8 +45,12 @@ export async function POST(req: NextRequest) {
       metadata: body.metadata,
     });
 
-    return successResponse(paymentIntent, "Payment initialized.");
+    const response = successResponse(paymentIntent, "Payment initialized.");
+    Object.entries(rateLimit.headers).forEach(([k, v]) => response.headers.set(k, v));
+    return response;
   } catch (error) {
-    return errorResponse(error, "Failed to initialize payment");
+    const resp = errorResponse(error, "Failed to initialize payment");
+    Object.entries(rateLimit.headers).forEach(([k, v]) => resp.headers.set(k, v));
+    return resp;
   }
 }

@@ -13,6 +13,7 @@ import {
   NotFoundError,
   ValidationError,
   TooManyRequestsError,
+  DatabaseError,
 } from "./errors";
 import { RegisterInput, LoginInput } from "./validation";
 
@@ -110,7 +111,14 @@ class InMemoryAuthStore {
     if (this.initialized) return;
     this.initialized = true;
 
-    // Seed baseline accounts for interactive testing
+    // PRODUCTION SECURITY ENFORCEMENT:
+    // Never seed default privileged test credentials in production execution paths.
+    if (process.env.NODE_ENV === "production") {
+      console.warn("[AuthService:SECURITY] In-memory fixture seeding is strictly disabled in production.");
+      return;
+    }
+
+    // Seed baseline accounts for interactive development and isolated test suites
     const defaultPasswordHash = hashPassword("Admin@123456");
 
     const seedUsers: Array<StoredUser & { balance: string }> = [
@@ -387,6 +395,19 @@ async function isDatabaseOnline(): Promise<boolean> {
   }
 }
 
+/**
+ * Ensures that production environments fail safely when authoritative MySQL database is offline.
+ * Never allows volatile in-memory fallback to silently authenticate or persist mutations in production.
+ */
+function assertDatabaseAvailableInProduction(operationName: string): void {
+  if (process.env.NODE_ENV === "production") {
+    throw new DatabaseError(
+      `Production safety halt: Authoritative MySQL database is unreachable. Authentication operation '${operationName}' rejected to prevent unpersisted state.`,
+      { operation: operationName, timestamp: new Date().toISOString() }
+    );
+  }
+}
+
 function getPermissionsForRole(roleSlug: string): string[] {
   const matrix = ROLE_PERMISSIONS_MATRIX[roleSlug as RoleSlugType];
   if (matrix) return matrix;
@@ -542,7 +563,8 @@ export async function register(
     };
   }
 
-  // Fallback: In-Memory Resilient Store
+  // Fallback: In-Memory Resilient Store (Dev/Test only)
+  assertDatabaseAvailableInProduction("register");
   const existingInMemory = memoryStore.findUserByEmailOrPhone(input.email);
   if (existingInMemory) {
     throw new ConflictError("An account with this email address already exists.");
@@ -749,7 +771,8 @@ export async function login(
     };
   }
 
-  // Fallback: In-Memory Store
+  // Fallback: In-Memory Store (Dev/Test only)
+  assertDatabaseAvailableInProduction("login");
   const user = memoryStore.findUserByEmailOrPhone(input.credential);
   if (!user) {
     AccountLockoutManager.recordFailedAttempt(input.credential);
@@ -901,7 +924,10 @@ export async function validateSession(rawToken: string): Promise<AuthenticatedUs
     };
   }
 
-  // Fallback: In-Memory
+  // Fallback: In-Memory (Dev/Test only)
+  if (process.env.NODE_ENV === "production") {
+    return null;
+  }
   const storedSession = memoryStore.getSession(tokenHash);
   if (!storedSession) {
     return null;
@@ -1003,6 +1029,8 @@ export async function requestPasswordReset(email: string): Promise<{ token?: str
     return { token: rawToken };
   }
 
+  // Fallback: In-Memory (Dev/Test only)
+  assertDatabaseAvailableInProduction("requestPasswordReset");
   const user = memoryStore.findUserByEmailOrPhone(cleanEmail);
   if (!user) {
     return {};
@@ -1064,7 +1092,8 @@ export async function resetPassword(rawToken: string, newPassword: string): Prom
     return;
   }
 
-  // Memory fallback
+  // Memory fallback (Dev/Test only)
+  assertDatabaseAvailableInProduction("resetPassword");
   const storedToken = memoryStore.getToken(tokenHash);
   if (
     !storedToken ||
@@ -1119,7 +1148,8 @@ export async function verifyEmail(rawToken: string): Promise<{ email: string }> 
     return { email: tokenRecord.user.email };
   }
 
-  // Memory fallback
+  // Memory fallback (Dev/Test only)
+  assertDatabaseAvailableInProduction("verifyEmail");
   const storedToken = memoryStore.getToken(tokenHash);
   if (
     !storedToken ||
@@ -1172,6 +1202,8 @@ export async function resendVerificationToken(email: string): Promise<{ token?: 
     return { token: rawToken };
   }
 
+  // Fallback: In-Memory (Dev/Test only)
+  assertDatabaseAvailableInProduction("resendVerificationToken");
   const user = memoryStore.findUserByEmailOrPhone(cleanEmail);
   if (!user || user.emailVerifiedAt) {
     return {};
@@ -1256,7 +1288,8 @@ export async function updateUserProfile(
     };
   }
 
-  // In-memory fallback
+  // In-memory fallback (Dev/Test only)
+  assertDatabaseAvailableInProduction("updateUserProfile");
   const user = memoryStore.findUserById(userId);
   if (!user) throw new NotFoundError("User not found");
   if (updates.phone) user.phone = updates.phone;
@@ -1308,6 +1341,8 @@ export async function changePassword(userId: string, oldPass: string, newPass: s
     return;
   }
 
+  // In-memory fallback (Dev/Test only)
+  assertDatabaseAvailableInProduction("changePassword");
   const user = memoryStore.findUserById(userId);
   if (!user) throw new NotFoundError("User not found");
   const valid = await verifyPassword(oldPass, user.passwordHash);

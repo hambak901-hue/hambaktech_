@@ -26,6 +26,7 @@ export default function FundWalletPage() {
   const [customAmount, setCustomAmount] = useState<string>("5000");
   const [gateway, setGateway] = useState<"PAYSTACK" | "FLUTTERWAVE" | "MONIEPOINT" | "BANK_TRANSFER">("PAYSTACK");
   const [processing, setProcessing] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successResult, setSuccessResult] = useState<{
     reference: string;
     amount: number;
@@ -43,27 +44,47 @@ export default function FundWalletPage() {
     setAmount(Number(val) || 0);
   };
 
-  const handleProceedPayment = (e: React.FormEvent) => {
+  const handleProceedPayment = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMessage(null);
     if (amount < 100) {
-      alert("Minimum wallet funding amount is ₦100");
+      setErrorMessage("Minimum wallet funding amount is ₦100");
       return;
     }
 
     setProcessing(true);
 
-    // Simulate realistic payment gateway interaction
-    setTimeout(() => {
+    try {
       const generatedRef = `HT-FUND-${Date.now().toString().slice(-8)}`;
-      const result = platformApi.fundWallet(amount, gateway, generatedRef);
+      const res = await fetch("/api/v1/wallet/fund", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amount,
+          gateway,
+          reference: generatedRef,
+          description: `Wallet top-up via ${gateway}`,
+        }),
+      });
 
-      setProcessing(false);
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.error?.message || json.message || "Failed to process wallet funding.");
+      }
+
+      // Sync local transitional client cache if present
+      platformApi.fundWallet(amount, gateway, generatedRef);
+
       setSuccessResult({
         reference: generatedRef,
         amount,
-        newBalance: result.newBalance,
+        newBalance: json.data?.wallet?.currentBalance ?? (platformApi.getWallet().currentBalance),
       });
-    }, 1200);
+    } catch (err: any) {
+      setErrorMessage(err.message || "An unexpected error occurred during wallet funding.");
+    } finally {
+      setProcessing(false);
+    }
   };
 
   return (
@@ -92,6 +113,13 @@ export default function FundWalletPage() {
             </div>
 
             <form onSubmit={handleProceedPayment} className="space-y-6">
+              {errorMessage && (
+                <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 text-xs font-medium flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{errorMessage}</span>
+                </div>
+              )}
+
               {/* Preset Amounts */}
               <div>
                 <label className="block text-xs font-bold text-dark dark:text-white uppercase tracking-wider mb-2">

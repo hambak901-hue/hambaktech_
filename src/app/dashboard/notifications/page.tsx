@@ -21,17 +21,57 @@ export default function DashboardNotificationsPage() {
     platformApi.getNotifications()
   );
   const [filter, setFilter] = useState<"ALL" | "UNREAD">("ALL");
+  const [loading, setLoading] = useState(true);
+
+  React.useEffect(() => {
+    let isMounted = true;
+    async function loadNotifications() {
+      try {
+        const res = await fetch("/api/v1/notifications");
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && json.data?.notifications && isMounted) {
+            setNotifications(json.data.notifications);
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn("[Notifications] Falling back to client store:", err);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    }
+
+    loadNotifications();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
-  const handleMarkAllRead = () => {
+  const handleMarkAllRead = async () => {
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    try {
+      await fetch("/api/v1/notifications/read-all", { method: "PATCH" });
+    } catch (err) {
+      console.warn("[Notifications] Error marking all read:", err);
+    }
     platformApi.markAllNotificationsAsRead();
-    setNotifications(platformApi.getNotifications());
   };
 
-  const handleMarkSingleRead = (id: string) => {
+  const handleMarkSingleRead = async (id: string) => {
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, read: true } : n))
+    );
+    try {
+      await fetch(`/api/v1/notifications/${encodeURIComponent(id)}/read`, {
+        method: "PATCH",
+      });
+    } catch (err) {
+      console.warn("[Notifications] Error marking single read:", err);
+    }
     platformApi.markNotificationAsRead(id);
-    setNotifications(platformApi.getNotifications());
   };
 
   const filteredList =

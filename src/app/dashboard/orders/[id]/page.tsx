@@ -28,12 +28,39 @@ export default function OrderDetailsReceiptPage() {
   const router = useRouter();
   const orderId = params?.id as string;
   const [order, setOrder] = useState<Order | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let isMounted = true;
     if (orderId) {
-      const found = platformApi.getOrderById(orderId);
-      setOrder(found || null);
+      async function fetchOrder() {
+        setLoading(true);
+        try {
+          const res = await fetch(`/api/v1/orders/${encodeURIComponent(orderId)}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.success && data.data?.order && isMounted) {
+              setOrder(data.data.order);
+              return;
+            }
+          }
+        } catch (err) {
+          console.warn("[OrderDetail] Falling back to client store cache:", err);
+        } finally {
+          if (isMounted) setLoading(false);
+        }
+
+        if (isMounted) {
+          const found = platformApi.getOrderById(orderId);
+          setOrder(found || null);
+        }
+      }
+
+      fetchOrder();
     }
+    return () => {
+      isMounted = false;
+    };
   }, [orderId]);
 
   if (!order) {

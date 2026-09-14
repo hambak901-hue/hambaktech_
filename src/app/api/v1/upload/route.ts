@@ -5,6 +5,7 @@ import { enforceRateLimit } from "@/lib/rate-limit";
 import { verifyCsrf } from "@/lib/csrf";
 import { AppError } from "@/lib/errors";
 import { AuditService } from "@/lib/server/platform-store";
+import { storageProvider } from "@/lib/storage";
 
 export async function POST(req: NextRequest) {
   try {
@@ -70,10 +71,25 @@ export async function POST(req: NextRequest) {
       buffer
     );
 
-    // 6. Formulate secure public path
-    const fileUrl = `/uploads/${validation.safeFilename}`;
+    // 6. Check if upload is a sensitive document (NIN, CAC, identity documents)
+    const isSensitive = [
+      "NIN_DOCUMENT",
+      "NIN_SLIP",
+      "CAC_DOCUMENT",
+      "CAC_CERTIFICATE",
+      "ID_VERIFICATION",
+      "PASSPORT_SCAN",
+    ].includes(purpose.toUpperCase());
 
-    // 7. Audit log the upload action
+    // 7. Persist using the StorageProvider abstraction
+    const uploadResult = await storageProvider.upload(
+      buffer,
+      validation.safeFilename,
+      file.type,
+      isSensitive
+    );
+
+    // 8. Audit log the upload action
     AuditService.log({
       actorName: session.fullName || session.email,
       actorEmail: session.email,
@@ -89,6 +105,8 @@ export async function POST(req: NextRequest) {
         sizeBytes: buffer.length,
         mimeType: file.type,
         purpose,
+        isSensitive,
+        storagePath: uploadResult.storagePath,
       },
     });
 
@@ -96,12 +114,14 @@ export async function POST(req: NextRequest) {
       {
         success: true,
         data: {
-          url: fileUrl,
+          url: uploadResult.url,
+          key: uploadResult.key,
           filename: validation.safeFilename,
           originalName: file.name,
           mimeType: file.type,
           sizeBytes: buffer.length,
           purpose,
+          isSensitive,
           uploadedAt: new Date().toISOString(),
         },
       },

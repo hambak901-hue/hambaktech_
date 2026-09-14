@@ -1,6 +1,13 @@
 /**
  * HambakTech Multi-Tier Sliding Window Rate Limiting Engine
- * Provides memory-safe, configurable rate limiting for sensitive API endpoints.
+ * Provides storage-independent, configurable rate limiting for sensitive API endpoints.
+ * 
+ * PRODUCTION ARCHITECTURE DIRECTIVE:
+ * In a single-instance Node.js deployment (e.g. standard cPanel Passenger runtime),
+ * the default InMemoryRateLimitStore is safe and active.
+ * For horizontally scaled, multi-instance, or serverless production deployments,
+ * replace the store with a shared Redis or database-backed RateLimitStore implementation
+ * to prevent per-instance rate-limit evasion.
  */
 
 export interface RateLimitConfig {
@@ -15,12 +22,46 @@ export interface RateLimitResult {
   resetTime: number; // Unix timestamp in seconds
 }
 
-interface RateLimitRecord {
+export interface RateLimitRecord {
   timestamps: number[];
 }
 
-// Global in-memory sliding window store
-const rateLimitStore = new Map<string, RateLimitRecord>();
+/**
+ * Storage-independent Rate Limiting abstraction.
+ * Allows swapping between in-memory, Redis, or database persistent stores.
+ */
+export interface RateLimitStore {
+  get(key: string): RateLimitRecord | null;
+  set(key: string, record: RateLimitRecord): void;
+  delete?(key: string): void;
+}
+
+export class InMemoryRateLimitStore implements RateLimitStore {
+  private store = new Map<string, RateLimitRecord>();
+
+  get(key: string): RateLimitRecord | null {
+    return this.store.get(key) || null;
+  }
+
+  set(key: string, record: RateLimitRecord): void {
+    this.store.set(key, record);
+  }
+
+  delete(key: string): void {
+    this.store.delete(key);
+  }
+}
+
+// Active storage driver (defaults to memory-safe sliding window)
+let activeRateLimitStore: RateLimitStore = new InMemoryRateLimitStore();
+
+export function setRateLimitStore(store: RateLimitStore): void {
+  activeRateLimitStore = store;
+}
+
+export function getRateLimitStore(): RateLimitStore {
+  return activeRateLimitStore;
+}
 
 // Predefined rate limiting profiles for different sensitive endpoint tiers
 export const RATE_LIMIT_PROFILES: Record<string, RateLimitConfig> = {
@@ -30,6 +71,8 @@ export const RATE_LIMIT_PROFILES: Record<string, RateLimitConfig> = {
   AUTH_FORGOT_PASSWORD: { maxRequests: 3, windowSeconds: 60 * 60 }, // 3 requests per hour
   AUTH_RESET_PASSWORD: { maxRequests: 5, windowSeconds: 60 * 60 }, // 5 reset attempts per hour
   AUTH_VERIFY_EMAIL: { maxRequests: 5, windowSeconds: 60 * 60 }, // 5 verification attempts per hour
+  AUTH_RESEND_VERIFICATION: { maxRequests: 3, windowSeconds: 60 * 60 }, // 3 resend attempts per hour
+  AUTH_REFRESH: { maxRequests: 30, windowSeconds: 15 * 60 }, // 30 token refreshes per 15 minutes
 
   // Financial & Payments
   WALLET_FUND: { maxRequests: 10, windowSeconds: 60 }, // 10 funding requests per minute
@@ -56,10 +99,10 @@ export function checkRateLimit(
   const windowMs = config.windowSeconds * 1000;
   const windowStart = now - windowMs;
 
-  let record = rateLimitStore.get(key);
+  let record = activeRateLimitStore.get(key);
   if (!record) {
     record = { timestamps: [] };
-    rateLimitStore.set(key, record);
+    activeRateLimitStore.set(key, record);
   }
 
   // Purge expired timestamps outside the sliding window

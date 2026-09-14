@@ -1,19 +1,6 @@
-import { NextRequest } from "next/server";
-import { logout } from "@/lib/auth-service";
-import { extractSessionToken, clearSessionCookie } from "@/lib/auth";
-import { successResponse, errorResponse } from "@/lib/api-response";
+/**
+ * @deprecated Legacy endpoint. Use canonical endpoint POST /api/v1/auth/logout instead.
+ */
+import { POST as canonicalPost } from "@/app/api/v1/auth/logout/route";
 
-export async function POST(req: NextRequest) {
-  try {
-    const token = extractSessionToken(req);
-    if (token) {
-      await logout(token);
-    }
-
-    const response = successResponse(null, "Logged out successfully.");
-    clearSessionCookie(response);
-    return response;
-  } catch (error) {
-    return errorResponse(error, "Logout failed");
-  }
-}
+export const POST = canonicalPost;

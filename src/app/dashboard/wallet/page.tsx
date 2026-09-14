@@ -23,10 +23,47 @@ import { Wallet, Transaction } from "@/types/platform";
 export default function CustomerWalletPage() {
   const [wallet, setWallet] = useState<Wallet>(platformApi.getWallet());
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    setWallet(platformApi.getWallet());
-    setTransactions(platformApi.getTransactions().slice(0, 10));
+    let isMounted = true;
+
+    async function loadAuthoritativeWallet() {
+      try {
+        const [walletRes, txRes] = await Promise.all([
+          fetch("/api/v1/wallet"),
+          fetch("/api/v1/wallet/transactions?limit=10"),
+        ]);
+
+        if (walletRes.ok) {
+          const wJson = await walletRes.json();
+          if (wJson.success && wJson.data?.wallet && isMounted) {
+            setWallet(wJson.data.wallet);
+          }
+        }
+
+        if (txRes.ok) {
+          const tJson = await txRes.json();
+          if (tJson.success && tJson.data?.transactions && isMounted) {
+            setTransactions(tJson.data.transactions);
+          }
+        }
+      } catch (err) {
+        console.warn("[WalletPage] Falling back to client store cache:", err);
+        if (isMounted) {
+          setWallet(platformApi.getWallet());
+          setTransactions(platformApi.getTransactions().slice(0, 10));
+        }
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    }
+
+    loadAuthoritativeWallet();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   return (

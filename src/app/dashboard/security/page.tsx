@@ -67,7 +67,7 @@ export default function DashboardSecurityPage() {
     },
   ]);
 
-  const handlePasswordUpdate = (e: React.FormEvent) => {
+  const handlePasswordUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     setPwError("");
     setPwSuccess(false);
@@ -86,14 +86,32 @@ export default function DashboardSecurityPage() {
     }
 
     setPwLoading(true);
-    setTimeout(() => {
-      setPwLoading(false);
+    try {
+      const res = await fetch("/api/v1/user/password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          currentPassword,
+          newPassword,
+          confirmPassword,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error?.message || data.message || "Failed to change password.");
+      }
+
       setPwSuccess(true);
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
-      setTimeout(() => setPwSuccess(false), 4000);
-    }, 800);
+      setTimeout(() => setPwSuccess(false), 5000);
+    } catch (err: any) {
+      setPwError(err.message || "Password update failed. Please verify your current password.");
+    } finally {
+      setPwLoading(false);
+    }
   };
 
   const handlePinUpdate = (e: React.FormEvent) => {

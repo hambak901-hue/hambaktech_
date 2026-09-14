@@ -39,6 +39,23 @@ import { companyConfig } from "@/data/companyConfig";
 import { isDatabaseReachable, getPrisma } from "@/lib/db";
 import { hashPassword, generateToken } from "@/lib/crypto";
 import { sanitizeSensitiveRecord } from "@/lib/privacy";
+import { DatabaseError } from "@/lib/errors";
+
+/**
+ * Production Safety Guard:
+ * Prevents unpersisted in-memory mutations for financial, transactional, or authoritative state in production.
+ */
+export async function assertAuthoritativePersistence(operationName: string): Promise<void> {
+  if (process.env.NODE_ENV === "production") {
+    const reachable = await isDatabaseReachable();
+    if (!reachable) {
+      throw new DatabaseError(
+        `Production safety halt: Authoritative MySQL database is unreachable. Mutation '${operationName}' rejected to prevent volatile unpersisted state.`,
+        { operation: operationName, timestamp: new Date().toISOString() }
+      );
+    }
+  }
+}
 
 // ============================================================================
 // SERVER-SIDE IN-MEMORY REPOSITORY (Singleton across Next.js server invocations)
@@ -2976,6 +2993,7 @@ export const WalletService = {
     reference?: string;
     description?: string;
   }): Promise<{ wallet: Wallet; transaction: Transaction }> {
+    await assertAuthoritativePersistence("fundWallet");
     const store = getStore();
     const wallet = await this.getWallet(payload.userId);
     const amount = Number(payload.amount);
@@ -3083,6 +3101,7 @@ export const OrderService = {
     deliveryType?: "INSTANT_DIGITAL" | "PHYSICAL_PICKUP" | "COURIER_DELIVERY" | "ONLINE_PORTAL";
     notes?: string;
   }): Promise<Order> {
+    await assertAuthoritativePersistence("createServiceOrder");
     const store = getStore();
     if (!payload.items || payload.items.length === 0) {
       throw new Error("Order must contain at least one item");

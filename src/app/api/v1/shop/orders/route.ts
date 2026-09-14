@@ -1,8 +1,30 @@
 import { NextRequest } from "next/server";
-import { requireAuth } from "@/lib/auth";
-import { ShopService } from "@/lib/server/platform-store";
+import { requireAuth, hasPermission } from "@/lib/auth";
+import { PERMISSIONS } from "@/lib/auth-constants";
+import { ShopService, AdminService } from "@/lib/server/platform-store";
 import { successResponse, errorResponse } from "@/lib/api-response";
 import { ValidationError } from "@/lib/errors";
+
+export async function GET(req: NextRequest) {
+  try {
+    const session = await requireAuth(req);
+    const canManage =
+      hasPermission(session, PERMISSIONS.ORDERS_READ) ||
+      hasPermission(session, PERMISSIONS.ORDERS_MANAGE);
+
+    if (canManage) {
+      const orders = await AdminService.getOrders();
+      const shopOrders = orders.filter((o) => o.serviceCategorySlug === "shop");
+      return successResponse({ orders: shopOrders }, "Shop orders retrieved successfully");
+    }
+
+    const orders = await AdminService.getOrders(session.userId);
+    const shopOrders = orders.filter((o) => o.serviceCategorySlug === "shop");
+    return successResponse({ orders: shopOrders }, "Your shop orders retrieved successfully");
+  } catch (error) {
+    return errorResponse(error, "Failed to retrieve shop orders");
+  }
+}
 
 export async function POST(req: NextRequest) {
   try {
