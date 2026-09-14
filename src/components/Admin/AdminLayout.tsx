@@ -133,6 +133,7 @@ export default function AdminLayout({
         { label: "CMS & Announcements", href: "/admin/cms", icon: FileText },
         { label: "Notifications Hub", href: "/admin/notifications", icon: Bell },
         { label: "Audit & Security Logs", href: "/admin/audit-logs", icon: History },
+        { label: "Security & Compliance", href: "/admin/compliance", icon: Shield },
         { label: "System Settings", href: "/admin/settings", icon: Settings },
       ],
     },

@@ -52,3 +52,10 @@ export class DatabaseError extends AppError {
     super(message, 503, "DATABASE_ERROR", details);
   }
 }
+
+export class TooManyRequestsError extends AppError {
+  constructor(message = "Too many requests. Please try again later.", details?: unknown) {
+    super(message, 429, "TOO_MANY_REQUESTS", details);
+  }
+}
+

@@ -2,35 +2,42 @@ import { NextRequest } from "next/server";
 import { requireAuth } from "@/lib/auth";
 import { WalletService } from "@/lib/server/platform-store";
 import { successResponse, errorResponse } from "@/lib/api-response";
-import { ValidationError } from "@/lib/errors";
+import { enforceRateLimit } from "@/lib/rate-limit";
+import { verifyCsrf } from "@/lib/csrf";
+import { validateData, FundWalletSchema } from "@/lib/validation";
 
 export async function POST(req: NextRequest) {
+  // 1. CSRF Verification for browser requests
+  verifyCsrf(req);
+
+  // 2. Enforce Rate Limiting (10 funding attempts per minute)
+  const rateLimit = enforceRateLimit(req, "WALLET_FUND");
+  if (!rateLimit.success) {
+    const resp = errorResponse(
+      new Error("Wallet funding transaction rate limit exceeded. Please wait a moment."),
+      "Too many requests",
+      429
+    );
+    Object.entries(rateLimit.headers).forEach(([k, v]) => resp.headers.set(k, v));
+    return resp;
+  }
+
   try {
     const session = await requireAuth(req);
-    const body = await req.json();
-
-    const amount = Number(body.amount);
-    if (!amount || isNaN(amount) || amount < 100) {
-      throw new ValidationError("Minimum wallet funding amount is ₦100.00");
-    }
-
-    const paymentMethod = body.paymentMethod || "PAYSTACK";
-    const allowedMethods = ["PAYSTACK", "FLUTTERWAVE", "MONIEPOINT", "BANK_TRANSFER"];
-    if (!allowedMethods.includes(paymentMethod)) {
-      throw new ValidationError(`Invalid payment method. Allowed: ${allowedMethods.join(", ")}`);
-    }
+    const rawBody = await req.json();
+    const validated = validateData(FundWalletSchema, rawBody);
 
     const { wallet, transaction } = await WalletService.fundWallet({
       userId: session.userId,
       userName: session.fullName || session.email,
       userEmail: session.email,
-      amount,
-      paymentMethod,
-      reference: body.reference,
-      description: body.description,
+      amount: validated.amount,
+      paymentMethod: validated.gateway,
+      reference: validated.reference,
+      description: rawBody.description,
     });
 
-    return successResponse(
+    const response = successResponse(
       {
         wallet: {
           id: wallet.id,
@@ -39,9 +46,14 @@ export async function POST(req: NextRequest) {
         },
         transaction,
       },
-      `Wallet funded with ₦${amount.toLocaleString("en-NG", { minimumFractionDigits: 2 })} successfully.`
+      `Wallet funded with ₦${validated.amount.toLocaleString("en-NG", { minimumFractionDigits: 2 })} successfully.`
     );
+
+    Object.entries(rateLimit.headers).forEach(([k, v]) => response.headers.set(k, v));
+    return response;
   } catch (error) {
-    return errorResponse(error, "Wallet funding failed");
+    const resp = errorResponse(error, "Wallet funding failed");
+    Object.entries(rateLimit.headers).forEach(([k, v]) => resp.headers.set(k, v));
+    return resp;
   }
 }

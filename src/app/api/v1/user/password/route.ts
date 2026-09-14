@@ -2,27 +2,54 @@ import { NextRequest } from "next/server";
 import { requireAuth } from "@/lib/auth";
 import { changePassword } from "@/lib/auth-service";
 import { successResponse, errorResponse } from "@/lib/api-response";
-import { ValidationError } from "@/lib/errors";
+import { validateData, ChangePasswordSchema } from "@/lib/validation";
+import { enforceRateLimit } from "@/lib/rate-limit";
+import { verifyCsrf } from "@/lib/csrf";
+import { AuditService } from "@/lib/server/platform-store";
 
 export async function POST(req: NextRequest) {
+  // 1. Enforce CSRF check for browser sessions
+  verifyCsrf(req);
+
+  // 2. Enforce Rate Limiting (5 attempts per hour per client)
+  const rateLimit = enforceRateLimit(req, "AUTH_RESET_PASSWORD");
+  if (!rateLimit.success) {
+    const resp = errorResponse(
+      new Error("Password change attempts exceeded. Please try again later."),
+      "Too many requests",
+      429
+    );
+    Object.entries(rateLimit.headers).forEach(([k, v]) => resp.headers.set(k, v));
+    return resp;
+  }
+
   try {
     const session = await requireAuth(req);
     const body = await req.json();
+    const validated = validateData(ChangePasswordSchema, body);
 
-    if (!body.currentPassword || !body.newPassword) {
-      throw new ValidationError("Current password and new password are required.");
-    }
+    await changePassword(session.userId, validated.currentPassword, validated.newPassword);
 
-    if (body.newPassword.length < 8) {
-      throw new ValidationError("New password must be at least 8 characters long.");
-    }
+    AuditService.log({
+      actorName: session.fullName || session.email,
+      actorEmail: session.email,
+      role: session.role.slug as any,
+      action: "AUTH_PASSWORD_CHANGED",
+      entity: "USER_SECURITY",
+      entityId: session.userId,
+      ipAddress: req.headers.get("x-forwarded-for")?.split(",")[0].trim() || "127.0.0.1",
+      status: "SUCCESS",
+    });
 
-    await changePassword(session.userId, body.currentPassword, body.newPassword);
-
-    return successResponse({
-      updated: true,
-    }, "Password changed successfully.");
+    const response = successResponse(
+      { updated: true },
+      "Password changed successfully. All previous sessions have been invalidated."
+    );
+    Object.entries(rateLimit.headers).forEach(([k, v]) => response.headers.set(k, v));
+    return response;
   } catch (error) {
-    return errorResponse(error, "Failed to change password");
+    const resp = errorResponse(error, "Failed to change password");
+    Object.entries(rateLimit.headers).forEach(([k, v]) => resp.headers.set(k, v));
+    return resp;
   }
 }

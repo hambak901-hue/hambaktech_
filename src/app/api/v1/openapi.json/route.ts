@@ -5,7 +5,7 @@ export async function GET() {
     openapi: "3.0.3",
     info: {
       title: "HambakTech Unified Authoritative API",
-      version: "1.0.0-m11",
+      version: "1.0.0-m12",
       description:
         "Authoritative API powering Web, Android, and iOS clients for HambakTech Smart Digital & ICT Platform. Features unified authentication, authoritative wallet ledger, server-side dynamic pricing, academy LMS, shop commerce, and notifications without duplication.",
       contact: {
@@ -241,6 +241,30 @@ export async function GET() {
           summary: "Place shop hardware order with stock reservation and delivery",
           tags: ["Shop"],
           responses: { 201: { description: "Shop order placed" } },
+        },
+      },
+      "/upload": {
+        post: {
+          summary: "Secure multi-part file upload with magic byte inspection and dangerous extension filtering",
+          tags: ["Storage & Security"],
+          security: [{ bearerAuth: [] }],
+          responses: {
+            201: { description: "File uploaded successfully" },
+            422: { description: "File validation failed" },
+            429: { description: "Upload rate limit exceeded" },
+          },
+        },
+      },
+      "/payments/webhook": {
+        post: {
+          summary: "Authoritative webhook receiver for payment gateways (Paystack, Flutterwave, Moniepoint) with HMAC verification and idempotency",
+          tags: ["Payments"],
+          security: [],
+          responses: {
+            200: { description: "Webhook processed or idempotently acknowledged" },
+            401: { description: "Invalid cryptographic signature" },
+            429: { description: "Rate limit exceeded" },
+          },
         },
       },
       "/notifications": {

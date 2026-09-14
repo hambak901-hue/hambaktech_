@@ -1,8 +1,11 @@
 import { NextRequest } from "next/server";
 import { requireAuth } from "@/lib/auth";
 import { updateUserProfile } from "@/lib/auth-service";
-import { WalletService } from "@/lib/server/platform-store";
+import { WalletService, AuditService } from "@/lib/server/platform-store";
 import { successResponse, errorResponse } from "@/lib/api-response";
+import { verifyCsrf } from "@/lib/csrf";
+import { validateData, UpdateProfileSchema } from "@/lib/validation";
+import { sanitizeSensitiveRecord } from "@/lib/privacy";
 
 export async function GET(req: NextRequest) {
   try {
@@ -28,15 +31,26 @@ export async function GET(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
+  // Enforce CSRF check for browser sessions
+  verifyCsrf(req);
+
   try {
     const session = await requireAuth(req);
     const body = await req.json();
+    const validated = validateData(UpdateProfileSchema, body);
 
-    const updatedUser = await updateUserProfile(session.userId, {
-      firstName: body.firstName,
-      lastName: body.lastName,
-      phone: body.phone,
-      avatarUrl: body.avatarUrl,
+    const updatedUser = await updateUserProfile(session.userId, validated);
+
+    AuditService.log({
+      actorName: session.fullName || session.email,
+      actorEmail: session.email,
+      role: session.role.slug as any,
+      action: "PROFILE_UPDATED",
+      entity: "USER_PROFILE",
+      entityId: session.userId,
+      ipAddress: req.headers.get("x-forwarded-for")?.split(",")[0].trim() || "127.0.0.1",
+      status: "SUCCESS",
+      metadata: sanitizeSensitiveRecord(validated),
     });
 
     return successResponse({

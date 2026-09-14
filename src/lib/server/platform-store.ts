@@ -38,6 +38,7 @@ import { servicesData } from "@/data/servicesData";
 import { companyConfig } from "@/data/companyConfig";
 import { isDatabaseReachable, getPrisma } from "@/lib/db";
 import { hashPassword, generateToken } from "@/lib/crypto";
+import { sanitizeSensitiveRecord } from "@/lib/privacy";
 
 // ============================================================================
 // SERVER-SIDE IN-MEMORY REPOSITORY (Singleton across Next.js server invocations)
@@ -2910,8 +2911,10 @@ export const AdminService = {
 export const AuditService = {
   log(entry: Omit<AuditLogEntry, "id" | "timestamp">) {
     const store = getStore();
+    const sanitizedMetadata = entry.metadata ? sanitizeSensitiveRecord(entry.metadata) : undefined;
     const newEntry: AuditLogEntry = {
       ...entry,
+      metadata: sanitizedMetadata,
       id: `audit-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       timestamp: new Date().toISOString(),
     };

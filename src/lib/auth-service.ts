@@ -12,6 +12,7 @@ import {
   ConflictError,
   NotFoundError,
   ValidationError,
+  TooManyRequestsError,
 } from "./errors";
 import { RegisterInput, LoginInput } from "./validation";
 
@@ -311,6 +312,65 @@ class InMemoryAuthStore {
 
 const memoryStore = new InMemoryAuthStore();
 
+// ---------------------------------------------------------------------------
+// Account Lockout & Brute Force Defense Manager
+// ---------------------------------------------------------------------------
+interface FailedLoginRecord {
+  attempts: number;
+  lastAttemptTime: number;
+  lockedUntil: number | null;
+}
+
+const failedLoginAttempts = new Map<string, FailedLoginRecord>();
+const MAX_CONSECUTIVE_FAILED_LOGINS = 5;
+const LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutes lockout
+
+export const AccountLockoutManager = {
+  checkLockout(identifier: string): void {
+    const key = identifier.toLowerCase().trim();
+    const record = failedLoginAttempts.get(key);
+    if (!record) return;
+
+    const now = Date.now();
+    if (record.lockedUntil && record.lockedUntil > now) {
+      const minutesLeft = Math.ceil((record.lockedUntil - now) / 60000);
+      throw new TooManyRequestsError(
+        `Account is temporarily locked due to ${MAX_CONSECUTIVE_FAILED_LOGINS} consecutive failed login attempts. Please try again in ${minutesLeft} minute(s) or reset your password.`
+      );
+    }
+
+    // Reset if window has elapsed
+    if (record.lockedUntil && record.lockedUntil <= now) {
+      failedLoginAttempts.delete(key);
+    }
+  },
+
+  recordFailedAttempt(identifier: string): void {
+    const key = identifier.toLowerCase().trim();
+    const now = Date.now();
+    const record = failedLoginAttempts.get(key) || {
+      attempts: 0,
+      lastAttemptTime: now,
+      lockedUntil: null,
+    };
+
+    record.attempts += 1;
+    record.lastAttemptTime = now;
+
+    if (record.attempts >= MAX_CONSECUTIVE_FAILED_LOGINS) {
+      record.lockedUntil = now + LOCKOUT_DURATION_MS;
+    }
+
+    failedLoginAttempts.set(key, record);
+  },
+
+  recordSuccessfulLogin(identifier: string): void {
+    const key = identifier.toLowerCase().trim();
+    failedLoginAttempts.delete(key);
+  },
+};
+
+
 /**
  * Checks if the underlying database is reachable.
  */
@@ -580,6 +640,9 @@ export async function login(
   input: LoginInput,
   options?: { ipAddress?: string; userAgent?: string }
 ): Promise<AuthSessionData> {
+  // Check lockout status prior to any credential verification
+  AccountLockoutManager.checkLockout(input.credential);
+
   const dbOnline = await isDatabaseOnline();
   const rawSessionToken = generateRandomToken(32);
   const sessionHash = hashToken(rawSessionToken);
@@ -611,6 +674,7 @@ export async function login(
     });
 
     if (!user) {
+      AccountLockoutManager.recordFailedAttempt(input.credential);
       throw new UnauthorizedError("Invalid email/phone or password.");
     }
 
@@ -620,8 +684,12 @@ export async function login(
 
     const isValidPassword = verifyPassword(input.password, user.passwordHash);
     if (!isValidPassword) {
+      AccountLockoutManager.recordFailedAttempt(input.credential);
       throw new UnauthorizedError("Invalid email/phone or password.");
     }
+
+    // Login successful: Clear failed login tracking
+    AccountLockoutManager.recordSuccessfulLogin(input.credential);
 
     // Persist session
     await prisma.userSession.create({
@@ -684,6 +752,7 @@ export async function login(
   // Fallback: In-Memory Store
   const user = memoryStore.findUserByEmailOrPhone(input.credential);
   if (!user) {
+    AccountLockoutManager.recordFailedAttempt(input.credential);
     throw new UnauthorizedError("Invalid email/phone or password.");
   }
 
@@ -693,8 +762,12 @@ export async function login(
 
   const isValidPassword = verifyPassword(input.password, user.passwordHash);
   if (!isValidPassword) {
+    AccountLockoutManager.recordFailedAttempt(input.credential);
     throw new UnauthorizedError("Invalid email/phone or password.");
   }
+
+  // Clear failed attempts on success
+  AccountLockoutManager.recordSuccessfulLogin(input.credential);
 
   memoryStore.saveSession({
     id: `sess-${Date.now()}`,
@@ -1228,7 +1301,10 @@ export async function changePassword(userId: string, oldPass: string, newPass: s
     const valid = await verifyPassword(oldPass, user.passwordHash);
     if (!valid) throw new ValidationError("Current password is incorrect.");
     const newHash = await hashPassword(newPass);
-    await prisma.user.update({ where: { id: userId }, data: { passwordHash: newHash } });
+    await prisma.$transaction([
+      prisma.user.update({ where: { id: userId }, data: { passwordHash: newHash } }),
+      prisma.userSession.updateMany({ where: { userId }, data: { isRevoked: true } }),
+    ]);
     return;
   }
 
@@ -1237,4 +1313,5 @@ export async function changePassword(userId: string, oldPass: string, newPass: s
   const valid = await verifyPassword(oldPass, user.passwordHash);
   if (!valid) throw new ValidationError("Current password is incorrect.");
   user.passwordHash = await hashPassword(newPass);
+  memoryStore.revokeAllUserSessions(userId);
 }
