@@ -210,7 +210,7 @@ export default function ShopPublicPage() {
                       {prod.name}
                     </h3>
                     <p className="text-xs text-body-color mt-1 line-clamp-2 leading-relaxed">
-                      {prod.description}
+                      {prod.description || prod.shortDescription || prod.fullDescription || ""}
                     </p>
 
                     {/* Specs Pills */}
@@ -232,7 +232,7 @@ export default function ShopPublicPage() {
                     <div>
                       <span className="text-[10px] text-body-color block uppercase font-semibold">Price</span>
                       <span className="text-base font-extrabold text-primary">
-                        ₦{prod.price.toLocaleString()}
+                        ₦{(prod.price ?? prod.sellingPrice ?? 0).toLocaleString()}
                       </span>
                     </div>
 

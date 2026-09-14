@@ -297,21 +297,22 @@ export default function AdminShopPage() {
                 </thead>
                 <tbody className="divide-y divide-stroke/60 dark:divide-strokedark/60">
                   {products.map((prod) => {
-                    const isLowStock = prod.stockQuantity <= prod.minStockLevel;
+                    const minStock = prod.minStockLevel ?? prod.minStockThreshold ?? 5;
+                    const isLowStock = prod.stockQuantity <= minStock;
 
                     return (
                       <tr key={prod.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-900/30 transition">
                         <td className="py-3.5">
                           <span className="font-bold text-dark dark:text-white block">{prod.name}</span>
-                          <span className="text-[11px] text-body-color">{prod.brand} &bull; {prod.warrantyPeriod} Warranty</span>
+                          <span className="text-[11px] text-body-color">{prod.brand || "Standard"} &bull; {prod.warrantyPeriod || "12 Months"} Warranty</span>
                         </td>
                         <td className="py-3.5 font-mono text-[11px] font-semibold">{prod.sku}</td>
-                        <td className="py-3.5 font-bold text-primary font-mono">₦{prod.price.toLocaleString()}</td>
-                        <td className="py-3.5 font-mono text-body-color">₦{prod.costPrice.toLocaleString()}</td>
+                        <td className="py-3.5 font-bold text-primary font-mono">₦{(prod.price ?? prod.sellingPrice ?? 0).toLocaleString()}</td>
+                        <td className="py-3.5 font-mono text-body-color">₦{(prod.costPrice ?? 0).toLocaleString()}</td>
                         <td className="py-3.5">
                           <span className="font-mono font-bold text-dark dark:text-white">{prod.stockQuantity} units</span>
                           {isLowStock && (
-                            <span className="block text-[10px] text-amber-600 font-bold">Min: {prod.minStockLevel}</span>
+                            <span className="block text-[10px] text-amber-600 font-bold">Min: {minStock}</span>
                           )}
                         </td>
                         <td className="py-3.5">
@@ -389,23 +390,26 @@ export default function AdminShopPage() {
                       <td className="py-3.5">
                         <span
                           className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                            log.type === "RESTOCK"
+                            (log.type || log.changeType) === "RESTOCK"
                               ? "bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300"
-                              : log.type === "SALE"
+                              : (log.type || log.changeType) === "SALE"
                               ? "bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300"
                               : "bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300"
                           }`}
                         >
-                          {log.type}
+                          {log.type || log.changeType}
                         </span>
                       </td>
                       <td className="py-3.5 font-mono font-bold">
-                        {log.quantityChange > 0 ? `+${log.quantityChange}` : log.quantityChange}
+                        {(() => {
+                          const delta = log.quantityChange ?? log.quantity ?? 0;
+                          return delta > 0 ? `+${delta}` : delta;
+                        })()}
                       </td>
                       <td className="py-3.5 font-mono text-body-color">
-                        {log.previousQuantity} &rarr; {log.newQuantity}
+                        {log.previousQuantity ?? log.balanceBefore ?? 0} &rarr; {log.newQuantity ?? log.balanceAfter ?? 0}
                       </td>
-                      <td className="py-3.5 text-body-color">{log.note}</td>
+                      <td className="py-3.5 text-body-color">{log.note || log.notes || "—"}</td>
                     </tr>
                   ))}
                 </tbody>

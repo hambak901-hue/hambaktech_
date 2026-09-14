@@ -50,6 +50,8 @@ export function generateRandomToken(byteLength = 32): string {
   return randomBytes(byteLength).toString("hex");
 }
 
+export const generateToken = generateRandomToken;
+
 /**
  * Generates a SHA-256 hash of a raw token for safe database persistence.
  */

@@ -46,9 +46,18 @@ export function successResponse<T>(
  */
 export function errorResponse(
   error: unknown,
-  fallbackMessage = "An unexpected error occurred"
+  fallbackMessageOrStatusCode: string | number = "An unexpected error occurred",
+  customStatusCode?: number
 ): NextResponse<ApiResponse<null>> {
   const timestamp = new Date().toISOString();
+  let fallbackMessage = "An unexpected error occurred";
+  let explicitStatus: number | undefined = customStatusCode;
+
+  if (typeof fallbackMessageOrStatusCode === "number") {
+    explicitStatus = fallbackMessageOrStatusCode;
+  } else if (typeof fallbackMessageOrStatusCode === "string") {
+    fallbackMessage = fallbackMessageOrStatusCode;
+  }
 
   if (error instanceof AppError) {
     return NextResponse.json(
@@ -61,7 +70,7 @@ export function errorResponse(
         },
         meta: { timestamp },
       },
-      { status: error.statusCode }
+      { status: explicitStatus ?? error.statusCode }
     );
   }
 
@@ -70,11 +79,11 @@ export function errorResponse(
     {
       success: false,
       error: {
-        code: "INTERNAL_SERVER_ERROR",
+        code: explicitStatus === 400 ? "BAD_REQUEST" : explicitStatus === 404 ? "NOT_FOUND" : "INTERNAL_SERVER_ERROR",
         message,
       },
       meta: { timestamp },
     },
-    { status: 500 }
+    { status: explicitStatus ?? 500 }
   );
 }

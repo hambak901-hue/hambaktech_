@@ -28,6 +28,7 @@ export const PERMISSIONS = {
   ORDERS_UPDATE: "orders.update",
   ORDERS_PROCESS: "orders.process",
   ORDERS_CREATE: "orders.create",
+  ORDERS_MANAGE: "orders.manage",
 
   // Wallets & Finance
   WALLET_READ: "wallet.read",
@@ -90,6 +91,7 @@ export const ROLE_PERMISSIONS_MATRIX: Record<RoleSlugType, string[]> = {
     PERMISSIONS.ORDERS_READ,
     PERMISSIONS.ORDERS_UPDATE,
     PERMISSIONS.ORDERS_PROCESS,
+    PERMISSIONS.ORDERS_MANAGE,
     PERMISSIONS.WALLET_READ,
     PERMISSIONS.WALLET_ADJUST,
     PERMISSIONS.WALLETS_MANAGE,

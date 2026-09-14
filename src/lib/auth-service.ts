@@ -1117,3 +1117,124 @@ export async function resendVerificationToken(email: string): Promise<{ token?: 
 
   return { token: rawToken };
 }
+
+/**
+ * Authoritative update user profile for Web & Mobile
+ */
+export async function updateUserProfile(
+  userId: string,
+  updates: {
+    firstName?: string;
+    lastName?: string;
+    phone?: string;
+    avatarUrl?: string;
+  }
+): Promise<AuthenticatedUserPayload> {
+  const dbOnline = await isDatabaseOnline();
+  if (dbOnline) {
+    if (updates.phone) {
+      await prisma.user.update({
+        where: { id: userId },
+        data: { phone: updates.phone },
+      });
+    }
+    if (updates.firstName || updates.lastName || updates.avatarUrl) {
+      await prisma.userProfile.upsert({
+        where: { userId },
+        create: {
+          userId,
+          firstName: updates.firstName || "User",
+          lastName: updates.lastName || "",
+          avatarUrl: updates.avatarUrl,
+        },
+        update: {
+          firstName: updates.firstName,
+          lastName: updates.lastName,
+          avatarUrl: updates.avatarUrl,
+        },
+      });
+    }
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { role: true, profile: true, wallet: true },
+    });
+    if (!user) throw new NotFoundError("User not found");
+    return {
+      id: user.id,
+      email: user.email,
+      phone: user.phone,
+      status: user.status,
+      customerTier: user.customerTier,
+      emailVerified: !!user.emailVerifiedAt,
+      phoneVerified: !!user.phoneVerifiedAt,
+      role: { id: user.role.id, name: user.role.name, slug: user.role.slug },
+      profile: user.profile
+        ? { firstName: user.profile.firstName, lastName: user.profile.lastName, avatarUrl: user.profile.avatarUrl }
+        : null,
+      wallet: user.wallet
+        ? {
+            id: user.wallet.id,
+            currentBalance: user.wallet.currentBalance.toString(),
+            ledgerBalance: user.wallet.ledgerBalance.toString(),
+            status: user.wallet.status,
+          }
+        : null,
+      permissions: getPermissionsForRole(user.role.slug),
+    };
+  }
+
+  // In-memory fallback
+  const user = memoryStore.findUserById(userId);
+  if (!user) throw new NotFoundError("User not found");
+  if (updates.phone) user.phone = updates.phone;
+  if (updates.firstName) user.firstName = updates.firstName;
+  if (updates.lastName) user.lastName = updates.lastName;
+
+  const wallet = memoryStore.getWallet(userId);
+  return {
+    id: user.id,
+    email: user.email,
+    phone: user.phone,
+    status: user.status,
+    customerTier: user.customerTier,
+    emailVerified: !!user.emailVerifiedAt,
+    phoneVerified: !!user.phoneVerifiedAt,
+    role: { id: user.roleId, name: user.roleName, slug: user.roleSlug },
+    profile: { firstName: user.firstName, lastName: user.lastName, avatarUrl: null },
+    wallet: wallet
+      ? {
+          id: wallet.id,
+          currentBalance: wallet.currentBalance.toString(),
+          ledgerBalance: wallet.ledgerBalance.toString(),
+          status: wallet.status,
+        }
+      : null,
+    permissions: getPermissionsForRole(user.roleSlug),
+  };
+}
+
+/**
+ * Authoritative password update for Web & Mobile
+ */
+export async function changePassword(userId: string, oldPass: string, newPass: string): Promise<void> {
+  if (!newPass || newPass.length < 8) {
+    throw new ValidationError("New password must be at least 8 characters long.");
+  }
+
+  const dbOnline = await isDatabaseOnline();
+  if (dbOnline) {
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundError("User not found");
+    const valid = await verifyPassword(oldPass, user.passwordHash);
+    if (!valid) throw new ValidationError("Current password is incorrect.");
+    const newHash = await hashPassword(newPass);
+    await prisma.user.update({ where: { id: userId }, data: { passwordHash: newHash } });
+    return;
+  }
+
+  const user = memoryStore.findUserById(userId);
+  if (!user) throw new NotFoundError("User not found");
+  const valid = await verifyPassword(oldPass, user.passwordHash);
+  if (!valid) throw new ValidationError("Current password is incorrect.");
+  user.passwordHash = await hashPassword(newPass);
+}

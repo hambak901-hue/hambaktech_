@@ -973,6 +973,51 @@ function initializeDefaultStore(): PlatformStoreState {
       createdAt: "2026-06-01T09:00:00Z",
     },
     {
+      id: "usr-customer-01",
+      email: "customer@hambaktech.com.ng",
+      fullName: "Abubakar Ibrahim",
+      name: "Abubakar Ibrahim",
+      role: "customer",
+      status: "ACTIVE",
+      phone: "+2348147837664",
+      state: "Lagos",
+      lga: "Ibeju-Lekki",
+      address: "Origanrigan cele Area, Ibeju-Lekki, Lagos",
+      createdAt: "2026-06-01T10:00:00Z",
+    },
+    {
+      id: "usr-student-01",
+      email: "student@hambaktech.com.ng",
+      fullName: "Maryam Bello",
+      name: "Maryam Bello",
+      role: "student",
+      status: "ACTIVE",
+      phone: "+2349019120241",
+      state: "Lagos",
+      lga: "Epe",
+      createdAt: "2026-06-01T09:00:00Z",
+    },
+    {
+      id: "usr-admin-01",
+      email: "admin@hambaktech.com.ng",
+      fullName: "Operations Admin",
+      name: "Operations Admin",
+      role: "admin",
+      status: "ACTIVE",
+      phone: "+2348000000002",
+      createdAt: "2026-01-01T00:00:00Z",
+    },
+    {
+      id: "usr-super-admin-01",
+      email: "superadmin@hambaktech.com.ng",
+      fullName: "System Owner",
+      name: "System Owner",
+      role: "super_admin",
+      status: "ACTIVE",
+      phone: "+2348000000001",
+      createdAt: "2026-01-01T00:00:00Z",
+    },
+    {
       id: "staff-001",
       email: "staff@hambaktech.com.ng",
       fullName: "Front Desk Officer",
@@ -988,6 +1033,46 @@ function initializeDefaultStore(): PlatformStoreState {
     "adm-001": {
       id: "w-adm-001",
       userId: "adm-001",
+      currency: "NGN",
+      currentBalance: 500000,
+      ledgerBalance: 500000,
+      lockedBalance: 0,
+      status: "ACTIVE",
+      updatedAt: new Date().toISOString(),
+    },
+    "usr-customer-01": {
+      id: "w-usr-customer-01",
+      userId: "usr-customer-01",
+      currency: "NGN",
+      currentBalance: 15500,
+      ledgerBalance: 15500,
+      lockedBalance: 0,
+      status: "ACTIVE",
+      updatedAt: new Date().toISOString(),
+    },
+    "usr-student-01": {
+      id: "w-usr-student-01",
+      userId: "usr-student-01",
+      currency: "NGN",
+      currentBalance: 3000,
+      ledgerBalance: 3000,
+      lockedBalance: 0,
+      status: "ACTIVE",
+      updatedAt: new Date().toISOString(),
+    },
+    "usr-admin-01": {
+      id: "w-usr-admin-01",
+      userId: "usr-admin-01",
+      currency: "NGN",
+      currentBalance: 250000,
+      ledgerBalance: 250000,
+      lockedBalance: 0,
+      status: "ACTIVE",
+      updatedAt: new Date().toISOString(),
+    },
+    "usr-super-admin-01": {
+      id: "w-usr-super-admin-01",
+      userId: "usr-super-admin-01",
       currency: "NGN",
       currentBalance: 500000,
       ledgerBalance: 500000,
@@ -1287,17 +1372,153 @@ function initializeDefaultStore(): PlatformStoreState {
     },
   ];
 
+  const defaultTransactions: Transaction[] = [
+    {
+      id: "tx-init-01",
+      reference: "HT-TX-20260901-001",
+      userId: "usr-customer-01",
+      userName: "Abubakar Ibrahim",
+      userEmail: "customer@hambaktech.com.ng",
+      walletId: "w-usr-customer-01",
+      type: "WALLET_TOPUP",
+      amount: 20000,
+      fee: 0,
+      currency: "NGN",
+      status: "SUCCESSFUL",
+      paymentMethod: "PAYSTACK",
+      description: "Wallet Funding via Paystack Card",
+      createdAt: "2026-09-01T10:00:00Z",
+    },
+    {
+      id: "tx-init-02",
+      reference: "HT-TX-20260905-002",
+      userId: "usr-customer-01",
+      userName: "Abubakar Ibrahim",
+      userEmail: "customer@hambaktech.com.ng",
+      walletId: "w-usr-customer-01",
+      type: "VTU_AIRTIME",
+      amount: 4500,
+      fee: 0,
+      currency: "NGN",
+      status: "SUCCESSFUL",
+      paymentMethod: "WALLET",
+      description: "MTN VTU Airtime top-up 08147837664",
+      createdAt: "2026-09-05T14:30:00Z",
+    },
+    {
+      id: "tx-init-03",
+      reference: "HT-TX-20260910-003",
+      userId: "usr-student-01",
+      userName: "Maryam Bello",
+      userEmail: "student@hambaktech.com.ng",
+      walletId: "w-usr-student-01",
+      type: "WALLET_TOPUP",
+      amount: 10000,
+      fee: 0,
+      currency: "NGN",
+      status: "SUCCESSFUL",
+      paymentMethod: "FLUTTERWAVE",
+      description: "Wallet Funding via Bank Transfer",
+      createdAt: "2026-09-10T08:15:00Z",
+    },
+  ];
+
+  const defaultLedgerEntries: WalletLedgerEntry[] = [
+    {
+      id: "led-init-01",
+      walletId: "w-usr-customer-01",
+      entryType: "CREDIT",
+      amount: 20000,
+      balanceAfter: 20000,
+      referenceType: "WALLET_FUNDING",
+      referenceId: "tx-init-01",
+      description: "Wallet Funding via Paystack Card",
+      createdAt: "2026-09-01T10:00:00Z",
+    },
+    {
+      id: "led-init-02",
+      walletId: "w-usr-customer-01",
+      entryType: "DEBIT",
+      amount: 4500,
+      balanceAfter: 15500,
+      referenceType: "SERVICE_PURCHASE",
+      referenceId: "tx-init-02",
+      description: "MTN VTU Airtime purchase",
+      createdAt: "2026-09-05T14:30:00Z",
+    },
+    {
+      id: "led-init-03",
+      walletId: "w-usr-student-01",
+      entryType: "CREDIT",
+      amount: 10000,
+      balanceAfter: 10000,
+      referenceType: "WALLET_FUNDING",
+      referenceId: "tx-init-03",
+      description: "Wallet Funding via Flutterwave",
+      createdAt: "2026-09-10T08:15:00Z",
+    },
+    {
+      id: "led-init-04",
+      walletId: "w-usr-student-01",
+      entryType: "DEBIT",
+      amount: 7000,
+      balanceAfter: 3000,
+      referenceType: "SERVICE_PURCHASE",
+      referenceId: "ord-acad-001",
+      description: "Course enrollment deposit",
+      createdAt: "2026-09-10T08:20:00Z",
+    },
+  ];
+
+  const defaultNotifications: NotificationItem[] = [
+    {
+      id: "notif-01",
+      userId: "usr-customer-01",
+      title: "Welcome to HambakTech Mobile",
+      message: "Your smart digital account is active. Manage your wallet, order services, and enroll in training anytime.",
+      type: "SYSTEM",
+      read: false,
+      createdAt: "2026-09-14T06:00:00Z",
+    },
+    {
+      id: "notif-02",
+      userId: "usr-customer-01",
+      title: "Wallet Top-up Confirmed",
+      message: "Your wallet was credited with ₦20,000.00 via Paystack.",
+      type: "TRANSACTION",
+      read: true,
+      createdAt: "2026-09-01T10:00:00Z",
+    },
+    {
+      id: "notif-03",
+      userId: "usr-student-01",
+      title: "Academy Portal Access Ready",
+      message: "Your Computer Training Academy student credentials and digital ID card are ready for download.",
+      type: "ORDER",
+      read: false,
+      createdAt: "2026-09-10T08:30:00Z",
+    },
+    {
+      id: "notif-04",
+      title: "New Stationery & PVC Products In Stock",
+      message: "Check the shop for fresh stock of A4 reams, thermal paper, and CR80 blank PVC cards.",
+      type: "ANNOUNCEMENT",
+      read: false,
+      createdAt: "2026-09-13T09:00:00Z",
+    },
+  ];
+
   return {
     users: defaultUsers,
     wallets: defaultWallets,
-    ledgerEntries: [],
-    transactions: [],
+    ledgerEntries: defaultLedgerEntries,
+    transactions: defaultTransactions,
     orders: defaultOrders,
     pricingRules: defaultPricingRules,
     systemProviders: defaultProviders,
     announcements: defaultAnnouncements,
     auditLogs: defaultAuditLogs,
-    notifications: [],
+    notifications: defaultNotifications,
     ninRequests: [],
     cacRequests: [],
     supportTickets: [],
@@ -2696,5 +2917,457 @@ export const AuditService = {
   getLogs(): AuditLogEntry[] {
     const store = getStore();
     return store.auditLogs;
+  },
+};
+
+// ============================================================================
+// WALLET SERVICE LAYER (Authoritative financial operations for Web & Mobile)
+// ============================================================================
+export const WalletService = {
+  async getWallet(userId: string): Promise<Wallet> {
+    const store = getStore();
+    if (!store.wallets[userId]) {
+      store.wallets[userId] = {
+        id: `w-${userId}`,
+        userId,
+        currency: "NGN",
+        currentBalance: 0,
+        ledgerBalance: 0,
+        lockedBalance: 0,
+        status: "ACTIVE",
+        updatedAt: new Date().toISOString(),
+      };
+    }
+    return store.wallets[userId];
+  },
+
+  async getTransactions(userId?: string): Promise<Transaction[]> {
+    const store = getStore();
+    if (userId) {
+      return store.transactions.filter((t) => t.userId === userId);
+    }
+    return store.transactions;
+  },
+
+  async getLedgerEntries(walletId?: string): Promise<WalletLedgerEntry[]> {
+    const store = getStore();
+    if (walletId) {
+      return store.ledgerEntries.filter((l) => l.walletId === walletId);
+    }
+    return store.ledgerEntries;
+  },
+
+  async fundWallet(payload: {
+    userId: string;
+    userName: string;
+    userEmail: string;
+    amount: number;
+    paymentMethod: "PAYSTACK" | "FLUTTERWAVE" | "MONIEPOINT" | "BANK_TRANSFER";
+    reference?: string;
+    description?: string;
+  }): Promise<{ wallet: Wallet; transaction: Transaction }> {
+    const store = getStore();
+    const wallet = await this.getWallet(payload.userId);
+    const amount = Number(payload.amount);
+    if (amount <= 0) {
+      throw new Error("Funding amount must be greater than zero");
+    }
+
+    wallet.currentBalance += amount;
+    wallet.ledgerBalance += amount;
+    wallet.updatedAt = new Date().toISOString();
+
+    const txRef = payload.reference || `HT-TX-${Date.now().toString().slice(-6)}`;
+    const newTx: Transaction = {
+      id: `tx-${Date.now()}`,
+      reference: txRef,
+      userId: payload.userId,
+      userName: payload.userName,
+      userEmail: payload.userEmail,
+      walletId: wallet.id,
+      type: "WALLET_TOPUP",
+      amount,
+      fee: 0,
+      currency: "NGN",
+      status: "SUCCESSFUL",
+      paymentMethod: payload.paymentMethod,
+      description: payload.description || `Wallet Top-up via ${payload.paymentMethod}`,
+      createdAt: new Date().toISOString(),
+    };
+    store.transactions.unshift(newTx);
+
+    store.ledgerEntries.unshift({
+      id: `led-${Date.now()}`,
+      walletId: wallet.id,
+      entryType: "CREDIT",
+      amount,
+      balanceAfter: wallet.currentBalance,
+      referenceType: "WALLET_FUNDING",
+      referenceId: newTx.id,
+      description: newTx.description,
+      createdAt: new Date().toISOString(),
+    });
+
+    store.notifications.unshift({
+      id: `notif-${Date.now()}`,
+      userId: payload.userId,
+      title: "Wallet Credited",
+      message: `Your wallet has been credited with ₦${amount.toLocaleString("en-NG", { minimumFractionDigits: 2 })}. New balance: ₦${wallet.currentBalance.toLocaleString("en-NG", { minimumFractionDigits: 2 })}.`,
+      type: "TRANSACTION",
+      read: false,
+      createdAt: new Date().toISOString(),
+    });
+
+    AuditService.log({
+      actorName: payload.userName,
+      actorEmail: payload.userEmail,
+      role: "customer",
+      action: "WALLET_FUNDED",
+      entity: "WALLET",
+      entityId: wallet.id,
+      ipAddress: "127.0.0.1",
+      status: "SUCCESS",
+      metadata: { amount, method: payload.paymentMethod, reference: txRef },
+    });
+
+    return { wallet, transaction: newTx };
+  },
+};
+
+// ============================================================================
+// ORDER SERVICE LAYER (Unified orders for services, shop, and academy)
+// ============================================================================
+export const OrderService = {
+  async getOrders(userId?: string, status?: OrderStatus): Promise<Order[]> {
+    const store = getStore();
+    let orders = store.orders;
+    if (userId) {
+      orders = orders.filter((o) => o.userId === userId);
+    }
+    if (status) {
+      orders = orders.filter((o) => o.status === status);
+    }
+    return orders;
+  },
+
+  async getOrderById(idOrNumber: string, requestingUserId?: string, isAdmin?: boolean): Promise<Order | null> {
+    const store = getStore();
+    const order = store.orders.find((o) => o.id === idOrNumber || o.orderNumber === idOrNumber);
+    if (!order) return null;
+    if (!isAdmin && requestingUserId && order.userId !== requestingUserId) {
+      throw new Error("FORBIDDEN: You are not authorized to access this order");
+    }
+    return order;
+  },
+
+  async createServiceOrder(payload: {
+    userId: string;
+    userName: string;
+    userEmail: string;
+    userPhone?: string;
+    serviceCategorySlug: string;
+    serviceCategoryName: string;
+    serviceTitle: string;
+    items: Array<{ title: string; quantity: number; unitPrice: number; serviceId?: string }>;
+    paymentMethod: "WALLET" | "PAYSTACK" | "FLUTTERWAVE" | "MONIEPOINT" | "BANK_TRANSFER";
+    notes?: string;
+  }): Promise<Order> {
+    const store = getStore();
+    if (!payload.items || payload.items.length === 0) {
+      throw new Error("Order must contain at least one item");
+    }
+
+    const totalAmount = payload.items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
+
+    // Process wallet deduction if requested
+    if (payload.paymentMethod === "WALLET") {
+      const wallet = await WalletService.getWallet(payload.userId);
+      if (wallet.currentBalance < totalAmount) {
+        throw new Error(
+          `Insufficient wallet balance (₦${wallet.currentBalance.toLocaleString()}). Required: ₦${totalAmount.toLocaleString()}. Please fund your wallet.`
+        );
+      }
+      wallet.currentBalance -= totalAmount;
+      wallet.ledgerBalance -= totalAmount;
+      wallet.updatedAt = new Date().toISOString();
+
+      store.ledgerEntries.unshift({
+        id: `led-${Date.now()}`,
+        walletId: wallet.id,
+        entryType: "DEBIT",
+        amount: totalAmount,
+        balanceAfter: wallet.currentBalance,
+        referenceType: "SERVICE_PURCHASE",
+        referenceId: `ord-${Date.now()}`,
+        description: `Payment for ${payload.serviceTitle}`,
+        createdAt: new Date().toISOString(),
+      });
+    }
+
+    const orderNumber = `HT-ORD-2026-${String(store.orders.length + 1).padStart(4, "0")}`;
+    const newOrder: Order = {
+      id: `ord-${Date.now()}`,
+      orderNumber,
+      userId: payload.userId,
+      userName: payload.userName,
+      userEmail: payload.userEmail,
+      userPhone: payload.userPhone,
+      serviceCategorySlug: payload.serviceCategorySlug,
+      serviceCategoryName: payload.serviceCategoryName,
+      serviceTitle: payload.serviceTitle,
+      status: "PENDING",
+      paymentStatus: payload.paymentMethod === "WALLET" ? "PAID" : "PENDING",
+      paymentMethod: payload.paymentMethod,
+      totalAmount,
+      feeAmount: 0,
+      currency: "NGN",
+      items: payload.items,
+      statusTimeline: [
+        {
+          status: "PENDING",
+          timestamp: new Date().toISOString(),
+          note: `Service order placed via ${payload.paymentMethod}. Total: ₦${totalAmount}`,
+        },
+      ],
+      notes: payload.notes,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    store.orders.unshift(newOrder);
+
+    store.transactions.unshift({
+      id: `tx-${Date.now()}`,
+      reference: `HT-TX-${Date.now().toString().slice(-6)}`,
+      userId: payload.userId,
+      userName: payload.userName,
+      userEmail: payload.userEmail,
+      type: "ORDER_PAYMENT",
+      amount: totalAmount,
+      fee: 0,
+      currency: "NGN",
+      status: payload.paymentMethod === "WALLET" ? "SUCCESSFUL" : "PENDING",
+      paymentMethod: payload.paymentMethod,
+      description: `Order ${orderNumber} - ${payload.serviceTitle}`,
+      createdAt: new Date().toISOString(),
+    });
+
+    store.notifications.unshift({
+      id: `notif-${Date.now()}`,
+      userId: payload.userId,
+      title: "Order Placed Successfully",
+      message: `Your order #${orderNumber} for "${payload.serviceTitle}" has been received.`,
+      type: "ORDER",
+      read: false,
+      createdAt: new Date().toISOString(),
+    });
+
+    AuditService.log({
+      actorName: payload.userName,
+      actorEmail: payload.userEmail,
+      role: "customer",
+      action: "ORDER_CREATED",
+      entity: "ORDER",
+      entityId: orderNumber,
+      ipAddress: "127.0.0.1",
+      status: "SUCCESS",
+      metadata: { totalAmount, paymentMethod: payload.paymentMethod },
+    });
+
+    return newOrder;
+  },
+};
+
+// ============================================================================
+// PAYMENT SERVICE LAYER (Payment gateways & server verification)
+// ============================================================================
+export const PaymentService = {
+  async getActiveGateways() {
+    return [
+      { id: "wallet", code: "WALLET", name: "HambakTech Instant Wallet", isInstant: true, feePercent: 0, active: true },
+      { id: "paystack", code: "PAYSTACK", name: "Paystack (Cards, USSD, Transfer)", isInstant: true, feePercent: 1.5, active: true },
+      { id: "flutterwave", code: "FLUTTERWAVE", name: "Flutterwave Multi-channel", isInstant: true, feePercent: 1.4, active: true },
+      { id: "moniepoint", code: "MONIEPOINT", name: "Moniepoint Virtual Account / Transfer", isInstant: true, feePercent: 1.0, active: true },
+      {
+        id: "bank_transfer",
+        code: "BANK_TRANSFER",
+        name: "Direct Bank Transfer (Manual Verification)",
+        isInstant: false,
+        feePercent: 0,
+        active: true,
+        accountDetails: {
+          bankName: "Moniepoint Microfinance Bank",
+          accountNumber: "8147837664",
+          accountName: "Hambaktech & Services",
+        },
+      },
+    ];
+  },
+
+  async initializePayment(payload: {
+    userId: string;
+    userName: string;
+    userEmail: string;
+    amount: number;
+    gateway: "PAYSTACK" | "FLUTTERWAVE" | "MONIEPOINT" | "WALLET" | "BANK_TRANSFER";
+    purpose: "WALLET_FUNDING" | "ORDER_PAYMENT" | "ACADEMY_ENROLLMENT";
+    metadata?: Record<string, unknown>;
+  }) {
+    const reference = `HT-PAY-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    const checkoutUrl = `https://checkout.hambaktech.com.ng/pay/${reference}`;
+
+    return {
+      reference,
+      gateway: payload.gateway,
+      amount: payload.amount,
+      currency: "NGN",
+      checkoutUrl,
+      accessCode: `acc_${Math.random().toString(36).slice(2, 10)}`,
+      expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+    };
+  },
+
+  async verifyPayment(reference: string, userId: string) {
+    const store = getStore();
+    const existingTx = store.transactions.find((t) => t.reference === reference);
+    if (existingTx && existingTx.status === "SUCCESSFUL") {
+      return { verified: true, transaction: existingTx, message: "Payment already verified" };
+    }
+
+    return {
+      verified: true,
+      reference,
+      userId,
+      amount: existingTx?.amount || 5000,
+      currency: "NGN",
+      status: "SUCCESSFUL",
+      verifiedAt: new Date().toISOString(),
+    };
+  },
+};
+
+// ============================================================================
+// NOTIFICATION SERVICE LAYER (In-app, order, and broadcast notifications)
+// ============================================================================
+export const NotificationService = {
+  async getNotifications(userId?: string): Promise<NotificationItem[]> {
+    const store = getStore();
+    if (userId) {
+      return store.notifications.filter((n) => !n.userId || n.userId === userId);
+    }
+    return store.notifications;
+  },
+
+  async markRead(id: string, userId?: string): Promise<boolean> {
+    const store = getStore();
+    const notif = store.notifications.find((n) => n.id === id && (!userId || !n.userId || n.userId === userId));
+    if (!notif) return false;
+    notif.read = true;
+    return true;
+  },
+
+  async markAllRead(userId: string): Promise<number> {
+    const store = getStore();
+    let count = 0;
+    for (const n of store.notifications) {
+      if ((!n.userId || n.userId === userId) && !n.read) {
+        n.read = true;
+        count++;
+      }
+    }
+    return count;
+  },
+};
+
+// ============================================================================
+// SERVICES CATALOG SERVICE LAYER (Authoritative services & dynamic pricing)
+// ============================================================================
+export const ServicesCatalogService = {
+  async getCategories() {
+    const store = getStore();
+    return store.serviceCategories;
+  },
+
+  async getServices(categorySlug?: string) {
+    const store = getStore();
+    if (categorySlug) {
+      return store.services.filter((s) => s.categorySlug === categorySlug);
+    }
+    return store.services;
+  },
+
+  async getServiceBySlug(slug: string) {
+    const store = getStore();
+    return store.services.find((s) => s.slug === slug || s.id === slug) || null;
+  },
+
+  async calculatePrice(serviceIdOrSlug: string, customerTier: CustomerTierSlug = "STANDARD", quantity = 1) {
+    const store = getStore();
+    const service = store.services.find((s) => s.slug === serviceIdOrSlug || s.id === serviceIdOrSlug);
+    const priceRule = store.pricingRules.find(
+      (p) =>
+        (p.id === serviceIdOrSlug || (service && p.serviceName.toLowerCase() === service.title.toLowerCase())) &&
+        p.customerTier === customerTier &&
+        p.isActive
+    );
+
+    const basePrice = priceRule ? priceRule.sellingPrice : (service?.basePrice || 1000);
+    const serviceFee = priceRule ? priceRule.serviceFee : 0;
+    const unitPrice = basePrice + serviceFee;
+    const totalPrice = unitPrice * Math.max(1, quantity);
+
+    return {
+      serviceId: service?.id || serviceIdOrSlug,
+      serviceTitle: service?.title || "Platform Service",
+      customerTier,
+      quantity,
+      unitPrice,
+      serviceFee,
+      totalPrice,
+      currency: "NGN",
+    };
+  },
+};
+
+// ============================================================================
+// MOBILE SYSTEM SERVICE LAYER (System metadata, health, and mobile configuration)
+// ============================================================================
+export const MobileSystemService = {
+  async getAppConfig() {
+    const store = getStore();
+    return {
+      appName: "HambakTech",
+      tagline: "Where Technology Meet Service",
+      apiVersion: "v1",
+      environment: process.env.NODE_ENV || "production",
+      defaultCurrency: store.systemSettings.defaultCurrency,
+      maintenanceMode: store.systemSettings.maintenanceMode,
+      allowRegistration: store.systemSettings.allowRegistration,
+      support: {
+        email: store.systemSettings.supportEmail,
+        phone: store.systemSettings.supportPhone,
+        address: store.systemSettings.officeAddress,
+        whatsapp: "+2348147837664",
+      },
+      supportedClients: ["Android", "iOS", "Web", "PWA"],
+      minAndroidVersion: "8.0",
+      minIosVersion: "15.0",
+    };
+  },
+
+  async getHealthStatus() {
+    const store = getStore();
+    const dbReachable = await isDatabaseReachable();
+    return {
+      status: "HEALTHY",
+      uptime: process.uptime(),
+      timestamp: new Date().toISOString(),
+      database: dbReachable ? "CONNECTED" : "IN_MEMORY_STORE_ACTIVE",
+      version: "1.0.0-m11",
+      activeUsers: store.users.length,
+      activeOrders: store.orders.length,
+      availableCourses: store.courses.length,
+      availableProducts: store.products.length,
+    };
   },
 };

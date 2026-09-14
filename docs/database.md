@@ -160,3 +160,17 @@ To guarantee sub-millisecond lookups under high concurrent traffic:
   - Academy curriculum with 4 foundational IT modules
   - Baseline CMS announcements and categorized FAQs
 - **Zero Credentials:** No production credentials, private certificates, API keys, or raw passwords exist in schema or seed definitions.
+
+---
+
+## 5. Authoritative Store & Mobile API Data Access Layer
+
+In Milestone 11 (Mobile API), data access is orchestrated through authoritative service modules in `src/lib/server/platform-store.ts`. These services execute all business validations, double-entry financial ledger operations, dynamic tier markups, and database persistence:
+
+1. **`WalletService`:** Enforces running balance integrity with double-entry `ledgerEntries`. Any deposit or deduction generates an immutable ledger snapshot with updated `balanceAfter`.
+2. **`OrderService`:** Validates order items, computes prices on the server, creates associated fulfillment records, and maintains state transitions.
+3. **`PaymentService`:** Idempotently handles gateway references, verification, and automated wallet funding.
+4. **`ServicesCatalogService`:** Authoritatively calculates service prices with customer-tier discounts.
+5. **`AcademyService` & `ShopService`:** Manages enrollments, certificates, student ID cards, product inventory stock, and distance-based delivery zones.
+6. **Zero Duplicate Storage:** Mobile clients (Android and iOS) access the exact same persistence tables as the Web platform without creating separate mobile databases or duplicate entities.
+

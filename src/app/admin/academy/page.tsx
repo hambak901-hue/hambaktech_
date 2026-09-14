@@ -332,17 +332,17 @@ export default function AdminAcademyPage() {
                         {course.code}
                       </span>
                       <span className="text-xs font-bold text-emerald-600">
-                        ₦{course.price.toLocaleString()}
+                        ₦{(course.price ?? course.tuitionFee ?? 0).toLocaleString()}
                       </span>
                     </div>
 
                     <h4 className="font-bold text-sm text-dark dark:text-white">{course.title}</h4>
-                    <p className="text-xs text-body-color line-clamp-2">{course.description}</p>
+                    <p className="text-xs text-body-color line-clamp-2">{course.description || course.shortDescription || ""}</p>
 
                     <div className="pt-2 border-t border-stroke dark:border-strokedark text-xs text-body-color space-y-1">
                       <div className="flex justify-between">
                         <span>Duration:</span>
-                        <span className="font-semibold text-dark dark:text-white">{course.duration}</span>
+                        <span className="font-semibold text-dark dark:text-white">{course.duration || `${course.durationWeeks || 0} Weeks`}</span>
                       </div>
                       <div className="flex justify-between">
                         <span>Curriculum Modules:</span>
@@ -350,7 +350,7 @@ export default function AdminAcademyPage() {
                       </div>
                       <div className="flex justify-between">
                         <span>Schedule:</span>
-                        <span className="font-semibold text-dark dark:text-white truncate max-w-[150px]">{course.schedule}</span>
+                        <span className="font-semibold text-dark dark:text-white truncate max-w-[150px]">{course.schedule || "Flexible Sessions"}</span>
                       </div>
                     </div>
                   </div>
@@ -378,10 +378,10 @@ export default function AdminAcademyPage() {
                 >
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold">
-                      {inst.fullName.charAt(0)}
+                      {(inst.fullName || inst.name || "I").charAt(0)}
                     </div>
                     <div>
-                      <h4 className="font-bold text-sm text-dark dark:text-white">{inst.fullName}</h4>
+                      <h4 className="font-bold text-sm text-dark dark:text-white">{inst.fullName || inst.name}</h4>
                       <span className="text-[11px] text-body-color block">{inst.specialization}</span>
                     </div>
                   </div>
@@ -518,7 +518,7 @@ export default function AdminAcademyPage() {
                                   setGradingSubmission({
                                     assignmentId: assignment.id,
                                     submissionId: sub.id,
-                                    studentName: sub.studentName,
+                                    studentName: sub.studentName || "Student",
                                     content: sub.content,
                                     maxScore: assignment.maxScore,
                                     score: assignment.maxScore,
@@ -622,7 +622,7 @@ export default function AdminAcademyPage() {
 
                   <div className="text-[11px] text-body-color pt-2 border-t border-stroke dark:border-strokedark flex justify-between">
                     <span>Cohort: {card.cohort}</span>
-                    <span>Valid: {card.validUntil}</span>
+                    <span>Valid: {card.validUntil || card.expiryDate}</span>
                   </div>
                 </div>
               ))}

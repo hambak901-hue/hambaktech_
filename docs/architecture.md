@@ -173,3 +173,30 @@ In Milestone 3, the authoritative relational data architecture for HambakTech ha
 3. **Database Client Singleton:** Prisma Client is accessed exclusively through `src/lib/db.ts` to prevent connection pooling exhaustion.
 4. **PostgreSQL Portability:** Avoided MySQL-only proprietary extensions and primitive array lists so the entire data model can switch to `provider = "postgresql"` in the future without application code redesign.
 
+---
+
+## 7. Unified Mobile & Web API Architecture (Milestone 11)
+
+Milestone 11 establishes the authoritative backend and API engine consumed across Web, Android, and iOS clients:
+
+```
+                  HAMBAKTECH AUTHORITATIVE API (/api/v1/*)
+                                     │
+           ┌─────────────────────────┼─────────────────────────┐
+           │                         │                         │
+     Web Portal                 Android App                 iOS App
+ (Next.js / Desktop)       (Jetpack Compose / Retrofit) (SwiftUI / URLSession)
+
+  ✓ Same Users          ✓ Same Wallet Ledger         ✓ Same Orders
+  ✓ Same Payments       ✓ Same Services              ✓ Same Dynamic Pricing
+  ✓ Same Academy        ✓ Same Shop Inventory        ✓ Zero Duplicated Logic
+```
+
+### 7.1 Authoritative Principles:
+1. **Zero Client Trust:** Mobile clients, browsers, and webviews are untrusted execution environments. Prices, order totals, discount tiers, ledger balances, and payment verification are strictly calculated and stored on the server.
+2. **Standardized Authorization:** Both Web (via HTTP-only cookies) and Mobile clients (via `Authorization: Bearer <token>` headers) use the identical authoritative session validation engine (`src/lib/auth.ts` and `src/lib/auth-service.ts`).
+3. **Double-Entry Wallet Persistence:** The financial ledger records every transaction with `balanceAfter` snapshots. Wallet balances synchronize in real-time across Web and Mobile devices.
+4. **Interactive Development Console:** `/api-docs` provides an interactive testing console for mobile app developers to execute live requests, verify payloads, and generate ready-to-use cURL, Kotlin, and Swift networking code.
+5. **Machine-Readable API Contract:** `/api/v1/openapi.json` publishes the official OpenAPI 3.0.3 specification for automated client generation and contract testing.
+
+

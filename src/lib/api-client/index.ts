@@ -407,6 +407,7 @@ const INITIAL_CAC_REQUESTS: CACRequest[] = [
 const INITIAL_ENROLLMENTS: AcademyEnrollment[] = [
   {
     id: "enr-001",
+    enrollmentNumber: "HT-ENR-2026-001",
     userId: INITIAL_CUSTOMER.id,
     courseId: "web-development",
     courseTitle: "Web Development Foundations (Frontend & Design)",
@@ -1793,11 +1794,33 @@ class PlatformStore {
     return [];
   }
 
-  async adjustStockRemote(productId: string, changeType: string, quantity: number, notes?: string): Promise<ProductRecord> {
+  async adjustStockRemote(
+    productIdOrPayload: string | { productId: string; type?: string; changeType?: string; quantity: number; note?: string; notes?: string },
+    changeType?: string,
+    quantity?: number,
+    notes?: string
+  ): Promise<ProductRecord> {
+    let bodyPayload: { productId: string; changeType: string; quantity: number; notes?: string };
+    if (typeof productIdOrPayload === "object") {
+      bodyPayload = {
+        productId: productIdOrPayload.productId,
+        changeType: productIdOrPayload.type || productIdOrPayload.changeType || "ADJUSTMENT",
+        quantity: productIdOrPayload.quantity,
+        notes: productIdOrPayload.note || productIdOrPayload.notes,
+      };
+    } else {
+      bodyPayload = {
+        productId: productIdOrPayload,
+        changeType: changeType || "ADJUSTMENT",
+        quantity: quantity || 0,
+        notes,
+      };
+    }
+
     const res = await fetch("/api/shop/inventory", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ productId, changeType, quantity, notes }),
+      body: JSON.stringify(bodyPayload),
     });
     const json = await res.json();
     if (!res.ok) {
@@ -2850,7 +2873,7 @@ class PlatformStore {
     } catch (e) {
       console.error("fetchAdminUsers failed:", e);
     }
-    return this.allUsers;
+    return this.users;
   }
 
   async updateAdminUser(userId: string, updates: Partial<User>): Promise<User> {

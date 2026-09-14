@@ -7,7 +7,16 @@
  * - Compatible with MySQL (initial cPanel deployment) and PostgreSQL (future scale)
  */
 
-export type RoleSlug = "customer" | "admin" | "agent" | "super_admin" | "instructor" | "staff";
+export type RoleSlug =
+  | "customer"
+  | "admin"
+  | "agent"
+  | "super_admin"
+  | "instructor"
+  | "staff"
+  | "manager"
+  | "developer"
+  | "student";
 
 export type UserStatus = "ACTIVE" | "INACTIVE" | "SUSPENDED" | "PENDING_VERIFICATION";
 
@@ -100,7 +109,7 @@ export type OrderStatus =
   | "CANCELLED"
   | "REFUNDED";
 
-export type PaymentStatus = "UNPAID" | "PARTIALLY_PAID" | "PAID" | "FAILED" | "REFUNDED";
+export type PaymentStatus = "UNPAID" | "PENDING" | "PARTIALLY_PAID" | "PAID" | "FAILED" | "REFUNDED";
 
 export interface Order {
   id: string;
@@ -135,6 +144,7 @@ export interface Order {
     note: string;
   }>;
   notes?: string;
+  metadata?: Record<string, any>;
   deliveryType: "INSTANT_DIGITAL" | "PHYSICAL_PICKUP" | "COURIER_DELIVERY" | "ONLINE_PORTAL";
   createdAt: string;
   updatedAt: string;
@@ -248,6 +258,7 @@ export interface CACRequest {
 export interface InstructorRecord {
   id: string;
   name: string;
+  fullName?: string;
   title: string;
   bio?: string;
   avatarUrl?: string;
@@ -265,6 +276,7 @@ export interface LessonRecord {
   slug: string;
   description?: string;
   content?: string;
+  contentType?: string;
   videoUrl?: string;
   durationMinutes: number;
   lessonOrder: number;
@@ -284,11 +296,13 @@ export interface CourseModuleRecord {
 export interface CourseAssignmentRecord {
   id: string;
   courseId: string;
+  courseTitle?: string;
   title: string;
   description: string;
   maxScore: number;
   dueDate?: string;
   isActive: boolean;
+  submissions?: (AssignmentSubmissionRecord & { graded?: boolean })[];
 }
 
 export interface AssignmentSubmissionRecord {
@@ -304,6 +318,7 @@ export interface AssignmentSubmissionRecord {
   grade?: string;
   feedback?: string;
   status: "SUBMITTED" | "GRADED" | "REJECTED";
+  graded?: boolean;
   submittedAt: string;
   gradedAt?: string;
 }
@@ -323,6 +338,10 @@ export interface CourseRecord {
   level: "BEGINNER" | "INTERMEDIATE" | "ADVANCED" | "PROFESSIONAL";
   durationWeeks: number;
   tuitionFee: number;
+  price?: number;
+  description?: string;
+  duration?: string;
+  schedule?: string;
   isCertificateIncluded: boolean;
   isActive: boolean;
   modulesCount?: number;
@@ -334,7 +353,7 @@ export interface CourseRecord {
 
 export interface AcademyEnrollment {
   id: string;
-  enrollmentNumber: string;
+  enrollmentNumber?: string;
   userId: string;
   courseId: string;
   courseTitle: string;
@@ -362,6 +381,7 @@ export interface CertificateRecord {
   certificateNumber: string; // HT-CERT-YYYY-XXXX
   verificationHash: string; // Public SHA256 verification hash
   enrollmentId: string;
+  courseId?: string;
   studentName: string;
   courseTitle: string;
   courseCode?: string;
@@ -377,6 +397,7 @@ export interface StudentIdCardRecord {
   id: string;
   cardNumber: string; // HT-ID-YYYY-XXXX
   enrollmentId: string;
+  courseId?: string;
   studentId: string;
   studentName: string;
   studentEmail: string;
@@ -385,6 +406,7 @@ export interface StudentIdCardRecord {
   cohort: string;
   issueDate: string;
   expiryDate: string;
+  validUntil?: string;
   qrCodeData: string;
   status: "ACTIVE" | "EXPIRED" | "SUSPENDED";
   bloodGroup?: string;
@@ -428,18 +450,24 @@ export interface ProductRecord {
   name: string;
   slug: string;
   sku: string;
+  description?: string;
   shortDescription?: string;
   fullDescription?: string;
   costPrice: number;
   sellingPrice: number;
+  price?: number;
   discountPrice?: number;
   stockQuantity: number;
   minStockThreshold: number;
+  minStockLevel?: number;
+  brand?: string;
+  warrantyPeriod?: string;
   isDigital: boolean;
   requiresDelivery: boolean;
   status: "ACTIVE" | "OUT_OF_STOCK" | "INACTIVE" | "DISCONTINUED";
   imageUrl?: string;
   weightKg?: number;
+  specifications?: Record<string, string>;
 }
 
 export interface ProductInventoryLogRecord {
@@ -447,14 +475,21 @@ export interface ProductInventoryLogRecord {
   productId: string;
   productName?: string;
   changeType: "RESTOCK" | "SALE" | "ADJUSTMENT" | "RETURN" | "DAMAGE";
+  type?: string;
   quantity: number;
+  quantityChange?: number;
   balanceBefore: number;
+  previousQuantity?: number;
   balanceAfter: number;
+  newQuantity?: number;
   notes?: string;
+  note?: string;
   actorId?: string;
   actorName?: string;
   createdAt: string;
 }
+
+export type InventoryLogRecord = ProductInventoryLogRecord;
 
 export interface DeliveryZoneRecord {
   id: string;
@@ -463,6 +498,7 @@ export interface DeliveryZoneRecord {
   state: string;
   fee: number;
   estimatedDays: string;
+  estimatedDeliveryTime?: string;
   isActive: boolean;
 }
 
@@ -563,6 +599,7 @@ export interface AuditLogEntry {
 
 export interface NotificationItem {
   id: string;
+  userId?: string;
   title: string;
   message: string;
   type: "TRANSACTION" | "ORDER" | "SECURITY" | "ANNOUNCEMENT" | "SYSTEM";

@@ -2,6 +2,40 @@
 
 ---
 
+## Version 0.11.0-mobile-api (Milestone 11 — Unified Authoritative Mobile API Engine)
+
+**Release Date:** Milestone 11 Execution  
+**Target Environment:** Multi-Client Production API (`/api/v1/*`) serving Web, Android, and iOS  
+**Status:** MILESTONE 11 100% COMPLETE & VERIFIED  
+
+### What is Included in Milestone 11:
+1. **Unified Authoritative Backend Architecture:**
+   - Single authoritative backend serving Web, Android, and iOS clients without creating separate mobile backends.
+   - Zero duplicated business logic across clients (same users, same wallet ledger, same orders, same payments, same services, same pricing rules).
+2. **Strict Server-Side Security & Zero Client Trust:**
+   - Client-supplied prices, totals, balances, and roles are never trusted. All computations occur on the server.
+   - Unified authentication supports `Authorization: Bearer <session_token>` header for native mobile SDKs (OkHttp, Retrofit, URLSession, Alamofire) as well as secure HTTP-only session cookies for Web browsers.
+3. **Complete RESTful API v1 Route Matrix (`/api/v1/*`):**
+   - **Authentication:** `POST /auth/login`, `POST /auth/register`, `GET /auth/me`, `POST /auth/refresh`, `POST /auth/logout`.
+   - **User Profile:** `GET /user/profile`, `PATCH /user/profile`, `POST /user/password`.
+   - **Authoritative Wallet:** `GET /wallet`, `GET /wallet/transactions` (paginated), `POST /wallet/fund`.
+   - **Orders & Fulfillment:** `GET /orders`, `POST /orders`, `GET /orders/:id` (with user ownership authorization).
+   - **Payments Engine:** `GET /payments/gateways`, `POST /payments/initialize`, `POST /payments/verify`.
+   - **Services & Dynamic Pricing:** `GET /services`, `GET /services/categories`, `GET /services/:slug`, `POST /services/calculate-price`.
+   - **Academy & Training:** `GET /academy/courses`, `GET /academy/courses/:id`, `POST /academy/enroll` (with authoritative wallet deduction), `GET /academy/enrollments`, `GET /academy/certificates`, `GET /academy/id-cards`.
+   - **Shop & Commerce:** `GET /shop/products`, `GET /shop/products/:id`, `GET /shop/categories`, `GET /shop/delivery-zones`, `POST /shop/orders`.
+   - **Notifications:** `GET /notifications`, `PATCH /notifications/:id/read`, `POST /notifications/read-all`.
+   - **System & Metadata:** `GET /system/config` (mobile config, min versions, support), `GET /system/health` (uptime, DB connectivity).
+4. **Machine-Readable OpenAPI Specification:**
+   - Published `/api/v1/openapi.json` adhering to OpenAPI 3.0.3 specification with comprehensive schemas, parameter types, and bearer auth declarations for native mobile code generation.
+5. **Interactive Mobile API Console & Code Generators:**
+   - Implemented `/api-docs` testing console with live execution runner, Bearer token manager, and instant cURL, Android Kotlin (OkHttp), and iOS Swift (URLSession) client code snippet generators.
+6. **Code Quality & Verification:**
+   - 0 ESLint errors (`npm run lint`).
+   - 0 TypeScript / compilation errors (`npm run build`).
+
+---
+
 ## Version 0.3.0-database (Milestone 3 — Real Database & Data Architecture)
 
 **Release Date:** Milestone 3 Execution  

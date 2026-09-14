@@ -135,7 +135,7 @@ export default function DashboardShopPage() {
     setCart((prev) => prev.filter((item) => item.product.id !== productId));
   };
 
-  const subtotal = cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+  const subtotal = cart.reduce((sum, item) => sum + (item.product.price ?? item.product.sellingPrice ?? 0) * item.quantity, 0);
   const selectedZone = deliveryZones.find((z) => z.id === selectedZoneId) || deliveryZones[0];
   const deliveryFee = selectedZone?.fee || 0;
   const totalAmount = subtotal + deliveryFee;
@@ -171,10 +171,11 @@ export default function DashboardShopPage() {
 
   const filteredProducts = products.filter((p) => {
     const matchesCat = selectedCategory === "all" || p.categoryId === selectedCategory;
+    const desc = p.description || p.shortDescription || p.fullDescription || "";
     const matchesSearch =
       !searchQuery ||
       p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.description.toLowerCase().includes(searchQuery.toLowerCase());
+      desc.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesCat && matchesSearch;
   });
 
@@ -335,11 +336,11 @@ export default function DashboardShopPage() {
                       </div>
 
                       <h3 className="font-bold text-sm text-dark dark:text-white line-clamp-1">{prod.name}</h3>
-                      <p className="text-xs text-body-color mt-1 line-clamp-2 leading-relaxed">{prod.description}</p>
+                      <p className="text-xs text-body-color mt-1 line-clamp-2 leading-relaxed">{prod.description || prod.shortDescription || prod.fullDescription || "Standard specification."}</p>
                     </div>
 
                     <div className="mt-5 pt-3 border-t border-stroke dark:border-strokedark flex items-center justify-between">
-                      <span className="text-sm font-black text-primary">₦{prod.price.toLocaleString()}</span>
+                      <span className="text-sm font-black text-primary">₦{(prod.price ?? prod.sellingPrice ?? 0).toLocaleString()}</span>
 
                       <button
                         onClick={() => addToCart(prod)}
@@ -376,7 +377,7 @@ export default function DashboardShopPage() {
                         <div className="space-y-1">
                           <h4 className="text-sm font-bold text-dark dark:text-white">{item.product.name}</h4>
                           <span className="text-xs font-semibold text-primary font-mono block">
-                            ₦{item.product.price.toLocaleString()} each
+                            ₦{(item.product.price ?? item.product.sellingPrice ?? 0).toLocaleString()} each
                           </span>
                         </div>
 
@@ -398,7 +399,7 @@ export default function DashboardShopPage() {
                           </div>
 
                           <span className="text-xs font-bold text-dark dark:text-white font-mono w-20 text-right">
-                            ₦{(item.product.price * item.quantity).toLocaleString()}
+                            ₦{((item.product.price ?? item.product.sellingPrice ?? 0) * item.quantity).toLocaleString()}
                           </span>
 
                           <button
@@ -448,7 +449,7 @@ export default function DashboardShopPage() {
                   >
                     {deliveryZones.map((zone) => (
                       <option key={zone.id} value={zone.id}>
-                        {zone.name} — {zone.fee === 0 ? "FREE" : `₦${zone.fee.toLocaleString()}`} ({zone.estimatedDeliveryTime})
+                        {zone.name} — {zone.fee === 0 ? "FREE" : `₦${zone.fee.toLocaleString()}`} ({zone.estimatedDeliveryTime || zone.estimatedDays})
                       </option>
                     ))}
                   </select>

@@ -228,7 +228,7 @@ export default function DashboardAcademyPage() {
                   {activeCourse.title}
                 </h2>
                 <p className="text-xs sm:text-sm text-white/85 leading-relaxed">
-                  {activeCourse.description}
+                  {activeCourse.description || activeCourse.shortDescription || ""}
                 </p>
 
                 {/* Progress Bar */}
@@ -459,7 +459,7 @@ export default function DashboardAcademyPage() {
                                 {lesson.durationMinutes} mins
                               </span>
                               <span className="px-2 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-[10px] font-semibold text-body-color">
-                                {lesson.contentType}
+                                {lesson.contentType || "Interactive"}
                               </span>
                             </div>
                           </div>
@@ -825,7 +825,7 @@ export default function DashboardAcademyPage() {
                   >
                     {courses.map((c) => (
                       <option key={c.id} value={c.id}>
-                        {c.title} — ₦{c.price.toLocaleString()} ({c.duration})
+                        {c.title} — ₦{(c.price ?? c.tuitionFee ?? 0).toLocaleString()} ({c.duration || `${c.durationWeeks || 0} Weeks`})
                       </option>
                     ))}
                   </select>
