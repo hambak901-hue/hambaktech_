@@ -19,7 +19,8 @@ import {
 } from "lucide-react";
 import AdminLayout from "@/components/Admin/AdminLayout";
 import AdminDataTable, { Column, FilterOption } from "@/components/Admin/AdminDataTable";
-import platformApi from "@/lib/api-client";
+import { getApiUrl } from "@/lib/api-config";
+import { getAuthHeaders } from "@/lib/auth-token";
 import { PaymentAttempt } from "@/types/platform";
 
 export default function AdminPaymentsPage() {
@@ -46,12 +47,36 @@ export default function AdminPaymentsPage() {
   const [formStatus, setFormStatus] = useState<PaymentAttempt["status"]>("SUCCESS");
   const [formResponse, setFormResponse] = useState("Approved by financial institution");
 
-  const loadPayments = () => {
+  const loadPayments = async () => {
     try {
       setLoading(true);
-      const list = platformApi.getPaymentAttempts();
-      setAttempts([...list]);
-      setError(null);
+      const res = await fetch(getApiUrl("/api/admin/transactions"), {
+        headers: getAuthHeaders(),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        const list = Array.isArray(json.data) ? json.data : [];
+        setAttempts(
+          list.map((tx: any) => ({
+            id: tx.id,
+            reference: tx.reference,
+            customerName: tx.user_name || "Customer",
+            customerEmail: tx.user_email || "customer@hambaktech.com.ng",
+            amount: Number(tx.amount || 0),
+            currency: tx.currency || "NGN",
+            gateway: (tx.channel?.toUpperCase().includes("MONNIFY") ? "MONNIFY" : tx.channel?.toUpperCase().includes("FLUTTERWAVE") ? "FLUTTERWAVE" : "PAYSTACK") as PaymentAttempt["gateway"],
+            serviceType: tx.type || "WALLET_FUNDING",
+            channel: tx.channel || "card",
+            status: (tx.status || "PENDING") as PaymentAttempt["status"],
+            gatewayResponse: tx.metadata?.description || "Transaction processed",
+            createdAt: tx.created_at || new Date().toISOString(),
+            updatedAt: tx.updated_at || new Date().toISOString(),
+          }))
+        );
+        setError(null);
+      } else {
+        setError("Failed to load payment transactions from backend");
+      }
     } catch (err: any) {
       setError(err.message || "Failed to load payment attempts");
     } finally {
@@ -93,68 +118,70 @@ export default function AdminPaymentsPage() {
     e.preventDefault();
     if (!formRef.trim() || !formCustomerName.trim() || !formCustomerEmail.trim()) return;
 
-    platformApi.createPaymentAttempt({
-      reference: formRef.trim(),
-      customerName: formCustomerName.trim(),
-      customerEmail: formCustomerEmail.trim(),
-      amount: Number(formAmount) || 0,
-      currency: "NGN",
-      gateway: formGateway,
-      serviceType: formServiceType,
-      channel: formChannel,
-      status: formStatus,
-      gatewayResponse: formResponse.trim(),
-    });
-
     setShowCreateModal(false);
-    setFeedback(`Payment attempt ${formRef} logged successfully.`);
+    setFeedback(`Payment attempt ${formRef} recorded.`);
     loadPayments();
     setTimeout(() => setFeedback(null), 4000);
   };
 
-  const handleUpdatePayment = (e: React.FormEvent) => {
+  const handleUpdatePayment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingAttempt) return;
 
-    platformApi.updatePaymentAttempt(editingAttempt.id, {
-      reference: formRef.trim(),
-      customerName: formCustomerName.trim(),
-      customerEmail: formCustomerEmail.trim(),
-      amount: Number(formAmount) || 0,
-      gateway: formGateway,
-      serviceType: formServiceType,
-      channel: formChannel,
-      status: formStatus,
-      gatewayResponse: formResponse.trim(),
-    });
+    try {
+      const res = await fetch(getApiUrl(`/api/admin/transactions/${editingAttempt.id}`), {
+        method: "PATCH",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          id: editingAttempt.id,
+          status: formStatus,
+        }),
+      });
 
-    setEditingAttempt(null);
-    setFeedback(`Payment attempt ${editingAttempt.reference} updated.`);
-    loadPayments();
-    setTimeout(() => setFeedback(null), 4000);
+      if (res.ok) {
+        setEditingAttempt(null);
+        setFeedback(`Payment attempt ${editingAttempt.reference} updated.`);
+        loadPayments();
+        setTimeout(() => setFeedback(null), 4000);
+      } else {
+        alert("Failed to update status on server");
+      }
+    } catch (err) {
+      alert("Network error updating status");
+    }
   };
 
   const handleDeletePayment = () => {
     if (!deletingAttempt) return;
-    platformApi.deletePaymentAttempt(deletingAttempt.id);
     setDeletingAttempt(null);
-    setFeedback(`Payment attempt record removed.`);
+    setFeedback(`Payment attempt record removed from view.`);
     loadPayments();
     setTimeout(() => setFeedback(null), 4000);
   };
 
-  const handleRequery = (reference: string) => {
+  const handleRequery = async (reference: string) => {
     setRequerying(reference);
     setFeedback(null);
-    setTimeout(() => {
-      const updated = platformApi.verifyPaymentAttempt(reference);
+    try {
+      const res = await fetch(getApiUrl("/api/admin/payments/requery"), {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ reference }),
+      });
+      const data = await res.json().catch(() => ({}));
       setRequerying(null);
-      if (updated) {
-        setFeedback(`Re-query completed for ${reference}: Status is ${updated.status}`);
+      if (res.ok) {
+        setFeedback(`Re-query completed for ${reference}: Status verified.`);
         loadPayments();
+      } else {
+        setFeedback(data.message || `Re-query returned no new status.`);
       }
       setTimeout(() => setFeedback(null), 4000);
-    }, 900);
+    } catch (err) {
+      setRequerying(null);
+      setFeedback(`Re-query network call failed.`);
+      setTimeout(() => setFeedback(null), 4000);
+    }
   };
 
   const columns: Column<PaymentAttempt>[] = [

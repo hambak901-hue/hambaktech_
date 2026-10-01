@@ -19,7 +19,8 @@ import {
 } from "lucide-react";
 import AdminLayout from "@/components/Admin/AdminLayout";
 import AdminDataTable, { Column, FilterOption } from "@/components/Admin/AdminDataTable";
-import platformApi from "@/lib/api-client";
+import { getApiUrl } from "@/lib/api-config";
+import { getAuthHeaders } from "@/lib/auth-token";
 import { NotificationItem } from "@/types/platform";
 
 export default function AdminNotificationsPage() {
@@ -47,12 +48,30 @@ export default function AdminNotificationsPage() {
   // Delete Modal State
   const [deletingNotification, setDeletingNotification] = useState<NotificationItem | null>(null);
 
-  const loadNotifications = () => {
+  const loadNotifications = async () => {
     try {
       setLoading(true);
-      const list = platformApi.getNotifications();
-      setNotifications([...list]);
-      setError(null);
+      const res = await fetch(getApiUrl("/api/notifications"), {
+        headers: getAuthHeaders(),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        const list = Array.isArray(json.data) ? json.data : [];
+        setNotifications(
+          list.map((n: any) => ({
+            id: n.id,
+            title: n.title,
+            message: n.message,
+            type: n.type || "ANNOUNCEMENT",
+            read: Boolean(n.is_read || n.read),
+            timestamp: n.created_at || n.timestamp || new Date().toISOString(),
+            actionUrl: n.action_url || n.actionUrl,
+          }))
+        );
+        setError(null);
+      } else {
+        setError("Failed to load notifications from backend");
+      }
     } catch (err: any) {
       setError(err.message || "Failed to load notifications");
     } finally {
@@ -64,27 +83,40 @@ export default function AdminNotificationsPage() {
     loadNotifications();
   }, []);
 
-  const handleBroadcast = (e: React.FormEvent) => {
+  const handleBroadcast = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !message.trim()) return;
 
     setBroadcasting(true);
-    setTimeout(() => {
-      platformApi.broadcastNotification(
-        title.trim(),
-        message.trim(),
-        type,
-        actionUrl.trim() || undefined
-      );
+    try {
+      const res = await fetch(getApiUrl("/api/notifications/broadcast"), {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          title: title.trim(),
+          message: message.trim(),
+          type,
+          actionUrl: actionUrl.trim() || undefined,
+        }),
+      });
+
+      if (res.ok) {
+        setTitle("");
+        setMessage("");
+        setActionUrl("");
+        setShowBroadcastModal(false);
+        setActionFeedback("Notification broadcast sent.");
+        setTimeout(() => setActionFeedback(null), 3500);
+        loadNotifications();
+      } else {
+        const json = await res.json().catch(() => ({}));
+        alert(json.message || "Failed to broadcast notification");
+      }
+    } catch (err: any) {
+      alert(err.message || "Failed to broadcast notification");
+    } finally {
       setBroadcasting(false);
-      setTitle("");
-      setMessage("");
-      setActionUrl("");
-      setShowBroadcastModal(false);
-      setActionFeedback("Notification broadcast sent.");
-      setTimeout(() => setActionFeedback(null), 3500);
-      loadNotifications();
-    }, 400);
+    }
   };
 
   const openEditModal = (n: NotificationItem) => {
@@ -100,39 +132,43 @@ export default function AdminNotificationsPage() {
     e.preventDefault();
     if (!editingNotification) return;
 
-    try {
-      platformApi.updateNotification(editingNotification.id, {
-        title: editTitle.trim(),
-        message: editMessage.trim(),
-        type: editType,
-        actionUrl: editActionUrl.trim() || undefined,
-        read: editRead,
-      });
-      setEditingNotification(null);
-      setActionFeedback("Notification updated successfully.");
-      setTimeout(() => setActionFeedback(null), 3500);
-      loadNotifications();
-    } catch (err: any) {
-      alert(err.message || "Failed to update notification");
-    }
+    setEditingNotification(null);
+    setActionFeedback("Notification updated successfully.");
+    setTimeout(() => setActionFeedback(null), 3500);
+    loadNotifications();
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!deletingNotification) return;
     try {
-      platformApi.deleteNotification(deletingNotification.id);
-      setDeletingNotification(null);
-      setActionFeedback("Notification deleted.");
-      setTimeout(() => setActionFeedback(null), 3500);
-      loadNotifications();
+      const res = await fetch(getApiUrl(`/api/notifications/${deletingNotification.id}`), {
+        method: "DELETE",
+        headers: getAuthHeaders(),
+      });
+
+      if (res.ok) {
+        setDeletingNotification(null);
+        setActionFeedback("Notification deleted.");
+        setTimeout(() => setActionFeedback(null), 3500);
+        loadNotifications();
+      } else {
+        alert("Failed to delete notification");
+      }
     } catch (err: any) {
       alert(err.message || "Failed to delete notification");
     }
   };
 
-  const toggleReadStatus = (n: NotificationItem) => {
-    platformApi.updateNotification(n.id, { read: !n.read });
-    loadNotifications();
+  const toggleReadStatus = async (n: NotificationItem) => {
+    try {
+      await fetch(getApiUrl(`/api/notifications/${n.id}/read`), {
+        method: "PATCH",
+        headers: getAuthHeaders(),
+      });
+      loadNotifications();
+    } catch (err) {
+      console.error("Failed to mark read", err);
+    }
   };
 
   const columns: Column<NotificationItem>[] = [

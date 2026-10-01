@@ -16,7 +16,8 @@ import {
 } from "lucide-react";
 import AdminLayout from "@/components/Admin/AdminLayout";
 import AdminDataTable, { Column, FilterOption } from "@/components/Admin/AdminDataTable";
-import platformApi from "@/lib/api-client";
+import { getApiUrl } from "@/lib/api-config";
+import { getAuthHeaders } from "@/lib/auth-token";
 import { CACRequest, CACRequestStatus } from "@/types/platform";
 
 export default function AdminCACPage() {
@@ -49,12 +50,42 @@ export default function AdminCACPage() {
   const [formReqStatus, setFormReqStatus] = useState<CACRequestStatus>("NAME_RESERVATION");
   const [formNotes, setFormNotes] = useState("");
 
-  const loadRequests = () => {
+  const loadRequests = async () => {
     try {
       setLoading(true);
-      const list = platformApi.getCACRequests();
-      setRequests([...list]);
-      setError(null);
+      const res = await fetch(getApiUrl("/api/admin/cac"), {
+        headers: getAuthHeaders(),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        const list = Array.isArray(json.data) ? json.data : [];
+        setRequests(
+          list.map((c: any) => ({
+            id: c.id,
+            trackingNumber: c.reference || c.trackingNumber || c.id,
+            userId: c.user_id || c.userId || "",
+            entityType: c.business_type || c.entityType || "BUSINESS_NAME",
+            proposedName1: c.proposed_name1 || c.proposedName1 || "Proposed Enterprise",
+            proposedName2: c.proposed_name2 || c.proposedName2,
+            approvedName: c.approved_name || c.approvedName,
+            natureOfBusiness: c.nature_of_business || c.natureOfBusiness || "General Commerce",
+            applicantName: c.applicant_name || c.applicantName || "Applicant",
+            applicantPhone: c.applicant_phone || c.applicantPhone || "",
+            applicantEmail: c.applicant_email || c.applicantEmail || "",
+            directorsCount: Number(c.directors_count || c.directorsCount || 1),
+            rcNumber: c.rc_bn_number || c.rcNumber,
+            status: (c.status || "SUBMITTED") as CACRequestStatus,
+            submittedAt: c.created_at || c.submittedAt || new Date().toISOString(),
+            updatedAt: c.updated_at || c.updatedAt || new Date().toISOString(),
+            certificateUrl: c.certificate_url || c.certificateUrl,
+            statusDocumentUrl: c.status_document_url || c.statusDocumentUrl,
+            notes: c.notes,
+          }))
+        );
+        setError(null);
+      } else {
+        setError("Failed to load CAC applications from backend");
+      }
     } catch (err: any) {
       setError(err.message || "Failed to load CAC applications");
     } finally {
@@ -94,81 +125,139 @@ export default function AdminCACPage() {
     setFormNotes(r.notes || "");
   };
 
-  const handleCreateCAC = (e: React.FormEvent) => {
+  const handleCreateCAC = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formApplicantName.trim() || !formProposedName1.trim()) return;
 
     try {
-      platformApi.submitCACRequest({
-        userId: "usr-admin-manual",
-        entityType: formEntityType,
-        proposedName1: formProposedName1.trim(),
-        proposedName2: formProposedName2.trim() || undefined,
-        natureOfBusiness: formNatureOfBusiness.trim(),
-        applicantName: formApplicantName.trim(),
-        applicantPhone: formApplicantPhone.trim(),
-        applicantEmail: formApplicantEmail.trim() || "applicant@hambaktech.com.ng",
-        directorsCount: Number(formDirectorsCount) || 1,
-        notes: formNotes.trim(),
+      const res = await fetch(getApiUrl("/api/cac/requests"), {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          registrationType: formEntityType,
+          business_type: formEntityType,
+          proposedName1: formProposedName1.trim(),
+          proposed_name1: formProposedName1.trim(),
+          proposedName2: formProposedName2.trim() || undefined,
+          proposed_name2: formProposedName2.trim() || undefined,
+          natureOfBusiness: formNatureOfBusiness.trim(),
+          nature_of_business: formNatureOfBusiness.trim(),
+          proprietorName: formApplicantName.trim(),
+          applicant_name: formApplicantName.trim(),
+          proprietorPhone: formApplicantPhone.trim(),
+          applicant_phone: formApplicantPhone.trim(),
+          proprietorEmail: formApplicantEmail.trim() || "applicant@hambaktech.com.ng",
+          applicant_email: formApplicantEmail.trim() || "applicant@hambaktech.com.ng",
+          directors_count: Number(formDirectorsCount) || 1,
+          notes: formNotes.trim(),
+        }),
       });
-      setShowCreateModal(false);
-      setActionFeedback("CAC application successfully initiated.");
-      setTimeout(() => setActionFeedback(null), 3500);
-      loadRequests();
+
+      if (res.ok) {
+        setShowCreateModal(false);
+        setActionFeedback("CAC application successfully initiated.");
+        setTimeout(() => setActionFeedback(null), 3500);
+        loadRequests();
+      } else {
+        const json = await res.json().catch(() => ({}));
+        alert(json.message || "Failed to create CAC request");
+      }
     } catch (err: any) {
       alert(err.message || "Failed to create CAC request");
     }
   };
 
-  const handleUpdateCAC = (e: React.FormEvent) => {
+  const handleUpdateCAC = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingReq) return;
 
     try {
-      platformApi.updateCACRequest(editingReq.id, {
-        entityType: formEntityType,
-        proposedName1: formProposedName1.trim(),
-        proposedName2: formProposedName2.trim() || undefined,
-        natureOfBusiness: formNatureOfBusiness.trim(),
-        applicantName: formApplicantName.trim(),
-        applicantPhone: formApplicantPhone.trim(),
-        applicantEmail: formApplicantEmail.trim(),
-        directorsCount: Number(formDirectorsCount) || 1,
-        status: formReqStatus,
-        notes: formNotes.trim(),
+      const res = await fetch(getApiUrl("/api/admin/cac"), {
+        method: "PUT",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          id: editingReq.id,
+          business_type: formEntityType,
+          proposed_name1: formProposedName1.trim(),
+          proposed_name2: formProposedName2.trim() || undefined,
+          nature_of_business: formNatureOfBusiness.trim(),
+          applicant_name: formApplicantName.trim(),
+          applicant_phone: formApplicantPhone.trim(),
+          applicant_email: formApplicantEmail.trim(),
+          status: formReqStatus,
+          notes: formNotes.trim(),
+        }),
       });
-      setEditingReq(null);
-      setActionFeedback("CAC application details updated.");
-      setTimeout(() => setActionFeedback(null), 3500);
-      loadRequests();
+
+      if (res.ok) {
+        setEditingReq(null);
+        setActionFeedback("CAC application details updated.");
+        setTimeout(() => setActionFeedback(null), 3500);
+        loadRequests();
+      } else {
+        const json = await res.json().catch(() => ({}));
+        alert(json.message || "Failed to update CAC request");
+      }
     } catch (err: any) {
       alert(err.message || "Failed to update CAC request");
     }
   };
 
-  const handleDeleteCAC = () => {
+  const handleDeleteCAC = async () => {
     if (!deletingReq) return;
     try {
-      platformApi.deleteCACRequest(deletingReq.id);
-      setDeletingReq(null);
-      setActionFeedback(`Application ${deletingReq.trackingNumber} deleted.`);
-      setTimeout(() => setActionFeedback(null), 3500);
-      loadRequests();
+      const res = await fetch(getApiUrl("/api/admin/cac"), {
+        method: "PUT",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          id: deletingReq.id,
+          status: "REJECTED",
+          notes: "Application closed/cancelled by administrator",
+        }),
+      });
+
+      if (res.ok) {
+        setDeletingReq(null);
+        setActionFeedback(`Application ${deletingReq.trackingNumber} archived.`);
+        setTimeout(() => setActionFeedback(null), 3500);
+        loadRequests();
+      } else {
+        const json = await res.json().catch(() => ({}));
+        alert(json.message || "Failed to delete CAC request");
+      }
     } catch (err: any) {
       alert(err.message || "Failed to delete CAC request");
     }
   };
 
-  const handleUpdateStatus = (e: React.FormEvent) => {
+  const handleUpdateStatus = async (e: React.FormEvent) => {
     e.preventDefault();
     if (selectedReq) {
-      platformApi.updateCACStatus(selectedReq.id, newStatus, statusNote);
-      setShowStatusModal(false);
-      setStatusNote("");
-      setSelectedReq(null);
-      setActionFeedback(`Stage updated to ${newStatus}`);
-      setTimeout(() => setActionFeedback(null), 3500);
-      loadRequests();
+      try {
+        const res = await fetch(getApiUrl("/api/admin/cac"), {
+          method: "PUT",
+          headers: getAuthHeaders(),
+          body: JSON.stringify({
+            id: selectedReq.id,
+            status: newStatus,
+            notes: statusNote,
+          }),
+        });
+
+        if (res.ok) {
+          setShowStatusModal(false);
+          setStatusNote("");
+          setSelectedReq(null);
+          setActionFeedback(`Stage updated to ${newStatus}`);
+          setTimeout(() => setActionFeedback(null), 3500);
+          loadRequests();
+        } else {
+          const json = await res.json().catch(() => ({}));
+          alert(json.message || "Failed to update stage");
+        }
+      } catch (err) {
+        alert("Network error updating stage");
+      }
     }
   };
 

@@ -72,9 +72,10 @@ The HambakTech Smart Digital Platform is designed to support a multi-service bus
 
 ### 2.2 Backend Service (PHP REST API)
 - **Role:** Centralized business logic, transaction processing, webhook consumption, and role-based access control (RBAC).
-- **Communication:** Standardized JSON over HTTPS with Bearer token authentication (JWT / secure session keys).
+- **Authentication & Security:** Production password hashing utilizes **Argon2id** (`PASSWORD_ARGON2ID`, 64MB memory cost). Session tokens, email verification tokens, and password reset OTPs are stored exclusively as SHA-256 hashes. Authoritative session state is managed via secure, HttpOnly, SameSite=Lax cookies or in-memory transport—never persisted in `localStorage` or `sessionStorage`.
+- **Communication:** Standardized JSON over HTTPS with Bearer token authentication (JWT / secure session keys) and session cookies.
 - **Hosting Target:** cPanel Shared Hosting (Apache with `.htaccess` rewrite rules).
-- **Status:** PLANNED (Do NOT implement in Milestone 1).
+- **Status:** BASELINE ACTIVE & LOCALLY AUDITED (Milestone 3 Authentication complete).
 
 ### 2.3 Persistence Layer (MySQL)
 - **Role:** Structured relational data storage with foreign-key referential integrity and strict transaction boundaries.
@@ -199,4 +200,54 @@ Milestone 11 establishes the authoritative backend and API engine consumed acros
 4. **Interactive Development Console:** `/api-docs` provides an interactive testing console for mobile app developers to execute live requests, verify payloads, and generate ready-to-use cURL, Kotlin, and Swift networking code.
 5. **Machine-Readable API Contract:** `/api/v1/openapi.json` publishes the official OpenAPI 3.0.3 specification for automated client generation and contract testing.
 
+---
 
+## 8. User & Customer Management Architecture (Milestone 4)
+
+Milestone 4 establishes the customer portal, identity/KYC lifecycle, and administrative 360 customer operations:
+
+```
+[ Customer Portal (`/dashboard/*`) ]            [ Admin Directory (`/admin/users`) ]
+         │                                                      │
+         ├─ Profile & Settings                                  ├─ 360 Customer Directory
+         ├─ Security & Password                                 ├─ Status & Account Suspension
+         ├─ KYC Submission                                      ├─ KYC Review & Tier Assignment
+         └─ Session Activity                                    └─ Audit Trail Inspection
+                     │                                                      │
+                     └──────────────────────┬───────────────────────────────┘
+                                            │
+                                            v HTTPS
+                       [ Authoritative User & Auth Service ]
+                       (Server-Side RBAC, IDOR & Mass-Assignment Defenses)
+                                            │
+                     ┌──────────────────────┴──────────────────────┐
+                     │                                             │
+                     v                                             v
+        [ MySQL Production DB ]                         [ Audit Trail Engine ]
+        - `users`                                       - `audit_logs`
+        - `user_profiles`                               - Immutable Action History
+        - `user_sessions`                               - Actor, Target, Diff Payload
+```
+
+### 8.1 Key Architectural Security Safeguards:
+1. **Mass-Assignment Defense:** User-facing profile updates accept only whitelist fields (`firstName`, `lastName`, `address`, `state`, `lga`, `avatarUrl`). Critical system attributes (`role`, `status`, `customerTier`, `walletBalance`) cannot be altered by customers.
+2. **Customer/Admin Isolation (IDOR Defense):** Queries to customer endpoints automatically scope data using the server-authenticated user context. A customer cannot view or modify another customer's data regardless of parameters supplied.
+3. **Session Revocation Invariants:** Changing a password or an administrator suspending an account immediately terminates active customer sessions across all devices.
+4. **Super-Admin Protection:** The platform root authority account (`hambak901@gmail.com`) is hard-coded as immutable—it cannot be suspended, deactivated, or stripped of super-admin privileges. Furthermore, non-super-admins cannot elevate any user to super-admin status.
+5. **KYC Lifecycle & Data Masking:** Government identity numbers (NIN, BVN) are masked with only the last 4 digits stored in profile records. Full statuses (`UNVERIFIED`, `PENDING`, `VERIFIED`, `REJECTED`) govern customer daily transaction limits.
+
+
+
+
+## M7 Provider Adapter Boundary
+
+Identity and telecom providers are accessed only from the PHP backend. Browser pages call HambakTech REST endpoints; provider API keys/passwords/PINs are never sent to the browser.
+
+Identity:
+- `VeripineAdapter` currently implements the documented Veripine NIN/BVN operations.
+- Direct NIMC integration remains a separate adapter and is not fabricated without an official NCBS/ASA contract.
+
+Telecom:
+- `VtpassAdapter` implements VTpass REST authentication and bills-payment calls.
+- `VtuNgAdapter` implements VTU.ng JWT authentication, purchases, variations, requery and webhook verification.
+- `TelecomController` selects the provider per request while preserving a single customer-facing API.

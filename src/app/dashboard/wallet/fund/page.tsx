@@ -13,12 +13,35 @@ import {
   Wallet,
   AlertCircle,
   Lock,
+  ExternalLink,
+  Copy,
+  Info,
 } from "lucide-react";
 import DashboardLayout from "@/components/Dashboard/DashboardLayout";
-import platformApi from "@/lib/api-client";
-import companyConfig from "@/data/companyConfig";
+import { getApiUrl } from "@/lib/api-config";
+import { getAuthHeaders } from "@/lib/auth-token";
 
 const PRESET_AMOUNTS = [2000, 5000, 10000, 20000, 50000, 100000];
+
+interface InitializedPayment {
+  transactionId: string;
+  reference: string;
+  txReference?: string;
+  authorizationUrl?: string | null;
+  amount: number;
+  currency: string;
+  channel: string;
+  metadata?: {
+    bankDetails?: {
+      bankName: string;
+      accountNumber: string;
+      accountName: string;
+      reference: string;
+      instructions: string;
+    };
+    [key: string]: any;
+  };
+}
 
 export default function FundWalletPage() {
   const router = useRouter();
@@ -27,11 +50,10 @@ export default function FundWalletPage() {
   const [gateway, setGateway] = useState<"PAYSTACK" | "FLUTTERWAVE" | "MONIEPOINT" | "BANK_TRANSFER">("PAYSTACK");
   const [processing, setProcessing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [successResult, setSuccessResult] = useState<{
-    reference: string;
-    amount: number;
-    newBalance: number;
-  } | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  // Two-phase funding: Initialized state awaits gateway payment and verification
+  const [initializedPayment, setInitializedPayment] = useState<InitializedPayment | null>(null);
 
   const handlePresetClick = (val: number) => {
     setAmount(val);
@@ -44,47 +66,63 @@ export default function FundWalletPage() {
     setAmount(Number(val) || 0);
   };
 
-  const handleProceedPayment = async (e: React.FormEvent) => {
+  const handleInitializePayment = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
     if (amount < 100) {
-      setErrorMessage("Minimum wallet funding amount is ₦100");
+      setErrorMessage("Minimum wallet funding amount is ₦100.00");
       return;
     }
 
     setProcessing(true);
 
     try {
-      const generatedRef = `HT-FUND-${Date.now().toString().slice(-8)}`;
-      const res = await fetch("/api/v1/wallet/fund", {
+      // Idempotency key prevents duplicate funding charges on rapid multi-clicks
+      const idempotencyKey = `ht-idemp-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+
+      const res = await fetch(getApiUrl("/api/wallet/fund/initialize"), {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": idempotencyKey,
+          ...getAuthHeaders(),
+        },
+        credentials: "include",
         body: JSON.stringify({
           amount,
-          gateway,
-          reference: generatedRef,
-          description: `Wallet top-up via ${gateway}`,
+          channel: gateway,
+          provider: gateway,
+          metadata: {
+            source: "customer_portal",
+            initializedAt: new Date().toISOString(),
+          },
         }),
       });
 
       const json = await res.json();
       if (!res.ok || !json.success) {
-        throw new Error(json.error?.message || json.message || "Failed to process wallet funding.");
+        throw new Error(json.error?.message || json.message || "Failed to initialize wallet funding session.");
       }
 
-      // Sync local transitional client cache if present
-      platformApi.fundWallet(amount, gateway, generatedRef);
+      const paymentData: InitializedPayment = json.data;
+      setInitializedPayment(paymentData);
 
-      setSuccessResult({
-        reference: generatedRef,
-        amount,
-        newBalance: json.data?.wallet?.currentBalance ?? (platformApi.getWallet().currentBalance),
-      });
+      // If gateway returns an external authorization URL, user can proceed to payment
+      if (paymentData.authorizationUrl && paymentData.channel !== "BANK_TRANSFER") {
+        // Automatically redirect if desirable, or present the authoritative checkout screen
+        // window.location.href = paymentData.authorizationUrl;
+      }
     } catch (err: any) {
-      setErrorMessage(err.message || "An unexpected error occurred during wallet funding.");
+      setErrorMessage(err.message || "An unexpected error occurred during payment initialization.");
     } finally {
       setProcessing(false);
     }
+  };
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2500);
   };
 
   return (
@@ -96,7 +134,8 @@ export default function FundWalletPage() {
       ]}
     >
       <div className="max-w-2xl mx-auto">
-        {!successResult ? (
+        {!initializedPayment ? (
+          /* Step 1: Initialize Payment */
           <div className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-dark border border-stroke dark:border-strokedark shadow-sm">
             <div className="flex items-center gap-3 mb-6">
               <div className="w-10 h-10 rounded-2xl bg-primary/10 text-primary flex items-center justify-center">
@@ -107,12 +146,12 @@ export default function FundWalletPage() {
                   Add Funds to HambakTech Wallet
                 </h2>
                 <p className="text-xs text-body-color">
-                  Immediate credit with zero hidden charges
+                  Two-phase secure funding with verified provider settlement
                 </p>
               </div>
             </div>
 
-            <form onSubmit={handleProceedPayment} className="space-y-6">
+            <form onSubmit={handleInitializePayment} className="space-y-6">
               {errorMessage && (
                 <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 text-xs font-medium flex items-center gap-2">
                   <AlertCircle className="w-4 h-4 shrink-0" />
@@ -185,9 +224,9 @@ export default function FundWalletPage() {
                     />
                     <div>
                       <span className="text-xs font-bold text-dark dark:text-white block">
-                        Paystack (Cards / USSD / Bank)
+                        Paystack Gateway
                       </span>
-                      <span className="text-[11px] text-body-color">Instant automated crediting</span>
+                      <span className="text-[11px] text-body-color">Cards, USSD, Bank Transfer</span>
                     </div>
                   </label>
 
@@ -208,7 +247,7 @@ export default function FundWalletPage() {
                     />
                     <div>
                       <span className="text-xs font-bold text-dark dark:text-white block">
-                        Flutterwave Checkout
+                        Flutterwave Gateway
                       </span>
                       <span className="text-[11px] text-body-color">Debit Cards & Mobile Money</span>
                     </div>
@@ -233,7 +272,7 @@ export default function FundWalletPage() {
                       <span className="text-xs font-bold text-dark dark:text-white block">
                         Moniepoint Virtual Account
                       </span>
-                      <span className="text-[11px] text-body-color">Direct Dynamic Bank Transfer</span>
+                      <span className="text-[11px] text-body-color">Dedicated Transfer Account</span>
                     </div>
                   </label>
 
@@ -254,9 +293,9 @@ export default function FundWalletPage() {
                     />
                     <div>
                       <span className="text-xs font-bold text-dark dark:text-white block">
-                        Manual Bank Transfer
+                        Corporate Bank Transfer
                       </span>
-                      <span className="text-[11px] text-body-color">Hambaktech & Services Account</span>
+                      <span className="text-[11px] text-body-color">Hambaktech & Services Official Account</span>
                     </div>
                   </label>
                 </div>
@@ -265,7 +304,7 @@ export default function FundWalletPage() {
               {/* Security note */}
               <div className="flex items-center gap-2 text-xs text-body-color p-3 rounded-xl bg-gray-50 dark:bg-gray-dark">
                 <Lock className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>PCI-DSS compliant 256-bit encrypted simulated gateway transaction.</span>
+                <span>Protected by two-phase verification and double-entry ledger security.</span>
               </div>
 
               {/* Submit Button */}
@@ -277,11 +316,11 @@ export default function FundWalletPage() {
                 {processing ? (
                   <>
                     <RefreshCw className="w-4 h-4 animate-spin" />
-                    <span>Processing Gateway Authorization...</span>
+                    <span>Initializing Secure Payment Session...</span>
                   </>
                 ) : (
                   <>
-                    <span>Authorize Payment of ₦{amount.toLocaleString()}</span>
+                    <span>Initialize Payment of ₦{amount.toLocaleString()}</span>
                     <ArrowRight className="w-4 h-4" />
                   </>
                 )}
@@ -289,52 +328,111 @@ export default function FundWalletPage() {
             </form>
           </div>
         ) : (
-          /* Success Screen */
-          <div className="p-8 rounded-3xl bg-white dark:bg-dark border border-stroke dark:border-strokedark text-center space-y-6 animate-in zoom-in-95 duration-200">
-            <div className="w-16 h-16 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-600 flex items-center justify-center mx-auto">
-              <CheckCircle2 className="w-10 h-10" />
-            </div>
-
-            <div>
-              <span className="text-xs font-bold uppercase tracking-wider text-emerald-600">
-                Wallet Credited Successfully
-              </span>
-              <h2 className="text-2xl font-bold text-dark dark:text-white mt-1">
-                +₦{successResult.amount.toLocaleString()}
-              </h2>
-              <p className="text-xs text-body-color mt-1">
-                Transaction Reference: <strong className="text-dark dark:text-white">{successResult.reference}</strong>
-              </p>
-            </div>
-
-            <div className="p-4 rounded-2xl bg-gray-50 dark:bg-gray-dark text-xs text-body-color space-y-2 max-w-sm mx-auto">
-              <div className="flex justify-between">
-                <span>New Available Balance:</span>
-                <strong className="text-dark dark:text-white">₦{successResult.newBalance.toLocaleString()}</strong>
+          /* Step 2: Payment Initialized — Continue to Provider or Complete Transfer */
+          <div className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-dark border border-stroke dark:border-strokedark space-y-6">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-500 flex items-center justify-center shrink-0">
+                <ShieldCheck className="w-6 h-6" />
               </div>
-              <div className="flex justify-between">
-                <span>Channel:</span>
-                <strong className="text-dark dark:text-white">{gateway}</strong>
-              </div>
-              <div className="flex justify-between">
-                <span>Status:</span>
-                <strong className="text-emerald-600">CONFIRMED</strong>
+              <div>
+                <span className="text-[11px] font-bold uppercase tracking-wider text-amber-600">
+                  Payment Session Initialized
+                </span>
+                <h2 className="text-xl font-bold text-dark dark:text-white">
+                  ₦{initializedPayment.amount.toLocaleString()} {initializedPayment.currency}
+                </h2>
               </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            {/* Session Reference Details */}
+            <div className="p-4 rounded-2xl bg-gray-50 dark:bg-gray-dark text-xs space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="text-body-color">Payment Reference:</span>
+                <div className="flex items-center gap-2">
+                  <strong className="text-dark dark:text-white font-mono">{initializedPayment.reference}</strong>
+                  <button
+                    type="button"
+                    onClick={() => copyToClipboard(initializedPayment.reference)}
+                    className="p-1 text-body-color hover:text-primary transition"
+                    title="Copy reference"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex justify-between">
+                <span className="text-body-color">Channel:</span>
+                <strong className="text-dark dark:text-white">{initializedPayment.channel}</strong>
+              </div>
+
+              <div className="flex justify-between">
+                <span className="text-body-color">Status:</span>
+                <span className="px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-400 font-bold text-[10px]">
+                  AWAITING SETTLEMENT
+                </span>
+              </div>
+            </div>
+
+            {copied && (
+              <p className="text-[11px] text-emerald-600 font-medium text-center">Reference copied to clipboard!</p>
+            )}
+
+            {/* Bank Transfer Instructions if BANK_TRANSFER */}
+            {initializedPayment.channel === "BANK_TRANSFER" && initializedPayment.metadata?.bankDetails ? (
+              <div className="p-4 rounded-2xl bg-primary/5 border border-primary/20 space-y-3 text-xs">
+                <h3 className="font-bold text-dark dark:text-white flex items-center gap-2">
+                  <Building className="w-4 h-4 text-primary" />
+                  Official Corporate Bank Details
+                </h3>
+                <div className="space-y-1.5 text-body-color">
+                  <p>
+                    <strong>Bank Name:</strong> {initializedPayment.metadata.bankDetails.bankName}
+                  </p>
+                  <p>
+                    <strong>Account Number:</strong>{" "}
+                    <span className="font-mono text-dark dark:text-white font-bold">
+                      {initializedPayment.metadata.bankDetails.accountNumber}
+                    </span>
+                  </p>
+                  <p>
+                    <strong>Account Name:</strong> {initializedPayment.metadata.bankDetails.accountName}
+                  </p>
+                  <p className="text-[11px] text-amber-700 dark:text-amber-400 mt-2 bg-amber-500/10 p-2 rounded-lg">
+                    {initializedPayment.metadata.bankDetails.instructions}
+                  </p>
+                </div>
+              </div>
+            ) : null}
+
+            {/* Actions: Proceed to Gateway or Verify */}
+            <div className="space-y-3 pt-2">
+              {initializedPayment.authorizationUrl && initializedPayment.channel !== "BANK_TRANSFER" ? (
+                <a
+                  href={initializedPayment.authorizationUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full py-3.5 px-6 rounded-2xl bg-primary hover:bg-primary/90 text-white font-bold text-sm shadow-md shadow-primary/25 transition flex items-center justify-center gap-2"
+                >
+                  <span>Pay Now on {initializedPayment.channel}</span>
+                  <ExternalLink className="w-4 h-4" />
+                </a>
+              ) : null}
+
               <Link
-                href="/dashboard/wallet"
-                className="px-6 py-2.5 rounded-xl bg-primary text-white font-bold text-xs hover:bg-primary/90 transition shadow-sm"
+                href={`/dashboard/wallet/verify?reference=${encodeURIComponent(initializedPayment.reference)}`}
+                className="w-full py-3.5 px-6 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm shadow-md transition flex items-center justify-center gap-2"
               >
-                Back to Wallet
+                <span>Verify & Settle Payment</span>
+                <CheckCircle2 className="w-4 h-4" />
               </Link>
+
               <button
                 type="button"
-                onClick={() => setSuccessResult(null)}
-                className="px-6 py-2.5 rounded-xl border border-stroke dark:border-strokedark text-dark dark:text-white font-semibold text-xs hover:bg-gray-50 dark:hover:bg-gray-dark transition"
+                onClick={() => setInitializedPayment(null)}
+                className="w-full py-2.5 px-6 rounded-xl border border-stroke dark:border-strokedark text-dark dark:text-white font-semibold text-xs hover:bg-gray-50 dark:hover:bg-gray-dark transition text-center"
               >
-                Make Another Top-up
+                Cancel & Start Over
               </button>
             </div>
           </div>

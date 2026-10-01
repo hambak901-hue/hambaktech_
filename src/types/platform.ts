@@ -7,6 +7,8 @@
  * - Compatible with MySQL (initial cPanel deployment) and PostgreSQL (future scale)
  */
 
+export const PLATFORM_VERSION = "1.0.0";
+
 export type RoleSlug =
   | "customer"
   | "admin"
@@ -28,6 +30,11 @@ export interface User {
   name?: string;
   role: RoleSlug;
   status: UserStatus;
+  customerTier?: "STANDARD" | "AGENT" | "CORPORATE" | string;
+  kycTier?: string;
+  kycLevel?: number;
+  kycStatus?: "UNVERIFIED" | "PENDING" | "VERIFIED" | "REJECTED" | string;
+  walletBalance?: string | number;
   avatarUrl?: string;
   state?: string;
   lga?: string;
@@ -185,11 +192,15 @@ export type NINServiceType =
   | "PRE_ENROLLMENT_ASSISTANCE";
 
 export type NINRequestStatus =
+  | "PENDING"
+  | "PROCESSING"
+  | "VERIFIED"
+  | "COMPLETED"
+  | "REJECTED"
   | "SUBMITTED"
   | "DOCUMENT_VERIFICATION"
   | "PARTNER_PROCESSING"
   | "READY_FOR_PICKUP"
-  | "COMPLETED"
   | "QUERY_ISSUED";
 
 export interface NINRequest {
@@ -202,7 +213,7 @@ export interface NINRequest {
   phone: string;
   email: string;
   serviceType: NINServiceType;
-  deliveryType?: "DIGITAL_DOWNLOAD" | "PHYSICAL_PICKUP";
+  deliveryType?: "DIGITAL_DOWNLOAD" | "PHYSICAL_PICKUP" | "COURIER" | "PICKUP";
   status: NINRequestStatus;
   notes?: string;
   submittedAt: string;

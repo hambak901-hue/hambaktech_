@@ -1,0 +1,46 @@
+# HAMBAKTECH SMART DIGITAL PLATFORM v1.0 — CPANEL APACHE CONFIGURATION
+# Production Target: https://www.business.hambaktech.com.ng
+
+# Block viewing of sensitive files
+<FilesMatch "^(\.env.*|\.git.*|composer\.(json|lock)|package\.(json|lock)|tsconfig\.json|.*\.sql|.*\.log|.*\.md|.*\.sh)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+</FilesMatch>
+
+# Security Headers
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-Frame-Options "SAMEORIGIN"
+    Header set X-XSS-Protection "1; mode=block"
+    Header set Referrer-Policy "strict-origin-when-cross-origin"
+    Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+</IfModule>
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Block direct web access to private application directories
+    RewriteRule ^(php-backend|storage|database|prisma|scripts|node_modules)(\/|$) - [F,L]
+
+    # Route /api/v1/* and /api/* to PHP API front-controller
+    RewriteRule ^api/v1/(.*)$ api/index.php [QSA,L]
+    RewriteRule ^api/(.*)$ api/index.php [QSA,L]
+
+    # Serve existing files directly
+    RewriteCond %{REQUEST_FILENAME} -f
+    RewriteRule ^ - [L]
+
+    # Serve existing directories directly
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
+
+    # Clean URL support for static HTML pages (e.g., /signin -> /signin.html)
+    RewriteCond %{REQUEST_FILENAME}.html -f
+    RewriteRule ^([^/]+)/?$ .html [L]
+
+    # Fallback to index.html for SPA routing
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^(.*)$ index.html [L]
+</IfModule>

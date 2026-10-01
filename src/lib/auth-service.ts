@@ -67,6 +67,13 @@ interface StoredUser {
   roleName: string;
   firstName: string;
   lastName: string;
+  address?: string | null;
+  state?: string | null;
+  lga?: string | null;
+  kycTier?: string;
+  kycStatus?: string;
+  bvnLast4?: string | null;
+  ninLast4?: string | null;
   createdAt: Date;
 }
 
@@ -138,6 +145,23 @@ class InMemoryAuthStore {
         lastName: "Owner",
         createdAt: new Date(),
         balance: "500000.00",
+      },
+      {
+        id: "user-superadmin-root",
+        email: "hambak901@gmail.com",
+        phone: "+2348000000000",
+        passwordHash: defaultPasswordHash,
+        status: "ACTIVE",
+        customerTier: "CORPORATE",
+        emailVerifiedAt: new Date(),
+        phoneVerifiedAt: new Date(),
+        roleId: "role-super-admin",
+        roleSlug: ROLES.SUPER_ADMIN,
+        roleName: "Root Super Administrator",
+        firstName: "Hambak",
+        lastName: "SuperAdmin",
+        createdAt: new Date(),
+        balance: "1000000.00",
       },
       {
         id: "usr-admin-01",
@@ -221,11 +245,23 @@ class InMemoryAuthStore {
     }
   }
 
-  public findUserByEmailOrPhone(credential: string): StoredUser | null {
+  public findUserByEmailOrPhone(credential?: string | null): StoredUser | null {
+    if (!credential) return null;
     this.init();
     const clean = credential.toLowerCase().trim();
     for (const user of this.users.values()) {
       if (user.email.toLowerCase() === clean || (user.phone && user.phone.trim() === clean)) {
+        return user;
+      }
+    }
+    return null;
+  }
+
+  public findUserByEmail(email: string): StoredUser | null {
+    this.init();
+    const clean = email.toLowerCase().trim();
+    for (const user of this.users.values()) {
+      if (user.email.toLowerCase() === clean) {
         return user;
       }
     }
@@ -316,9 +352,80 @@ class InMemoryAuthStore {
       t.usedAt = new Date();
     }
   }
+
+  public auditLogs: Array<{
+    id: string;
+    userId: string;
+    actorName: string;
+    action: string;
+    entity: string;
+    entityId: string;
+    details: string;
+    createdAt: Date;
+  }> = [];
+
+  public addAuditLog(entry: {
+    userId: string;
+    actorName: string;
+    action: string;
+    entity: string;
+    entityId: string;
+    details: string;
+  }) {
+    this.auditLogs.unshift({
+      id: `aud-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      createdAt: new Date(),
+      ...entry,
+    });
+  }
+
+  public getUserSessions(userId: string): StoredSession[] {
+    this.init();
+    const list: StoredSession[] = [];
+    for (const s of this.sessions.values()) {
+      if (s.userId === userId && !s.isRevoked && s.expiresAt > new Date()) {
+        list.push(s);
+      }
+    }
+    return list;
+  }
+
+  public revokeSessionById(userId: string, sessionId: string): boolean {
+    this.init();
+    for (const s of this.sessions.values()) {
+      if (s.id === sessionId && s.userId === userId) {
+        s.isRevoked = true;
+        return true;
+      }
+    }
+    return false;
+  }
+
+  public revokeAllOtherSessions(userId: string, currentTokenHash: string): void {
+    this.init();
+    for (const s of this.sessions.values()) {
+      if (s.userId === userId && s.tokenHash !== currentTokenHash) {
+        s.isRevoked = true;
+      }
+    }
+  }
+
+  public listAllUsers(): StoredUser[] {
+    this.init();
+    return Array.from(this.users.values());
+  }
 }
 
-const memoryStore = new InMemoryAuthStore();
+const globalForAuth = globalThis as unknown as {
+  __hambakMemoryAuthStore?: InMemoryAuthStore;
+};
+
+const memoryStore =
+  globalForAuth.__hambakMemoryAuthStore || new InMemoryAuthStore();
+if (process.env.NODE_ENV !== "production") {
+  globalForAuth.__hambakMemoryAuthStore = memoryStore;
+}
+
 
 // ---------------------------------------------------------------------------
 // Account Lockout & Brute Force Defense Manager
@@ -334,7 +441,8 @@ const MAX_CONSECUTIVE_FAILED_LOGINS = 5;
 const LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutes lockout
 
 export const AccountLockoutManager = {
-  checkLockout(identifier: string): void {
+  checkLockout(identifier?: string | null): void {
+    if (!identifier) return;
     const key = identifier.toLowerCase().trim();
     const record = failedLoginAttempts.get(key);
     if (!record) return;
@@ -353,7 +461,8 @@ export const AccountLockoutManager = {
     }
   },
 
-  recordFailedAttempt(identifier: string): void {
+  recordFailedAttempt(identifier?: string | null): void {
+    if (!identifier) return;
     const key = identifier.toLowerCase().trim();
     const now = Date.now();
     const record = failedLoginAttempts.get(key) || {
@@ -372,11 +481,13 @@ export const AccountLockoutManager = {
     failedLoginAttempts.set(key, record);
   },
 
-  recordSuccessfulLogin(identifier: string): void {
+  recordSuccessfulLogin(identifier?: string | null): void {
+    if (!identifier) return;
     const key = identifier.toLowerCase().trim();
     failedLoginAttempts.delete(key);
   },
 };
+
 
 
 /**
@@ -1231,10 +1342,42 @@ export async function updateUserProfile(
   updates: {
     firstName?: string;
     lastName?: string;
+    fullName?: string;
+    name?: string;
     phone?: string;
     avatarUrl?: string;
+    address?: string;
+    state?: string;
+    lga?: string;
+    [key: string]: any;
   }
 ): Promise<AuthenticatedUserPayload> {
+  // Check for forbidden administrative keys (Mass Assignment Defense)
+  const forbiddenKeys = ["role", "roleId", "roleSlug", "status", "customerTier", "walletBalance", "kycTier", "kycStatus", "passwordHash"];
+  for (const key of forbiddenKeys) {
+    if (key in updates) {
+      throw new ForbiddenError(`Modifying protected field '${key}' via profile update is forbidden.`);
+    }
+  }
+
+  // Handle fullName splitting
+  if (!updates.firstName && (updates.fullName || updates.name)) {
+    const raw = (updates.fullName || updates.name || "").trim();
+    const parts = raw.split(" ");
+    updates.firstName = parts[0] || "";
+    if (parts.length > 1) {
+      updates.lastName = parts.slice(1).join(" ");
+    }
+  }
+
+  if (updates.phone) {
+    const cleanedPhone = updates.phone.replace(/[^\d+]/g, "");
+    if (!/^\+?[0-9]{10,15}$/.test(cleanedPhone)) {
+      throw new ValidationError("Invalid phone number format. Provide a valid 10-15 digit number.");
+    }
+    updates.phone = cleanedPhone;
+  }
+
   const dbOnline = await isDatabaseOnline();
   if (dbOnline) {
     if (updates.phone) {
@@ -1295,6 +1438,18 @@ export async function updateUserProfile(
   if (updates.phone) user.phone = updates.phone;
   if (updates.firstName) user.firstName = updates.firstName;
   if (updates.lastName) user.lastName = updates.lastName;
+  if (updates.address) user.address = updates.address;
+  if (updates.state) user.state = updates.state;
+  if (updates.lga) user.lga = updates.lga;
+
+  memoryStore.addAuditLog({
+    userId,
+    actorName: `${user.firstName} ${user.lastName}`.trim() || user.email,
+    action: "PROFILE_UPDATE_SUCCESS",
+    entity: "users",
+    entityId: userId,
+    details: "User updated personal profile details",
+  });
 
   const wallet = memoryStore.getWallet(userId);
   return {
@@ -1326,6 +1481,12 @@ export async function changePassword(userId: string, oldPass: string, newPass: s
   if (!newPass || newPass.length < 8) {
     throw new ValidationError("New password must be at least 8 characters long.");
   }
+  if (!/[A-Z]/.test(newPass) || !/[a-z]/.test(newPass) || !/[0-9]/.test(newPass)) {
+    throw new ValidationError("New password must contain uppercase, lowercase, and a number.");
+  }
+  if (oldPass === newPass) {
+    throw new ValidationError("New password cannot be identical to the current password.");
+  }
 
   const dbOnline = await isDatabaseOnline();
   if (dbOnline) {
@@ -1349,4 +1510,343 @@ export async function changePassword(userId: string, oldPass: string, newPass: s
   if (!valid) throw new ValidationError("Current password is incorrect.");
   user.passwordHash = await hashPassword(newPass);
   memoryStore.revokeAllUserSessions(userId);
+
+  memoryStore.addAuditLog({
+    userId,
+    actorName: `${user.firstName} ${user.lastName}`.trim() || user.email,
+    action: "PASSWORD_CHANGE_SUCCESS",
+    entity: "users",
+    entityId: userId,
+    details: "User successfully changed password",
+  });
+}
+
+/**
+ * Update authenticated user email
+ */
+export async function updateEmail(userId: string, newEmail: string, currentPass: string): Promise<{ email: string }> {
+  const cleanEmail = newEmail.toLowerCase().trim();
+  if (!cleanEmail.includes("@") || !cleanEmail.includes(".")) {
+    throw new ValidationError("A valid email address is required.");
+  }
+
+  const user = memoryStore.findUserById(userId);
+  if (!user) throw new NotFoundError("User not found.");
+
+  const valid = await verifyPassword(currentPass, user.passwordHash);
+  if (!valid) throw new ValidationError("Current password is required to change email.");
+
+  if (user.email === cleanEmail) {
+    throw new ValidationError("New email cannot be identical to current email.");
+  }
+
+  const existing = memoryStore.findUserByEmail(cleanEmail);
+  if (existing && existing.id !== userId) {
+    throw new ConflictError("Email address is already in use by another account.");
+  }
+
+  user.email = cleanEmail;
+  user.emailVerifiedAt = null;
+
+  memoryStore.addAuditLog({
+    userId,
+    actorName: `${user.firstName} ${user.lastName}`.trim() || user.email,
+    action: "EMAIL_CHANGE_SUCCESS",
+    entity: "users",
+    entityId: userId,
+    details: `Email updated to ${cleanEmail}`,
+  });
+
+  return { email: cleanEmail };
+}
+
+/**
+ * Customer KYC credential submission
+ */
+export async function submitKYC(userId: string, data: { ninLast4?: string; bvnLast4?: string }): Promise<{ kycStatus: string }> {
+  if (data.ninLast4 && !/^\d{4}$/.test(data.ninLast4)) {
+    throw new ValidationError("NIN must be 4 digits.");
+  }
+  if (data.bvnLast4 && !/^\d{4}$/.test(data.bvnLast4)) {
+    throw new ValidationError("BVN must be 4 digits.");
+  }
+  if (!data.ninLast4 && !data.bvnLast4) {
+    throw new ValidationError("At least one identity credential is required.");
+  }
+
+  const user = memoryStore.findUserById(userId);
+  if (!user) throw new NotFoundError("User not found.");
+
+  if (data.ninLast4) user.ninLast4 = data.ninLast4;
+  if (data.bvnLast4) user.bvnLast4 = data.bvnLast4;
+  user.kycStatus = "PENDING";
+
+  memoryStore.addAuditLog({
+    userId,
+    actorName: `${user.firstName} ${user.lastName}`.trim() || user.email,
+    action: "KYC_SUBMITTED",
+    entity: "user_profiles",
+    entityId: userId,
+    details: "Customer submitted identity verification credentials",
+  });
+
+  return { kycStatus: "PENDING" };
+}
+
+/**
+ * Get active sessions for a user
+ */
+export async function getUserSessions(userId: string) {
+  return memoryStore.getUserSessions(userId).map((s) => ({
+    id: s.id,
+    ipAddress: s.ipAddress,
+    userAgent: s.userAgent,
+    createdAt: s.createdAt,
+    expiresAt: s.expiresAt,
+  }));
+}
+
+/**
+ * Revoke specific session (IDOR guarded)
+ */
+export async function revokeUserSession(userId: string, sessionId: string): Promise<boolean> {
+  const success = memoryStore.revokeSessionById(userId, sessionId);
+  if (!success) {
+    throw new NotFoundError("Session not found or not owned by user.");
+  }
+  memoryStore.addAuditLog({
+    userId,
+    actorName: "User",
+    action: "SESSION_REVOKED",
+    entity: "user_sessions",
+    entityId: sessionId,
+    details: "User revoked active session",
+  });
+  return true;
+}
+
+/**
+ * Revoke all other sessions for user
+ */
+export async function revokeAllOtherSessions(userId: string, currentSessionToken: string): Promise<void> {
+  const tokenHash = hashToken(currentSessionToken);
+  memoryStore.revokeAllOtherSessions(userId, tokenHash);
+  memoryStore.addAuditLog({
+    userId,
+    actorName: "User",
+    action: "SESSIONS_REVOKED_ALL",
+    entity: "user_sessions",
+    entityId: userId,
+    details: "User revoked all other active sessions",
+  });
+}
+
+/**
+ * Get audit log activity scoped to a customer
+ */
+export async function getUserActivity(userId: string) {
+  return memoryStore.auditLogs.filter((log) => log.userId === userId || log.entityId === userId);
+}
+
+/**
+ * Admin: List users with search, role, status, and tier filtering
+ */
+export async function adminListUsers(filters?: {
+  search?: string;
+  role?: string;
+  status?: string;
+  customerTier?: string;
+  page?: number;
+  limit?: number;
+}) {
+  let list = memoryStore.listAllUsers();
+
+  if (filters?.search) {
+    const q = filters.search.toLowerCase();
+    list = list.filter(
+      (u) =>
+        u.email.toLowerCase().includes(q) ||
+        (u.phone && u.phone.toLowerCase().includes(q)) ||
+        u.firstName.toLowerCase().includes(q) ||
+        u.lastName.toLowerCase().includes(q)
+    );
+  }
+  if (filters?.role && filters.role !== "all") {
+    list = list.filter((u) => u.roleSlug === filters.role!.toLowerCase());
+  }
+  if (filters?.status && filters.status !== "all") {
+    list = list.filter((u) => u.status === filters.status!.toUpperCase());
+  }
+  if (filters?.customerTier && filters.customerTier !== "all") {
+    list = list.filter((u) => u.customerTier === filters.customerTier!.toUpperCase());
+  }
+
+  const page = filters?.page || 1;
+  const limit = filters?.limit || 50;
+  const total = list.length;
+  const offset = (page - 1) * limit;
+  const pagedItems = list.slice(offset, offset + limit).map((u) => ({
+    id: u.id,
+    email: u.email,
+    phone: u.phone,
+    status: u.status,
+    customerTier: u.customerTier,
+    role: u.roleSlug,
+    firstName: u.firstName,
+    lastName: u.lastName,
+    fullName: `${u.firstName} ${u.lastName}`.trim() || u.email,
+    kycTier: u.kycTier || "TIER_0",
+    kycStatus: u.kycStatus || "UNVERIFIED",
+    walletBalance: memoryStore.getWallet(u.id)?.currentBalance || "0.00",
+    createdAt: u.createdAt,
+  }));
+
+  return {
+    items: pagedItems,
+    total,
+    page,
+    limit,
+    totalPages: Math.ceil(total / limit) || 1,
+  };
+}
+
+/**
+ * Admin: Get 360 customer profile
+ */
+export async function adminGetUser(userId: string) {
+  const user = memoryStore.findUserById(userId);
+  if (!user) throw new NotFoundError("Customer not found.");
+
+  const wallet = memoryStore.getWallet(userId);
+  const sessions = memoryStore.getUserSessions(userId);
+  const activity = memoryStore.auditLogs.filter((l) => l.userId === userId || l.entityId === userId);
+
+  return {
+    id: user.id,
+    email: user.email,
+    phone: user.phone,
+    status: user.status,
+    customerTier: user.customerTier,
+    role: user.roleSlug,
+    firstName: user.firstName,
+    lastName: user.lastName,
+    fullName: `${user.firstName} ${user.lastName}`.trim() || user.email,
+    address: user.address || null,
+    state: user.state || null,
+    lga: user.lga || null,
+    kycTier: user.kycTier || "TIER_0",
+    kycStatus: user.kycStatus || "UNVERIFIED",
+    bvnLast4: user.bvnLast4 || null,
+    ninLast4: user.ninLast4 || null,
+    walletBalance: wallet?.currentBalance || "0.00",
+    activeSessionsCount: sessions.length,
+    recentActivity: activity.slice(0, 10),
+    createdAt: user.createdAt,
+  };
+}
+
+/**
+ * Admin: Update customer details with privilege guardrails
+ */
+export async function adminUpdateUser(
+  actorUser: AuthenticatedUserPayload,
+  userId: string,
+  updates: {
+    firstName?: string;
+    lastName?: string;
+    phone?: string;
+    status?: string;
+    customerTier?: string;
+    role?: string;
+    address?: string;
+    state?: string;
+    lga?: string;
+  }
+) {
+  const target = memoryStore.findUserById(userId);
+  if (!target) throw new NotFoundError("User not found.");
+
+  // Root Super Admin protection
+  if (target.email === "hambak901@gmail.com") {
+    if (updates.status && updates.status !== "ACTIVE") {
+      throw new ForbiddenError("Root super_admin account cannot be deactivated or suspended.");
+    }
+    if (updates.role && updates.role !== ROLES.SUPER_ADMIN) {
+      throw new ForbiddenError("Root super_admin cannot be demoted.");
+    }
+  }
+
+  // Privilege escalation protection
+  if (target.roleSlug === ROLES.SUPER_ADMIN && actorUser.role.slug !== ROLES.SUPER_ADMIN) {
+    throw new ForbiddenError("Only super_admin can modify super_admin accounts.");
+  }
+  if (updates.role === ROLES.SUPER_ADMIN && actorUser.role.slug !== ROLES.SUPER_ADMIN) {
+    throw new ForbiddenError("Only super_admin can assign the super_admin role.");
+  }
+
+  if (updates.phone) target.phone = updates.phone;
+  if (updates.firstName) target.firstName = updates.firstName;
+  if (updates.lastName) target.lastName = updates.lastName;
+  if (updates.status) {
+    target.status = updates.status;
+    if (updates.status === "SUSPENDED" || updates.status === "INACTIVE") {
+      memoryStore.revokeAllUserSessions(userId);
+    }
+  }
+  if (updates.customerTier) target.customerTier = updates.customerTier;
+  if (updates.role) target.roleSlug = updates.role;
+  if (updates.address) target.address = updates.address;
+  if (updates.state) target.state = updates.state;
+  if (updates.lga) target.lga = updates.lga;
+
+  memoryStore.addAuditLog({
+    userId: actorUser.id,
+    actorName: `${actorUser.profile?.firstName || ""} ${actorUser.profile?.lastName || ""}`.trim() || actorUser.email,
+    action: "ADMIN_USER_UPDATED",
+    entity: "users",
+    entityId: userId,
+    details: `Admin updated attributes for user ${target.email}`,
+  });
+
+  return target;
+}
+
+/**
+ * Admin: Update customer status
+ */
+export async function adminUpdateUserStatus(
+  actorUser: AuthenticatedUserPayload,
+  userId: string,
+  status: string,
+  reason?: string
+) {
+  return adminUpdateUser(actorUser, userId, { status });
+}
+
+/**
+ * Admin: Update customer KYC
+ */
+export async function adminUpdateUserKYC(
+  actorUser: AuthenticatedUserPayload,
+  userId: string,
+  kycTier?: string,
+  kycStatus?: string,
+  notes?: string
+) {
+  const target = memoryStore.findUserById(userId);
+  if (!target) throw new NotFoundError("User not found.");
+
+  if (kycTier) target.kycTier = kycTier;
+  if (kycStatus) target.kycStatus = kycStatus;
+
+  memoryStore.addAuditLog({
+    userId: actorUser.id,
+    actorName: `${actorUser.profile?.firstName || ""} ${actorUser.profile?.lastName || ""}`.trim() || actorUser.email,
+    action: "ADMIN_KYC_STATUS_UPDATED",
+    entity: "user_profiles",
+    entityId: userId,
+    details: `Admin updated KYC to Tier: ${kycTier}, Status: ${kycStatus}. Notes: ${notes || "None"}`,
+  });
+
+  return target;
 }

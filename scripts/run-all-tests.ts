@@ -7,10 +7,23 @@ import { spawnSync } from "node:child_process";
 import path from "node:path";
 
 const suites = [
+  { name: "M2 Database Foundation Suite", script: "scripts/test-m2-database.ts" },
+  { name: "M3 Authentication Audit Suite", script: "scripts/test-m3-auth.ts" },
   { name: "M4 Auth & RBAC Suite", script: "scripts/test-m4-auth.ts" },
+  { name: "M4 User & Customer Management Suite", script: "scripts/test-m4-user-management.ts" },
+  { name: "M5 Wallet & Financial Foundation Suite", script: "scripts/test-m5-wallet-financial.ts" },
+  { name: "NIN + BVN + Payment Providers Audit Suite", script: "scripts/test-nin-bvn-payments-audit.ts" },
   { name: "Wallet Operations & Orders Suite", script: "scripts/test-wallet-orders.ts" },
   { name: "File Security & Webhooks Suite", script: "scripts/test-security-webhooks.ts" },
+  { name: "Reconciliation SQL Verification", script: "scripts/verify-reconciliation-sql.ts" },
+  { name: "Schema Parity Comparator", script: "scripts/compare-schema-reconciliation.ts" },
+  { name: "M7 Provider Static & Security Audit Suite", script: "scripts/test-m7-provider-static.js" },
+  { name: "M7 Veripine & VTpass Provider Lifecycle Suite", script: "scripts/test-m7-provider-lifecycle.ts" },
+  { name: "M7 VTU.ng Provider Lifecycle & Resilience Suite", script: "scripts/test-vtung-provider-lifecycle.ts" },
+  { name: "Email & SMTP Delivery Readiness Suite", script: "scripts/test-email-flows.ts" },
+  { name: "Public Website & Auth Cleanup Regression Suite", script: "scripts/test-public-auth-regression.ts" },
 ];
+
 
 console.log("=================================================================");
 console.log("🛡️  HAMBAKTECH PLATFORM TEST RUNNER");

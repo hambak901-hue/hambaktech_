@@ -1,7 +1,10 @@
 /** @type {import('next').NextConfig} */
+const isExport = process.env.NEXT_EXPORT === "true";
+
 const nextConfig = {
-  output: "standalone",
+  ...(isExport ? { output: "export" } : {}),
   images: {
+    unoptimized: true,
     remotePatterns: [
       {
         protocol: "https",

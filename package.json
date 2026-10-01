@@ -10,7 +10,8 @@
     "test": "tsx scripts/run-all-tests.ts",
     "db:generate": "prisma generate",
     "db:validate": "prisma validate",
-    "db:seed": "prisma db seed"
+    "db:seed": "prisma db seed",
+    "package:production": "bash scripts/package-production.sh"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

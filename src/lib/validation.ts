@@ -80,8 +80,9 @@ export const RegisterSchema = z
 export const LoginSchema = z.object({
   credential: z.string().min(3, "Email or phone number is required").trim(),
   password: z.string().min(1, "Password is required"),
-  rememberMe: z.boolean().default(false),
+  rememberMe: z.boolean().optional().default(false),
 });
+
 
 export const ForgotPasswordSchema = z.object({
   email: z.string().email("Invalid email address").toLowerCase().trim(),
@@ -116,8 +117,9 @@ export const CheckPermissionSchema = z.object({
 });
 
 export type RegisterInput = z.infer<typeof RegisterSchema>;
-export type LoginInput = z.infer<typeof LoginSchema>;
+export type LoginInput = z.input<typeof LoginSchema>;
 export type ForgotPasswordInput = z.infer<typeof ForgotPasswordSchema>;
+
 export type ResetPasswordInput = z.infer<typeof ResetPasswordSchema>;
 export type VerifyEmailInput = z.infer<typeof VerifyEmailSchema>;
 

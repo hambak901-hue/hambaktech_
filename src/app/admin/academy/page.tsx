@@ -28,7 +28,8 @@ import {
 } from "lucide-react";
 import AdminLayout from "@/components/Admin/AdminLayout";
 import QRCodeView from "@/components/common/QRCodeView";
-import platformApi from "@/lib/api-client";
+import { getApiUrl } from "@/lib/api-config";
+import { getAuthHeaders } from "@/lib/auth-token";
 import {
   CourseRecord,
   InstructorRecord,
@@ -86,17 +87,28 @@ export default function AdminAcademyPage() {
     feedback: string;
   } | null>(null);
 
+  const fetchArray = async (endpoint: string) => {
+    try {
+      const res = await fetch(getApiUrl(endpoint), { headers: getAuthHeaders() });
+      if (!res.ok) return [];
+      const json = await res.json();
+      return Array.isArray(json.data) ? json.data : Array.isArray(json) ? json : [];
+    } catch {
+      return [];
+    }
+  };
+
   // Load all admin academy collections
   const loadData = async () => {
     try {
       setLoading(true);
       const [cList, iList, eList, aList, certList, idList] = await Promise.all([
-        platformApi.fetchCourses(),
-        platformApi.fetchInstructors(),
-        platformApi.fetchRemoteEnrollments(),
-        platformApi.fetchAssignments(),
-        platformApi.fetchCertificates(),
-        platformApi.fetchIdCards(),
+        fetchArray("/api/academy/courses"),
+        fetchArray("/api/academy/instructors"),
+        fetchArray("/api/academy/enrollments"),
+        fetchArray("/api/academy/assignments"),
+        fetchArray("/api/academy/certificates"),
+        fetchArray("/api/academy/id-cards"),
       ]);
 
       setCourses(cList);
@@ -125,15 +137,19 @@ export default function AdminAcademyPage() {
   const handleSaveCourse = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch("/api/academy/courses", {
+      const res = await fetch(getApiUrl("/api/academy/courses"), {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...getAuthHeaders(),
+        },
+        credentials: "include",
         body: JSON.stringify(courseForm),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.message || "Failed to create course");
 
-      setFeedback({ type: "success", message: `Course "${json.data.title}" published to catalog!` });
+      setFeedback({ type: "success", message: `Course "${json.data?.title || "Course"}" published to catalog!` });
       setShowCourseModal(false);
       setCourseForm({
         title: "",
@@ -155,15 +171,19 @@ export default function AdminAcademyPage() {
   const handleSaveInstructor = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch("/api/academy/instructors", {
+      const res = await fetch(getApiUrl("/api/academy/instructors"), {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...getAuthHeaders(),
+        },
+        credentials: "include",
         body: JSON.stringify(instructorForm),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.message || "Failed to create instructor");
 
-      setFeedback({ type: "success", message: `Instructor ${json.data.fullName} registered successfully!` });
+      setFeedback({ type: "success", message: `Instructor ${json.data?.fullName || "Instructor"} registered successfully!` });
       setShowInstructorModal(false);
       setInstructorForm({
         fullName: "",
@@ -184,9 +204,13 @@ export default function AdminAcademyPage() {
     e.preventDefault();
     if (!gradingSubmission) return;
     try {
-      const res = await fetch(`/api/academy/assignments/${gradingSubmission.assignmentId}/grade`, {
+      const res = await fetch(getApiUrl(`/api/academy/assignments/${gradingSubmission.assignmentId}/grade`), {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...getAuthHeaders(),
+        },
+        credentials: "include",
         body: JSON.stringify({
           submissionId: gradingSubmission.submissionId,
           score: Number(gradingSubmission.score),

@@ -4,6 +4,7 @@ import React, { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import BrandLogo from "@/components/Common/BrandLogo";
+import { getApiUrl } from "@/lib/api-config";
 import { ArrowRight, RefreshCw, AlertCircle, CheckCircle2, Lock, ArrowLeft } from "lucide-react";
 
 function ResetPasswordContent() {
@@ -36,7 +37,7 @@ function ResetPasswordContent() {
     setLoading(true);
 
     try {
-      const res = await fetch("/api/auth/reset-password", {
+      const res = await fetch(getApiUrl("/api/auth/reset-password"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

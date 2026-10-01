@@ -13,13 +13,12 @@ import {
   Trash2,
 } from "lucide-react";
 import DashboardLayout from "@/components/Dashboard/DashboardLayout";
-import platformApi from "@/lib/api-client";
 import { NotificationItem } from "@/types/platform";
+import { getApiUrl } from "@/lib/api-config";
+import { getAuthHeaders } from "@/lib/auth-token";
 
 export default function DashboardNotificationsPage() {
-  const [notifications, setNotifications] = useState<NotificationItem[]>(
-    platformApi.getNotifications()
-  );
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [filter, setFilter] = useState<"ALL" | "UNREAD">("ALL");
   const [loading, setLoading] = useState(true);
 
@@ -27,7 +26,10 @@ export default function DashboardNotificationsPage() {
     let isMounted = true;
     async function loadNotifications() {
       try {
-        const res = await fetch("/api/v1/notifications");
+        const res = await fetch(getApiUrl("/api/notifications"), {
+          headers: getAuthHeaders(),
+          credentials: "include",
+        });
         if (res.ok) {
           const json = await res.json();
           if (json.success && json.data?.notifications && isMounted) {
@@ -36,7 +38,7 @@ export default function DashboardNotificationsPage() {
           }
         }
       } catch (err) {
-        console.warn("[Notifications] Falling back to client store:", err);
+        console.warn("[Notifications] Error loading notifications:", err);
       } finally {
         if (isMounted) setLoading(false);
       }
@@ -53,11 +55,14 @@ export default function DashboardNotificationsPage() {
   const handleMarkAllRead = async () => {
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
     try {
-      await fetch("/api/v1/notifications/read-all", { method: "PATCH" });
+      await fetch(getApiUrl("/api/notifications/read-all"), {
+        method: "PATCH",
+        headers: getAuthHeaders(),
+        credentials: "include",
+      });
     } catch (err) {
       console.warn("[Notifications] Error marking all read:", err);
     }
-    platformApi.markAllNotificationsAsRead();
   };
 
   const handleMarkSingleRead = async (id: string) => {
@@ -65,13 +70,14 @@ export default function DashboardNotificationsPage() {
       prev.map((n) => (n.id === id ? { ...n, read: true } : n))
     );
     try {
-      await fetch(`/api/v1/notifications/${encodeURIComponent(id)}/read`, {
+      await fetch(getApiUrl(`/api/notifications/${encodeURIComponent(id)}/read`), {
         method: "PATCH",
+        headers: getAuthHeaders(),
+        credentials: "include",
       });
     } catch (err) {
       console.warn("[Notifications] Error marking single read:", err);
     }
-    platformApi.markNotificationAsRead(id);
   };
 
   const filteredList =

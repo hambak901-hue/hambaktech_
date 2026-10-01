@@ -17,6 +17,7 @@ import {
   Clock,
 } from "lucide-react";
 import companyConfig from "@/data/companyConfig";
+import { getApiUrl } from "@/lib/api-config";
 
 interface Message {
   id: string;
@@ -144,7 +145,7 @@ export default function HambakTechAssistant() {
     };
 
     // Try server-side Gemini route first
-    fetch("/api/assistant", {
+    fetch(getApiUrl("/api/assistant"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ message: userText }),

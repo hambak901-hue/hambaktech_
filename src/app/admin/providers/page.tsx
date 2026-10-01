@@ -11,7 +11,8 @@ import {
 } from "lucide-react";
 import AdminLayout from "@/components/Admin/AdminLayout";
 import AdminDataTable, { Column, FilterOption } from "@/components/Admin/AdminDataTable";
-import platformApi from "@/lib/api-client";
+import { getApiUrl } from "@/lib/api-config";
+import { getAuthHeaders } from "@/lib/auth-token";
 import { SystemProvider } from "@/types/platform";
 
 export default function AdminProvidersPage() {
@@ -20,12 +21,32 @@ export default function AdminProvidersPage() {
   const [error, setError] = useState<string | null>(null);
   const [pinging, setPinging] = useState<string | null>(null);
 
-  const loadProviders = () => {
+  const loadProviders = async () => {
     try {
       setLoading(true);
-      const list = platformApi.getSystemProviders();
-      setProviders([...list]);
-      setError(null);
+      const res = await fetch(getApiUrl("/api/admin/providers"), {
+        headers: getAuthHeaders(),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        const list = Array.isArray(json.data) ? json.data : [];
+        setProviders(
+          list.map((p: any) => ({
+            id: p.id,
+            name: p.name,
+            code: p.code,
+            type: p.service_type || p.type || "BILL_PAYMENT",
+            environment: (p.environment || "PRODUCTION") as SystemProvider["environment"],
+            isActive: Boolean(p.is_active !== undefined ? p.is_active : p.isActive),
+            balance: p.balance !== null ? Number(p.balance) : undefined,
+            successRate: Number(p.success_rate || p.successRate || 99.8),
+            lastPingAt: p.last_ping_at || p.lastPingAt || new Date().toISOString(),
+          }))
+        );
+        setError(null);
+      } else {
+        setError("Failed to load providers from backend");
+      }
     } catch (err: any) {
       setError(err.message || "Failed to load providers");
     } finally {
@@ -37,9 +58,17 @@ export default function AdminProvidersPage() {
     loadProviders();
   }, []);
 
-  const handleToggle = (code: string, current: boolean) => {
-    platformApi.toggleProvider(code, !current);
-    loadProviders();
+  const handleToggle = async (code: string, current: boolean) => {
+    try {
+      await fetch(getApiUrl("/api/admin/providers"), {
+        method: "PUT",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ code, isActive: !current ? 1 : 0 }),
+      });
+      loadProviders();
+    } catch (err) {
+      console.error("Failed to toggle provider", err);
+    }
   };
 
   const handlePing = (code: string) => {

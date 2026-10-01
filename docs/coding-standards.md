@@ -76,3 +76,29 @@
    - `fix:` Bug fixes
    - `refactor:` Code restructuring without behavior changes
 3. **Commit Cleanliness:** Always run `git status` and `git diff` before committing to ensure no unintended files or secrets are staged.
+
+---
+
+## 4. Customer & Profile Security Standards (Milestone 4)
+
+1. **Mass-Assignment Protection:**
+   - User profile update handlers must strictly whitelist updatable fields: `firstName`, `lastName`, `phone`, `address`, `state`, `lga`, `avatarUrl`.
+   - Never pass raw `req.body` directly to database update queries.
+   - Core administrative fields (`role`, `status`, `customerTier`, `walletBalance`, `emailVerifiedAt`, `phoneVerifiedAt`) must be ignored or explicitly rejected with HTTP 400 if submitted in user-facing endpoints.
+2. **Server-Side Authorization & Data Isolation (IDOR Protection):**
+   - User identity must always be derived from the verified session context (`session.userId`), never from request payload or client query parameters.
+   - Queries for customer orders, profiles, wallets, and tickets must be strictly filtered by `user_id = authenticated_user_id`.
+3. **Password Security Standards:**
+   - Password requirements: minimum 8 characters, at least 1 uppercase letter, 1 lowercase letter, 1 number.
+   - Password hashing in production uses Argon2id (`PASSWORD_ARGON2ID`, 64MB memory cost).
+   - Changing password requires verification of the user's existing current password.
+   - Successful password change must trigger immediate revocation of all other active user sessions.
+4. **KYC & PII Data Protection:**
+   - Sensitive government identifiers (NIN, BVN) must never be stored in raw format in public profile records; store only last 4 digits (`nin_last4`, `bvn_last4`).
+   - KYC documents must be stored in secure non-public storage with access restricted to authenticated staff with `users.write` permission.
+5. **Super-Admin Protection:**
+   - The primary system administrator (`hambak901@gmail.com`) is hardcoded as immutable; status cannot be set to SUSPENDED/INACTIVE, and role cannot be changed.
+   - Non-super-admins cannot assign or elevate any user to the `super_admin` role.
+6. **Audit Trail Completeness:**
+   - Every sensitive lifecycle event (`LOGIN`, `LOGOUT`, `PASSWORD_CHANGE`, `PROFILE_UPDATE`, `EMAIL_CHANGE`, `KYC_SUBMITTED`, `ADMIN_USER_UPDATED`, `USER_SUSPENDED`) must write an immutable record to `audit_logs`.
+

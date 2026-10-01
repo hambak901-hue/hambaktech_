@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   ShieldCheck,
@@ -20,10 +20,11 @@ import {
   HelpCircle,
 } from "lucide-react";
 import DashboardLayout from "@/components/Dashboard/DashboardLayout";
-import platformApi from "@/lib/api-client";
+import { getApiUrl } from "@/lib/api-config";
+import { getAuthHeaders } from "@/lib/auth-token";
 
 export default function DashboardSecurityPage() {
-  const user = platformApi.getCurrentUser();
+  const [userPhone, setUserPhone] = useState("");
 
   // Password State
   const [currentPassword, setCurrentPassword] = useState("");
@@ -67,6 +68,26 @@ export default function DashboardSecurityPage() {
     },
   ]);
 
+  useEffect(() => {
+    async function loadPhone() {
+      try {
+        const res = await fetch(getApiUrl("/api/profile"), {
+          headers: getAuthHeaders(),
+          credentials: "include",
+        });
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && json.data?.phone) {
+            setUserPhone(json.data.phone);
+          }
+        }
+      } catch {
+        // Non-critical
+      }
+    }
+    loadPhone();
+  }, []);
+
   const handlePasswordUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     setPwError("");
@@ -87,9 +108,13 @@ export default function DashboardSecurityPage() {
 
     setPwLoading(true);
     try {
-      const res = await fetch("/api/v1/user/password", {
+      const res = await fetch(getApiUrl("/api/profile/password"), {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...getAuthHeaders(),
+        },
+        credentials: "include",
         body: JSON.stringify({
           currentPassword,
           newPassword,
@@ -407,7 +432,7 @@ export default function DashboardSecurityPage() {
             <div className="mt-4 space-y-3 text-xs text-body-color">
               <div className="flex items-start gap-2.5">
                 <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                <span>Requires verification code sent to {user.phone || "your registered phone"} upon sign in.</span>
+                <span>Requires verification code sent to {userPhone || "your registered phone"} upon sign in.</span>
               </div>
               <div className="flex items-start gap-2.5">
                 <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />

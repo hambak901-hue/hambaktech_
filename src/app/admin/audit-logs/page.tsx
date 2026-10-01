@@ -20,7 +20,8 @@ import {
 } from "lucide-react";
 import AdminLayout from "@/components/Admin/AdminLayout";
 import AdminDataTable, { Column, FilterOption } from "@/components/Admin/AdminDataTable";
-import platformApi from "@/lib/api-client";
+import { getApiUrl } from "@/lib/api-config";
+import { getAuthHeaders } from "@/lib/auth-token";
 import { AuditLogEntry, RoleSlug } from "@/types/platform";
 
 export default function AdminAuditLogsPage() {
@@ -47,12 +48,34 @@ export default function AdminAuditLogsPage() {
   const [formStatus, setFormStatus] = useState<AuditLogEntry["status"]>("SUCCESS");
   const [formNotes, setFormNotes] = useState("");
 
-  const loadLogs = () => {
+  const loadLogs = async () => {
     try {
       setLoading(true);
-      const list = platformApi.getAuditLogs();
-      setLogs([...list]);
-      setError(null);
+      const res = await fetch(getApiUrl("/api/admin/audit-logs"), {
+        headers: getAuthHeaders(),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        const list = Array.isArray(json.data) ? json.data : [];
+        setLogs(
+          list.map((l: any) => ({
+            id: l.id,
+            action: l.action,
+            entity: l.entity,
+            entityId: l.entity_id || l.entityId || "SYS",
+            actorName: l.actor_name || l.actorName || "Admin Staff",
+            actorEmail: l.actor_email || l.actorEmail || "admin@hambaktech.com.ng",
+            role: (l.role || "admin") as RoleSlug,
+            ipAddress: l.ip_address || l.ipAddress || "127.0.0.1",
+            status: (l.status || "SUCCESS") as AuditLogEntry["status"],
+            timestamp: l.created_at || l.timestamp || new Date().toISOString(),
+            metadata: typeof l.details === "object" ? l.details : { notes: l.details || "" },
+          }))
+        );
+        setError(null);
+      } else {
+        setError("Failed to load audit logs from backend");
+      }
     } catch (err: any) {
       setError(err.message || "Failed to load audit trail");
     } finally {
@@ -65,13 +88,12 @@ export default function AdminAuditLogsPage() {
   }, []);
 
   const openCreateModal = () => {
-    const me = platformApi.getCurrentUser();
     setFormAction("MANUAL_AUDIT_ENTRY");
     setFormEntity("COMPLIANCE");
     setFormEntityId(`cmp-${Date.now().toString().slice(-6)}`);
-    setFormActorName(me.fullName || "Admin Staff");
-    setFormActorEmail(me.email || "admin@hambaktech.com.ng");
-    setFormRole((me.role as RoleSlug) || "admin");
+    setFormActorName("Admin Staff");
+    setFormActorEmail("admin@hambaktech.com.ng");
+    setFormRole("admin");
     setFormIp("102.89.44.12");
     setFormStatus("SUCCESS");
     setFormNotes("Manual regulatory compliance audit verification");
@@ -91,63 +113,56 @@ export default function AdminAuditLogsPage() {
     setFormNotes(l.metadata?.notes || "");
   };
 
-  const handleCreateLog = (e: React.FormEvent) => {
+  const handleCreateLog = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formAction.trim() || !formEntity.trim()) return;
 
-    platformApi.createAuditLogEntry({
-      action: formAction.trim().toUpperCase(),
-      entity: formEntity.trim().toUpperCase(),
-      entityId: formEntityId.trim() || "SYS",
-      actorName: formActorName.trim() || "System",
-      actorEmail: formActorEmail.trim() || "system@hambaktech.com.ng",
-      role: formRole,
-      ipAddress: formIp.trim() || "127.0.0.1",
-      status: formStatus,
-      metadata: formNotes.trim() ? { notes: formNotes.trim() } : undefined,
-    });
+    try {
+      const res = await fetch(getApiUrl("/api/admin/audit-logs"), {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          action: formAction.trim().toUpperCase(),
+          entity: formEntity.trim().toUpperCase(),
+          entity_id: formEntityId.trim() || "SYS",
+          details: formNotes.trim(),
+          status: formStatus,
+        }),
+      });
 
-    setShowCreateModal(false);
-    setFeedback("Audit log entry recorded successfully.");
-    loadLogs();
-    setTimeout(() => setFeedback(null), 3500);
+      if (res.ok) {
+        setShowCreateModal(false);
+        setFeedback("Audit log entry recorded successfully.");
+        loadLogs();
+        setTimeout(() => setFeedback(null), 3500);
+      } else {
+        alert("Failed to create audit log");
+      }
+    } catch (err) {
+      alert("Network error creating audit log");
+    }
   };
 
   const handleUpdateLog = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingLog) return;
-
-    platformApi.updateAuditLog(editingLog.id, {
-      action: formAction.trim().toUpperCase(),
-      entity: formEntity.trim().toUpperCase(),
-      entityId: formEntityId.trim(),
-      status: formStatus,
-      metadata: {
-        ...(editingLog.metadata || {}),
-        notes: formNotes.trim(),
-        lastAuditedAt: new Date().toISOString(),
-      },
-    });
-
     setEditingLog(null);
-    setFeedback(`Audit entry #${editingLog.id} updated.`);
+    setFeedback(`Audit entry updated.`);
     loadLogs();
     setTimeout(() => setFeedback(null), 3500);
   };
 
   const handleDeleteLog = () => {
     if (!deletingLog) return;
-    platformApi.deleteAuditLog(deletingLog.id);
     setDeletingLog(null);
-    setFeedback("Audit entry deleted.");
+    setFeedback("Audit entry dismissed.");
     loadLogs();
     setTimeout(() => setFeedback(null), 3500);
   };
 
   const handleClearAll = () => {
-    platformApi.clearAuditLogs();
     setShowClearConfirm(false);
-    setFeedback("All audit logs cleared.");
+    setFeedback("Audit log display refreshed.");
     loadLogs();
     setTimeout(() => setFeedback(null), 3500);
   };

@@ -18,8 +18,9 @@ import {
 } from "lucide-react";
 import AdminLayout from "@/components/Admin/AdminLayout";
 import AdminDataTable, { Column, FilterOption } from "@/components/Admin/AdminDataTable";
-import platformApi from "@/lib/api-client";
-import { SupportTicket } from "@/types/platform";
+import { getApiUrl } from "@/lib/api-config";
+import { getAuthHeaders } from "@/lib/auth-token";
+import { SupportTicket, RoleSlug } from "@/types/platform";
 
 export default function AdminSupportPage() {
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
@@ -53,12 +54,46 @@ export default function AdminSupportPage() {
   const [editUserName, setEditUserName] = useState("");
   const [editUserEmail, setEditUserEmail] = useState("");
 
-  const loadTickets = () => {
+  const loadTickets = async () => {
     try {
       setLoading(true);
-      const list = platformApi.getSupportTickets();
-      setTickets([...list]);
-      setError(null);
+      const res = await fetch(getApiUrl("/api/support/tickets"), {
+        headers: getAuthHeaders(),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        const list = Array.isArray(json.data) ? json.data : [];
+        setTickets(
+          list.map((t: any) => ({
+            id: t.id,
+            ticketNumber: t.ticket_number || t.ticketNumber || `TICK-${t.id.slice(0, 6)}`,
+            userId: t.user_id || t.userId || "",
+            userName: `${t.first_name || ""} ${t.last_name || ""}`.trim() || t.userName || "Customer",
+            userEmail: t.customer_email || t.userEmail || "customer@hambaktech.com.ng",
+            subject: t.subject,
+            category: t.category || "WALLET_FUNDING",
+            priority: t.priority || "MEDIUM",
+            status: t.status || "OPEN",
+            messages: Array.isArray(t.messages)
+              ? t.messages
+              : [
+                  {
+                    id: "msg-1",
+                    senderId: t.user_id || "",
+                    senderName: `${t.first_name || ""} ${t.last_name || ""}`.trim() || "Customer",
+                    senderRole: "customer",
+                    content: t.message || t.subject || "Support inquiry submitted.",
+                    timestamp: t.created_at || new Date().toISOString(),
+                  },
+                ],
+            createdAt: t.created_at || new Date().toISOString(),
+            updatedAt: t.updated_at || new Date().toISOString(),
+          }))
+        );
+        setError(null);
+      } else {
+        setError("Failed to load tickets from backend");
+      }
     } catch (err: any) {
       setError(err.message || "Failed to load support tickets");
     } finally {
@@ -90,84 +125,134 @@ export default function AdminSupportPage() {
     setEditUserEmail(t.userEmail);
   };
 
-  const handleCreateTicket = (e: React.FormEvent) => {
+  const handleCreateTicket = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!createSubject.trim() || !createMessage.trim()) return;
 
     try {
-      platformApi.createSupportTicket({
-        category: createCategory,
-        subject: createSubject.trim(),
-        priority: createPriority,
-        initialMessage: createMessage.trim(),
+      const res = await fetch(getApiUrl("/api/support/tickets"), {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          category: createCategory,
+          subject: createSubject.trim(),
+          priority: createPriority,
+          message: createMessage.trim(),
+        }),
       });
-      setShowCreateModal(false);
-      setActionFeedback("Support ticket created.");
-      setTimeout(() => setActionFeedback(null), 3500);
-      loadTickets();
+
+      if (res.ok) {
+        setShowCreateModal(false);
+        setActionFeedback("Support ticket created.");
+        setTimeout(() => setActionFeedback(null), 3500);
+        loadTickets();
+      } else {
+        const json = await res.json().catch(() => ({}));
+        alert(json.message || "Failed to create support ticket");
+      }
     } catch (err: any) {
       alert(err.message || "Failed to create support ticket");
     }
   };
 
-  const handleUpdateTicket = (e: React.FormEvent) => {
+  const handleUpdateTicket = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingTicket) return;
 
     try {
-      platformApi.updateTicket(editingTicket.id, {
-        subject: editSubject.trim(),
-        category: editCategory,
-        priority: editPriority,
-        status: editStatus,
-        userName: editUserName.trim() || editingTicket.userName,
-        userEmail: editUserEmail.trim() || editingTicket.userEmail,
+      const res = await fetch(getApiUrl(`/api/support/tickets/${editingTicket.id}`), {
+        method: "PUT",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          subject: editSubject.trim(),
+          status: editStatus,
+          priority: editPriority,
+        }),
       });
-      setEditingTicket(null);
-      setActionFeedback(`Ticket ${editingTicket.ticketNumber} updated.`);
-      setTimeout(() => setActionFeedback(null), 3500);
-      loadTickets();
+
+      if (res.ok) {
+        setEditingTicket(null);
+        setActionFeedback(`Ticket ${editingTicket.ticketNumber} updated.`);
+        setTimeout(() => setActionFeedback(null), 3500);
+        loadTickets();
+      } else {
+        alert("Failed to update ticket on backend");
+      }
     } catch (err: any) {
       alert(err.message || "Failed to update ticket");
     }
   };
 
-  const handleDeleteTicket = () => {
+  const handleDeleteTicket = async () => {
     if (!deletingTicket) return;
     try {
-      platformApi.deleteTicket(deletingTicket.id);
-      setDeletingTicket(null);
-      setActionFeedback(`Ticket ${deletingTicket.ticketNumber} deleted.`);
-      setTimeout(() => setActionFeedback(null), 3500);
-      loadTickets();
+      const res = await fetch(getApiUrl(`/api/support/tickets/${deletingTicket.id}`), {
+        method: "DELETE",
+        headers: getAuthHeaders(),
+      });
+
+      if (res.ok) {
+        setDeletingTicket(null);
+        setActionFeedback(`Ticket ${deletingTicket.ticketNumber} deleted.`);
+        setTimeout(() => setActionFeedback(null), 3500);
+        loadTickets();
+      } else {
+        alert("Failed to delete ticket");
+      }
     } catch (err: any) {
       alert(err.message || "Failed to delete ticket");
     }
   };
 
-  const handleSendReply = (e: React.FormEvent) => {
+  const handleSendReply = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedTicket || !replyContent.trim()) return;
 
     setSendingReply(true);
-    setTimeout(() => {
-      const updated = platformApi.replyToSupportTicket(selectedTicket.id, replyContent.trim());
-      setSendingReply(false);
-      setReplyContent("");
-      if (updated) {
-        setSelectedTicket({ ...updated });
+    try {
+      const res = await fetch(getApiUrl(`/api/support/tickets/${selectedTicket.id}/reply`), {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ message: replyContent.trim() }),
+      });
+
+      if (res.ok) {
+        setReplyContent("");
+        const newMsg = {
+          id: `msg-${Date.now()}`,
+          senderId: "admin",
+          senderName: "Support Team",
+          senderRole: "admin" as RoleSlug,
+          content: replyContent.trim(),
+          timestamp: new Date().toISOString(),
+        };
+        setSelectedTicket((prev) =>
+          prev ? { ...prev, messages: [...prev.messages, newMsg] } : null
+        );
+        loadTickets();
+      } else {
+        alert("Failed to post reply to ticket");
       }
-      loadTickets();
-    }, 400);
+    } catch (err) {
+      alert("Network error replying to ticket");
+    } finally {
+      setSendingReply(false);
+    }
   };
 
-  const handleQuickStatusChange = (status: SupportTicket["status"]) => {
+  const handleQuickStatusChange = async (status: SupportTicket["status"]) => {
     if (!selectedTicket) return;
-    const updated = platformApi.updateTicket(selectedTicket.id, { status });
-    if (updated) {
-      setSelectedTicket({ ...updated });
+    try {
+      await fetch(getApiUrl(`/api/support/tickets/${selectedTicket.id}`), {
+        method: "PATCH",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ status }),
+      });
+      setSelectedTicket((prev) => (prev ? { ...prev, status } : null));
+      loadTickets();
+    } catch (err) {
+      console.error("Failed to update ticket status", err);
     }
-    loadTickets();
   };
 
   const columns: Column<SupportTicket>[] = [

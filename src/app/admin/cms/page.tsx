@@ -15,8 +15,9 @@ import {
 } from "lucide-react";
 import AdminLayout from "@/components/Admin/AdminLayout";
 import AdminDataTable, { Column } from "@/components/Admin/AdminDataTable";
-import platformApi from "@/lib/api-client";
 import { CMSAnnouncement, CMSPage, BlogPost } from "@/types/platform";
+import { getApiUrl } from "@/lib/api-config";
+import { getAuthHeaders } from "@/lib/auth-token";
 
 export default function AdminCMSPage() {
   const [activeTab, setActiveTab] = useState<"announcements" | "pages" | "blog">("announcements");
@@ -54,10 +55,29 @@ export default function AdminCMSPage() {
   const [blogAuthor, setBlogAuthor] = useState("Hambak Editorial Team");
   const [blogFeatured, setBlogFeatured] = useState(false);
 
-  const loadCMS = () => {
-    setAnnouncements([...platformApi.getCMSAnnouncements()]);
-    setPages([...platformApi.getCMSPages()]);
-    setPosts([...platformApi.getBlogPosts()]);
+  const loadCMS = async () => {
+    try {
+      const [annRes, pageRes, blogRes] = await Promise.all([
+        fetch(getApiUrl("/api/cms/announcements"), { headers: getAuthHeaders(), credentials: "include" }),
+        fetch(getApiUrl("/api/cms/pages"), { headers: getAuthHeaders(), credentials: "include" }),
+        fetch(getApiUrl("/api/cms/posts"), { headers: getAuthHeaders(), credentials: "include" }),
+      ]);
+
+      if (annRes.ok) {
+        const annJson = await annRes.json();
+        if (annJson.success && Array.isArray(annJson.data)) setAnnouncements(annJson.data);
+      }
+      if (pageRes.ok) {
+        const pageJson = await pageRes.json();
+        if (pageJson.success && Array.isArray(pageJson.data)) setPages(pageJson.data);
+      }
+      if (blogRes.ok) {
+        const blogJson = await blogRes.json();
+        if (blogJson.success && Array.isArray(blogJson.data)) setPosts(blogJson.data);
+      }
+    } catch (err) {
+      console.error("Failed to load CMS data:", err);
+    }
   };
 
   useEffect(() => {
@@ -86,42 +106,87 @@ export default function AdminCMSPage() {
     setAnnActive(a.isActive);
   };
 
-  const handleCreateAnnouncement = (e: React.FormEvent) => {
+  const handleCreateAnnouncement = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!annTitle.trim() || !annMessage.trim()) return;
 
-    platformApi.createAnnouncement(annTitle.trim(), annMessage.trim(), annCategory);
-    setShowAnnModal(false);
-    showSuccessMessage("Announcement created successfully.");
-    loadCMS();
+    try {
+      const res = await fetch(getApiUrl("/api/cms/announcements"), {
+        method: "POST",
+        headers: { ...getAuthHeaders(), "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          title: annTitle.trim(),
+          message: annMessage.trim(),
+          category: annCategory,
+        }),
+      });
+      if (res.ok) {
+        setShowAnnModal(false);
+        showSuccessMessage("Announcement created successfully.");
+        await loadCMS();
+      }
+    } catch (err) {
+      console.error(err);
+    }
   };
 
-  const handleUpdateAnnouncement = (e: React.FormEvent) => {
+  const handleUpdateAnnouncement = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingAnn) return;
 
-    platformApi.updateAnnouncement(editingAnn.id, {
-      title: annTitle.trim(),
-      message: annMessage.trim(),
-      category: annCategory,
-      isActive: annActive,
-    });
-    setEditingAnn(null);
-    showSuccessMessage(`Announcement "${annTitle}" updated.`);
-    loadCMS();
+    try {
+      const res = await fetch(getApiUrl(`/api/cms/announcements/${editingAnn.id}`), {
+        method: "PATCH",
+        headers: { ...getAuthHeaders(), "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          title: annTitle.trim(),
+          message: annMessage.trim(),
+          category: annCategory,
+          isActive: annActive,
+        }),
+      });
+      if (res.ok) {
+        setEditingAnn(null);
+        showSuccessMessage(`Announcement "${annTitle}" updated.`);
+        await loadCMS();
+      }
+    } catch (err) {
+      console.error(err);
+    }
   };
 
-  const handleDeleteAnnouncement = () => {
+  const handleDeleteAnnouncement = async () => {
     if (!deletingAnn) return;
-    platformApi.deleteAnnouncement(deletingAnn.id);
-    setDeletingAnn(null);
-    showSuccessMessage("Announcement removed.");
-    loadCMS();
+    try {
+      const res = await fetch(getApiUrl(`/api/cms/announcements/${deletingAnn.id}`), {
+        method: "DELETE",
+        headers: getAuthHeaders(),
+        credentials: "include",
+      });
+      if (res.ok) {
+        setDeletingAnn(null);
+        showSuccessMessage("Announcement removed.");
+        await loadCMS();
+      }
+    } catch (err) {
+      console.error(err);
+    }
   };
 
-  const handleToggleAnnouncement = (id: string, active: boolean) => {
-    platformApi.toggleAnnouncement(id, !active);
-    loadCMS();
+  const handleToggleAnnouncement = async (id: string, active: boolean) => {
+    try {
+      await fetch(getApiUrl(`/api/cms/announcements/${id}`), {
+        method: "PATCH",
+        headers: { ...getAuthHeaders(), "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ isActive: !active }),
+      });
+      await loadCMS();
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   // --- Page CRUD ---
@@ -141,42 +206,74 @@ export default function AdminCMSPage() {
     setPagePublished(p.published);
   };
 
-  const handleCreatePage = (e: React.FormEvent) => {
+  const handleCreatePage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!pageTitle.trim() || !pageSlug.trim()) return;
 
-    platformApi.createCMSPage({
-      title: pageTitle.trim(),
-      slug: pageSlug.trim().toLowerCase().replace(/^\//, ""),
-      metaDescription: pageMeta.trim(),
-      published: pagePublished,
-    });
-    setShowPageModal(false);
-    showSuccessMessage(`Page /${pageSlug} created.`);
-    loadCMS();
+    try {
+      const res = await fetch(getApiUrl("/api/cms/pages"), {
+        method: "POST",
+        headers: { ...getAuthHeaders(), "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          title: pageTitle.trim(),
+          slug: pageSlug.trim().toLowerCase().replace(/^\//, ""),
+          metaDescription: pageMeta.trim(),
+          published: pagePublished,
+        }),
+      });
+      if (res.ok) {
+        setShowPageModal(false);
+        showSuccessMessage(`Page /${pageSlug} created.`);
+        await loadCMS();
+      }
+    } catch (err) {
+      console.error(err);
+    }
   };
 
-  const handleUpdatePage = (e: React.FormEvent) => {
+  const handleUpdatePage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingPage) return;
 
-    platformApi.updateCMSPage(editingPage.id, {
-      title: pageTitle.trim(),
-      slug: pageSlug.trim().toLowerCase().replace(/^\//, ""),
-      metaDescription: pageMeta.trim(),
-      published: pagePublished,
-    });
-    setEditingPage(null);
-    showSuccessMessage(`Page /${pageSlug} updated.`);
-    loadCMS();
+    try {
+      const res = await fetch(getApiUrl(`/api/cms/pages/${editingPage.id}`), {
+        method: "PATCH",
+        headers: { ...getAuthHeaders(), "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          title: pageTitle.trim(),
+          slug: pageSlug.trim().toLowerCase().replace(/^\//, ""),
+          metaDescription: pageMeta.trim(),
+          published: pagePublished,
+        }),
+      });
+      if (res.ok) {
+        setEditingPage(null);
+        showSuccessMessage(`Page /${pageSlug} updated.`);
+        await loadCMS();
+      }
+    } catch (err) {
+      console.error(err);
+    }
   };
 
-  const handleDeletePage = () => {
+  const handleDeletePage = async () => {
     if (!deletingPage) return;
-    platformApi.deleteCMSPage(deletingPage.id);
-    setDeletingPage(null);
-    showSuccessMessage(`Page /${deletingPage.slug} deleted.`);
-    loadCMS();
+    try {
+      const res = await fetch(getApiUrl(`/api/cms/pages/${deletingPage.id}`), {
+        method: "DELETE",
+        headers: getAuthHeaders(),
+        credentials: "include",
+      });
+      if (res.ok) {
+        setDeletingPage(null);
+        showSuccessMessage(`Page /${deletingPage.slug} deleted.`);
+        await loadCMS();
+      }
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   // --- Blog Post CRUD ---
@@ -200,46 +297,78 @@ export default function AdminCMSPage() {
     setBlogFeatured(b.featured);
   };
 
-  const handleCreateBlog = (e: React.FormEvent) => {
+  const handleCreateBlog = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!blogTitle.trim() || !blogSlug.trim()) return;
 
-    platformApi.createBlogPost({
-      title: blogTitle.trim(),
-      slug: blogSlug.trim().toLowerCase().replace(/^\//, ""),
-      summary: blogSummary.trim(),
-      category: blogCategory.trim(),
-      author: blogAuthor.trim(),
-      featured: blogFeatured,
-    });
-    setShowBlogModal(false);
-    showSuccessMessage(`Article "${blogTitle}" published.`);
-    loadCMS();
+    try {
+      const res = await fetch(getApiUrl("/api/cms/posts"), {
+        method: "POST",
+        headers: { ...getAuthHeaders(), "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          title: blogTitle.trim(),
+          slug: blogSlug.trim().toLowerCase().replace(/^\//, ""),
+          summary: blogSummary.trim(),
+          category: blogCategory.trim(),
+          author: blogAuthor.trim(),
+          featured: blogFeatured,
+        }),
+      });
+      if (res.ok) {
+        setShowBlogModal(false);
+        showSuccessMessage(`Article "${blogTitle}" published.`);
+        await loadCMS();
+      }
+    } catch (err) {
+      console.error(err);
+    }
   };
 
-  const handleUpdateBlog = (e: React.FormEvent) => {
+  const handleUpdateBlog = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingBlog) return;
 
-    platformApi.updateBlogPost(editingBlog.id, {
-      title: blogTitle.trim(),
-      slug: blogSlug.trim().toLowerCase().replace(/^\//, ""),
-      summary: blogSummary.trim(),
-      category: blogCategory.trim(),
-      author: blogAuthor.trim(),
-      featured: blogFeatured,
-    });
-    setEditingBlog(null);
-    showSuccessMessage(`Article "${blogTitle}" updated.`);
-    loadCMS();
+    try {
+      const res = await fetch(getApiUrl(`/api/cms/posts/${editingBlog.id}`), {
+        method: "PATCH",
+        headers: { ...getAuthHeaders(), "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          title: blogTitle.trim(),
+          slug: blogSlug.trim().toLowerCase().replace(/^\//, ""),
+          summary: blogSummary.trim(),
+          category: blogCategory.trim(),
+          author: blogAuthor.trim(),
+          featured: blogFeatured,
+        }),
+      });
+      if (res.ok) {
+        setEditingBlog(null);
+        showSuccessMessage(`Article "${blogTitle}" updated.`);
+        await loadCMS();
+      }
+    } catch (err) {
+      console.error(err);
+    }
   };
 
-  const handleDeleteBlog = () => {
+  const handleDeleteBlog = async () => {
     if (!deletingBlog) return;
-    platformApi.deleteBlogPost(deletingBlog.id);
-    setDeletingBlog(null);
-    showSuccessMessage(`Article deleted.`);
-    loadCMS();
+    try {
+      const res = await fetch(getApiUrl(`/api/cms/posts/${deletingBlog.id}`), {
+        method: "DELETE",
+        headers: getAuthHeaders(),
+        credentials: "include",
+      });
+      if (res.ok) {
+        setDeletingBlog(null);
+        showSuccessMessage(`Article deleted.`);
+        await loadCMS();
+      }
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   // --- Announcements Columns ---

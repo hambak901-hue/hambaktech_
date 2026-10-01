@@ -29,8 +29,10 @@ import {
   RefreshCw,
   ShieldAlert,
 } from "lucide-react";
-import platformApi from "@/lib/api-client";
 import BrandLogo from "@/components/Common/BrandLogo";
+import AuthGuard, { useAuth } from "@/components/Common/AuthGuard";
+import { getApiUrl } from "@/lib/api-config";
+import { getAuthHeaders } from "@/lib/auth-token";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -38,7 +40,7 @@ interface DashboardLayoutProps {
   breadcrumbs?: Array<{ label: string; href?: string }>;
 }
 
-export default function DashboardLayout({
+function DashboardLayoutInner({
   children,
   pageTitle,
   breadcrumbs,
@@ -46,53 +48,48 @@ export default function DashboardLayout({
   const pathname = usePathname();
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [user, setUser] = useState(platformApi.getCurrentUser());
-  const [wallet, setWallet] = useState(platformApi.getWallet());
+  const { user: authUser, logout } = useAuth();
+
+  const user = {
+    id: authUser?.id || "",
+    fullName: authUser?.profile?.firstName
+      ? `${authUser.profile.firstName} ${authUser.profile.lastName || ""}`.trim()
+      : authUser?.email || "Customer",
+    email: authUser?.email || "",
+    phone: authUser?.phone || "",
+    role: authUser?.role || "customer",
+    status: authUser?.status || "active",
+  };
+
+  const [wallet, setWallet] = useState({
+    currentBalance: Number(authUser?.wallet?.balance ?? authUser?.wallet?.currentBalance ?? 0),
+    ledgerBalance: Number(authUser?.wallet?.ledgerBalance ?? authUser?.wallet?.balance ?? 0),
+    currency: authUser?.wallet?.currency || "NGN",
+    status: authUser?.wallet?.status || "ACTIVE",
+  });
 
   useEffect(() => {
-    // Refresh user and wallet state
-    const currentUser = platformApi.getCurrentUser();
-    setUser(currentUser);
-    setWallet(platformApi.getWallet());
-
-    // Fetch server session
-    fetch("/api/auth/me")
+    fetch(getApiUrl("/api/wallet"), {
+      headers: getAuthHeaders(),
+      credentials: "include",
+    })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (data?.success && data?.data?.user) {
-          const u = data.data.user;
-          const fullName = u.profile ? `${u.profile.firstName} ${u.profile.lastName}` : u.email;
-          setUser((prev) => ({
-            ...prev,
-            id: u.id,
-            fullName,
-            email: u.email,
-            phone: u.phone || prev.phone,
-            role: ((typeof u.role === "string" ? u.role : u.role?.slug) as any) || prev.role,
-            status: (u.status as any) || prev.status,
-          }));
-          if (u.wallet) {
-            setWallet((prev) => ({
-              ...prev,
-              currentBalance: parseFloat(u.wallet.currentBalance) || prev.currentBalance,
-              ledgerBalance: parseFloat(u.wallet.ledgerBalance) || prev.ledgerBalance,
-            }));
-          }
+        if (data?.success && data?.data) {
+          const w = data.data;
+          setWallet({
+            currentBalance: Number(w.balance ?? w.currentBalance ?? 0),
+            ledgerBalance: Number(w.ledger_balance ?? w.ledgerBalance ?? w.balance ?? 0),
+            currency: w.currency || "NGN",
+            status: w.status || "ACTIVE",
+          });
         }
       })
-      .catch(() => {
-        // graceful fallback to local state
-      });
-  }, [pathname]);
+      .catch(() => {});
+  }, [pathname, authUser]);
 
   const handleLogout = async () => {
-    try {
-      await fetch("/api/auth/logout", { method: "POST" });
-    } catch {
-      // safe fallback
-    } finally {
-      router.push("/signin");
-    }
+    await logout();
   };
 
   const navItems = [
@@ -159,16 +156,6 @@ export default function DashboardLayout({
       icon: Bell,
     },
   ];
-
-  const handleRoleToggle = (targetRole: "customer" | "admin") => {
-    const updated = platformApi.switchRole(targetRole);
-    setUser(updated);
-    if (targetRole === "admin") {
-      router.push("/admin");
-    } else {
-      router.push("/dashboard");
-    }
-  };
 
   return (
     <div className="min-h-screen bg-gray-50/60 dark:bg-black text-dark dark:text-white flex flex-col lg:flex-row">
@@ -269,39 +256,8 @@ export default function DashboardLayout({
           </nav>
         </div>
 
-        {/* Bottom Actions & Role Switcher */}
+        {/* Bottom Actions & Logout */}
         <div className="p-4 border-t border-stroke dark:border-strokedark space-y-2">
-          {/* Quick Demo Role Switcher */}
-          <div className="p-2.5 bg-gray-100 dark:bg-gray-dark rounded-xl">
-            <span className="text-[10px] uppercase font-bold text-body-color block mb-1.5">
-              Portal View Switcher
-            </span>
-            <div className="grid grid-cols-2 gap-1.5">
-              <button
-                type="button"
-                onClick={() => handleRoleToggle("customer")}
-                className={`py-1 text-xs font-semibold rounded-lg transition ${
-                  user.role === "customer"
-                    ? "bg-white dark:bg-dark text-primary shadow-sm"
-                    : "text-body-color hover:text-dark"
-                }`}
-              >
-                Customer
-              </button>
-              <button
-                type="button"
-                onClick={() => handleRoleToggle("admin")}
-                className={`py-1 text-xs font-semibold rounded-lg transition ${
-                  user.role === "admin"
-                    ? "bg-primary text-white shadow-sm"
-                    : "text-body-color hover:text-primary"
-                }`}
-              >
-                Admin Desk
-              </button>
-            </div>
-          </div>
-
           {/* Link back to public site & Logout */}
           <Link
             href="/"
@@ -415,5 +371,13 @@ export default function DashboardLayout({
         </main>
       </div>
     </div>
+  );
+}
+
+export default function DashboardLayout(props: DashboardLayoutProps) {
+  return (
+    <AuthGuard>
+      <DashboardLayoutInner {...props} />
+    </AuthGuard>
   );
 }

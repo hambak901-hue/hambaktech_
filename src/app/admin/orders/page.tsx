@@ -22,7 +22,8 @@ import {
 } from "lucide-react";
 import AdminLayout from "@/components/Admin/AdminLayout";
 import AdminDataTable, { Column, FilterOption } from "@/components/Admin/AdminDataTable";
-import platformApi from "@/lib/api-client";
+import { getApiUrl } from "@/lib/api-config";
+import { getAuthHeaders } from "@/lib/auth-token";
 import { Order, OrderStatus, PaymentStatus } from "@/types/platform";
 
 export default function AdminOrdersPage() {
@@ -55,12 +56,41 @@ export default function AdminOrdersPage() {
   const [formDeliveryType, setFormDeliveryType] = useState<Order["deliveryType"]>("PHYSICAL_PICKUP");
   const [formNotes, setFormNotes] = useState("");
 
-  const loadOrders = () => {
+  const loadOrders = async () => {
     try {
       setLoading(true);
-      const list = platformApi.getOrders();
-      setOrders([...list]);
-      setError(null);
+      const res = await fetch(getApiUrl("/api/admin/orders"), {
+        headers: getAuthHeaders(),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        const list = Array.isArray(json.data) ? json.data : [];
+        setOrders(
+          list.map((o: any) => ({
+            id: o.id,
+            orderNumber: o.reference || o.orderNumber || o.id,
+            userId: o.user_id || o.userId,
+            userName: `${o.first_name || ""} ${o.last_name || ""}`.trim() || o.userName || "Customer",
+            userEmail: o.user_email || o.userEmail || "",
+            userPhone: o.user_phone || o.userPhone || "",
+            serviceTitle: o.title || o.serviceTitle || "Digital Service Order",
+            serviceCategoryName: o.serviceCategoryName || "General Service",
+            totalAmount: Number(o.amount || o.totalAmount || 0),
+            status: (o.status || "PENDING") as OrderStatus,
+            paymentStatus: (o.payment_status || o.paymentStatus || "PAID") as PaymentStatus,
+            paymentMethod: o.payment_method || o.paymentMethod || "WALLET",
+            deliveryType: o.delivery_type || o.deliveryType || "PHYSICAL_PICKUP",
+            pickupCenter: o.pickup_center || o.pickupCenter || "HAMBakTECH Hub, Ibeju-Lekki",
+            createdAt: o.created_at || o.createdAt || new Date().toISOString(),
+            updatedAt: o.updated_at || o.updatedAt || new Date().toISOString(),
+            notes: o.notes,
+            items: Array.isArray(o.items) ? o.items : [],
+          }))
+        );
+        setError(null);
+      } else {
+        setError("Failed to load orders from backend");
+      }
     } catch (err: any) {
       setError(err.message || "Failed to load orders");
     } finally {
@@ -102,83 +132,125 @@ export default function AdminOrdersPage() {
     setFormNotes(o.notes || "");
   };
 
-  const handleCreateOrder = (e: React.FormEvent) => {
+  const handleCreateOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formUserName.trim() || !formServiceTitle.trim()) return;
 
     try {
-      platformApi.createManualOrder({
-        userName: formUserName.trim(),
-        userEmail: formUserEmail.trim() || "customer@hambaktech.com.ng",
-        userPhone: formUserPhone.trim(),
-        serviceTitle: formServiceTitle.trim(),
-        serviceCategoryName: formServiceCategory,
-        totalAmount: Number(formTotalAmount) || 0,
-        status: formStatus,
-        paymentStatus: formPaymentStatus,
-        paymentMethod: formPaymentMethod,
-        deliveryType: formDeliveryType,
-        notes: formNotes.trim(),
+      const res = await fetch(getApiUrl("/api/orders"), {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          serviceCode: "MANUAL_ORDER",
+          title: formServiceTitle.trim(),
+          amount: Number(formTotalAmount) || 0,
+          paymentMethod: formPaymentMethod,
+          metadata: {
+            userName: formUserName.trim(),
+            userEmail: formUserEmail.trim() || "customer@hambaktech.com.ng",
+            userPhone: formUserPhone.trim(),
+            serviceCategory: formServiceCategory,
+            deliveryType: formDeliveryType,
+            notes: formNotes.trim(),
+          },
+        }),
       });
-      setShowCreateModal(false);
-      setActionFeedback("Manual order successfully logged.");
-      setTimeout(() => setActionFeedback(null), 3500);
-      loadOrders();
+
+      if (res.ok) {
+        setShowCreateModal(false);
+        setActionFeedback("Manual order successfully logged.");
+        setTimeout(() => setActionFeedback(null), 3500);
+        loadOrders();
+      } else {
+        const json = await res.json().catch(() => ({}));
+        alert(json.message || "Failed to create order");
+      }
     } catch (err: any) {
       alert(err.message || "Failed to create order");
     }
   };
 
-  const handleUpdateOrder = (e: React.FormEvent) => {
+  const handleUpdateOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingOrder) return;
 
     try {
-      platformApi.updateOrder(editingOrder.id, {
-        userName: formUserName.trim(),
-        userEmail: formUserEmail.trim(),
-        userPhone: formUserPhone.trim(),
-        serviceTitle: formServiceTitle.trim(),
-        serviceCategoryName: formServiceCategory,
-        totalAmount: Number(formTotalAmount) || 0,
-        status: formStatus,
-        paymentStatus: formPaymentStatus,
-        paymentMethod: formPaymentMethod,
-        deliveryType: formDeliveryType,
-        notes: formNotes.trim(),
+      const res = await fetch(getApiUrl(`/api/admin/orders/${editingOrder.id}`), {
+        method: "PUT",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          status: formStatus,
+          notes: formNotes.trim(),
+        }),
       });
-      setEditingOrder(null);
-      setActionFeedback("Order details updated successfully.");
-      setTimeout(() => setActionFeedback(null), 3500);
-      loadOrders();
+
+      if (res.ok) {
+        setEditingOrder(null);
+        setActionFeedback("Order details updated successfully.");
+        setTimeout(() => setActionFeedback(null), 3500);
+        loadOrders();
+      } else {
+        const json = await res.json().catch(() => ({}));
+        alert(json.message || "Failed to update order");
+      }
     } catch (err: any) {
       alert(err.message || "Failed to update order");
     }
   };
 
-  const handleDeleteOrder = () => {
+  const handleDeleteOrder = async () => {
     if (!deletingOrder) return;
     try {
-      platformApi.deleteOrder(deletingOrder.id);
-      setDeletingOrder(null);
-      setActionFeedback(`Order ${deletingOrder.orderNumber} deleted.`);
-      setTimeout(() => setActionFeedback(null), 3500);
-      loadOrders();
+      const res = await fetch(getApiUrl(`/api/admin/orders/${deletingOrder.id}`), {
+        method: "PUT",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          status: "CANCELLED",
+          notes: "Order cancelled by administrator",
+        }),
+      });
+
+      if (res.ok) {
+        setDeletingOrder(null);
+        setActionFeedback(`Order ${deletingOrder.orderNumber} cancelled.`);
+        setTimeout(() => setActionFeedback(null), 3500);
+        loadOrders();
+      } else {
+        const json = await res.json().catch(() => ({}));
+        alert(json.message || "Failed to cancel order");
+      }
     } catch (err: any) {
       alert(err.message || "Failed to delete order");
     }
   };
 
-  const handleUpdateStatus = (e: React.FormEvent) => {
+  const handleUpdateStatus = async (e: React.FormEvent) => {
     e.preventDefault();
     if (selectedOrder) {
-      platformApi.updateOrderStatus(selectedOrder.id, newStatus, statusNote);
-      setShowStatusModal(false);
-      setStatusNote("");
-      setSelectedOrder(null);
-      setActionFeedback(`Status updated to ${newStatus}`);
-      setTimeout(() => setActionFeedback(null), 3500);
-      loadOrders();
+      try {
+        const res = await fetch(getApiUrl(`/api/admin/orders/${selectedOrder.id}`), {
+          method: "PUT",
+          headers: getAuthHeaders(),
+          body: JSON.stringify({
+            status: newStatus,
+            notes: statusNote,
+          }),
+        });
+
+        if (res.ok) {
+          setShowStatusModal(false);
+          setStatusNote("");
+          setSelectedOrder(null);
+          setActionFeedback(`Status updated to ${newStatus}`);
+          setTimeout(() => setActionFeedback(null), 3500);
+          loadOrders();
+        } else {
+          const json = await res.json().catch(() => ({}));
+          alert(json.message || "Failed to update order status");
+        }
+      } catch (err) {
+        alert("Network error updating status");
+      }
     }
   };
 

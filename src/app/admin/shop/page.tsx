@@ -25,7 +25,8 @@ import {
   Send,
 } from "lucide-react";
 import AdminLayout from "@/components/Admin/AdminLayout";
-import platformApi from "@/lib/api-client";
+import { getApiUrl } from "@/lib/api-config";
+import { getAuthHeaders } from "@/lib/auth-token";
 import {
   ProductRecord,
   ProductCategoryRecord,
@@ -70,15 +71,26 @@ export default function AdminShopPage() {
     note: "Batch replenishment from central warehouse",
   });
 
+  const fetchArray = async (endpoint: string) => {
+    try {
+      const res = await fetch(getApiUrl(endpoint), { headers: getAuthHeaders() });
+      if (!res.ok) return [];
+      const json = await res.json();
+      return Array.isArray(json.data) ? json.data : Array.isArray(json) ? json : [];
+    } catch {
+      return [];
+    }
+  };
+
   const loadData = async () => {
     try {
       setLoading(true);
       const [prods, cats, logs, ords, zones] = await Promise.all([
-        platformApi.fetchProducts(),
-        platformApi.fetchProductCategories(),
-        platformApi.fetchInventoryLogs(),
-        platformApi.fetchShopOrders(),
-        platformApi.fetchDeliveryZones(),
+        fetchArray("/api/shop/products"),
+        fetchArray("/api/shop/categories"),
+        fetchArray("/api/shop/inventory"),
+        fetchArray("/api/shop/orders"),
+        fetchArray("/api/shop/delivery-zones"),
       ]);
 
       setProducts(prods);
@@ -109,15 +121,19 @@ export default function AdminShopPage() {
   const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch("/api/shop/products", {
+      const res = await fetch(getApiUrl("/api/shop/products"), {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...getAuthHeaders(),
+        },
+        credentials: "include",
         body: JSON.stringify(productForm),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.message || "Failed to add product");
 
-      setFeedback({ type: "success", message: `Product ${json.data.name} added to inventory!` });
+      setFeedback({ type: "success", message: `Product ${json.data?.name || "Product"} added to inventory!` });
       setShowProductModal(false);
       setProductForm({
         name: "",
@@ -142,12 +158,21 @@ export default function AdminShopPage() {
   const handleSaveAdjustment = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await platformApi.adjustStockRemote({
-        productId: adjustForm.productId,
-        type: adjustForm.type,
-        quantity: Number(adjustForm.quantity),
-        note: adjustForm.note,
+      const res = await fetch(getApiUrl("/api/shop/inventory"), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...getAuthHeaders(),
+        },
+        body: JSON.stringify({
+          productId: adjustForm.productId,
+          changeType: adjustForm.type,
+          quantity: Number(adjustForm.quantity),
+          notes: adjustForm.note,
+        }),
       });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message || "Failed to adjust stock");
 
       setFeedback({ type: "success", message: "Stock adjustment committed to ledger!" });
       setShowAdjustModal(false);
@@ -161,9 +186,13 @@ export default function AdminShopPage() {
   // Update Order Status
   const handleUpdateOrderStatus = async (orderId: string, nextStatus: string) => {
     try {
-      const res = await fetch(`/api/admin/orders/${orderId}`, {
+      const res = await fetch(getApiUrl(`/api/admin/orders/${orderId}`), {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...getAuthHeaders(),
+        },
+        credentials: "include",
         body: JSON.stringify({ status: nextStatus }),
       });
       const json = await res.json();

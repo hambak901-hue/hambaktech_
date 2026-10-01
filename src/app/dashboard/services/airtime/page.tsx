@@ -12,7 +12,8 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import DashboardLayout from "@/components/Dashboard/DashboardLayout";
-import platformApi from "@/lib/api-client";
+import { getApiUrl } from "@/lib/api-config";
+import { getAuthHeaders } from "@/lib/auth-token";
 
 const NETWORKS = [
   { id: "MTN", name: "MTN Nigeria", color: "bg-yellow-400 text-yellow-950", discount: "2% Discount" },
@@ -29,7 +30,7 @@ export default function BuyAirtimePage() {
   const [amount, setAmount] = useState<number>(500);
   const [customAmount, setCustomAmount] = useState<string>("500");
   const [loading, setLoading] = useState(false);
-  const [wallet, setWallet] = useState(platformApi.getWallet());
+  const [walletBalance, setWalletBalance] = useState<number>(0);
   const [successReceipt, setSuccessReceipt] = useState<{
     reference: string;
     network: string;
@@ -38,12 +39,33 @@ export default function BuyAirtimePage() {
     newBalance: number;
   } | null>(null);
 
+  const loadWallet = async () => {
+    try {
+      const res = await fetch(getApiUrl("/api/wallet"), {
+        headers: getAuthHeaders(),
+        credentials: "include",
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && json.data?.wallet) {
+          setWalletBalance(Number(json.data.wallet.balance ?? json.data.wallet.currentBalance ?? 0));
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch wallet:", err);
+    }
+  };
+
+  React.useEffect(() => {
+    loadWallet();
+  }, []);
+
   const handlePreset = (val: number) => {
     setAmount(val);
     setCustomAmount(val.toString());
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!phone || phone.length < 11) {
       alert("Please enter a valid 11-digit phone number");
@@ -53,31 +75,66 @@ export default function BuyAirtimePage() {
       alert("Minimum airtime recharge is ₦50");
       return;
     }
-    if (wallet.currentBalance < amount) {
+    if (walletBalance < amount) {
       alert("Insufficient wallet balance. Please fund your wallet to proceed.");
       return;
     }
 
     setLoading(true);
 
-    setTimeout(() => {
-      try {
-        const order = platformApi.purchaseAirtime(network, phone, amount);
-        const updatedWallet = platformApi.getWallet();
-        setWallet(updatedWallet);
-        setLoading(false);
-        setSuccessReceipt({
-          reference: order.orderNumber,
-          network,
-          phone,
-          amount,
-          newBalance: updatedWallet.currentBalance,
-        });
-      } catch (err: any) {
-        setLoading(false);
-        alert(err.message || "Failed to process airtime recharge");
+    try {
+      const res = await fetch(getApiUrl("/api/orders"), {
+        method: "POST",
+        headers: {
+          ...getAuthHeaders(),
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          serviceCode: "VTU_AIRTIME",
+          title: `Airtime Recharge - ${network} (${phone})`,
+          amount: amount,
+          paymentMethod: "WALLET",
+          metadata: {
+            network,
+            phone,
+            service: "AIRTIME",
+          },
+        }),
+      });
+
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || "Failed to process airtime recharge");
       }
-    }, 1000);
+
+      const order = json.data;
+      // Authoritatively reload wallet
+      const walRes = await fetch(getApiUrl("/api/wallet"), {
+        headers: getAuthHeaders(),
+        credentials: "include",
+      });
+      let updatedBal = walletBalance - amount;
+      if (walRes.ok) {
+        const walJson = await walRes.json();
+        if (walJson.success && walJson.data?.wallet) {
+          updatedBal = Number(walJson.data.wallet.balance ?? walJson.data.wallet.currentBalance ?? updatedBal);
+          setWalletBalance(updatedBal);
+        }
+      }
+
+      setSuccessReceipt({
+        reference: order.orderNumber || order.id || "VTU-" + Date.now().toString(36).toUpperCase(),
+        network,
+        phone,
+        amount,
+        newBalance: updatedBal,
+      });
+    } catch (err: any) {
+      alert(err.message || "Failed to process airtime recharge");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -108,7 +165,7 @@ export default function BuyAirtimePage() {
               <div className="text-right">
                 <span className="text-[10px] text-body-color block">Wallet Balance</span>
                 <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
-                  ₦{wallet.currentBalance.toLocaleString()}
+                  ₦{walletBalance.toLocaleString()}
                 </span>
               </div>
             </div>

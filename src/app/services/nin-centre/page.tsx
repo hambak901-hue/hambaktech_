@@ -17,8 +17,8 @@ import {
   Users,
   Baby,
 } from "lucide-react";
-import platformApi from "@/lib/api-client";
 import companyConfig from "@/data/companyConfig";
+import { getApiUrl } from "@/lib/api-config";
 
 export default function NINCentrePublicPage() {
   const [trackRef, setTrackRef] = useState("");
@@ -29,25 +29,39 @@ export default function NINCentrePublicPage() {
     status?: string;
     notes?: string;
   } | null>(null);
+  const [tracking, setTracking] = useState(false);
 
-  const handleTrack = (e: React.FormEvent) => {
+  const handleTrack = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!trackRef.trim()) return;
+    const query = trackRef.trim();
+    if (!query) return;
 
-    const res = platformApi.trackNINRequest(trackRef.trim());
-    if (res) {
-      setTrackResult({
-        found: true,
-        reference: res.referenceNumber,
-        serviceType: res.serviceType.replace(/_/g, " "),
-        status: res.status,
-        notes: res.notes,
-      });
-    } else {
+    setTracking(true);
+    try {
+      const res = await fetch(getApiUrl(`/api/nin/track/${encodeURIComponent(query)}`));
+      const json = await res.json();
+      if (res.ok && json.success && json.data) {
+        const item = json.data;
+        setTrackResult({
+          found: true,
+          reference: item.referenceNumber || item.reference,
+          serviceType: (item.serviceType || "").replace(/_/g, " "),
+          status: item.status,
+          notes: item.notes,
+        });
+      } else {
+        setTrackResult({
+          found: false,
+          notes: json.message || `No active NIN application found for reference "${query}". Please check your receipt.`,
+        });
+      }
+    } catch {
       setTrackResult({
         found: false,
-        notes: `No active NIN application found for reference "${trackRef}". Please check your receipt.`,
+        notes: `Unable to connect to verification server. Please verify reference and try again.`,
       });
+    } finally {
+      setTracking(false);
     }
   };
 

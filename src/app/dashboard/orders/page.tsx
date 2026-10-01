@@ -14,67 +14,60 @@ import {
   FileCheck,
 } from "lucide-react";
 import DashboardLayout from "@/components/Dashboard/DashboardLayout";
-import platformApi from "@/lib/api-client";
 import { Order, OrderStatus } from "@/types/platform";
+import { getApiUrl } from "@/lib/api-config";
+import { getAuthHeaders } from "@/lib/auth-token";
 
 export default function CustomerOrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [search, setSearch] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("ALL");
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let isMounted = true;
-    async function fetchOrders() {
-      setLoading(true);
-      try {
-        const queryParams = new URLSearchParams();
-        if (selectedStatus !== "ALL") queryParams.append("status", selectedStatus);
-        queryParams.append("limit", "50");
+  const fetchOrders = React.useCallback(async () => {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const queryParams = new URLSearchParams();
+      if (selectedStatus !== "ALL") queryParams.append("status", selectedStatus);
+      queryParams.append("limit", "50");
 
-        const res = await fetch(`/api/v1/orders?${queryParams.toString()}`);
-        if (res.ok) {
-          const data = await res.json();
-          if (data.success && data.data?.orders && isMounted) {
-            let list = data.data.orders;
-            if (search.trim()) {
-              const q = search.toLowerCase();
-              list = list.filter((o: any) =>
-                o.orderNumber?.toLowerCase().includes(q) ||
-                o.serviceTitle?.toLowerCase().includes(q)
-              );
-            }
-            setOrders(list);
-            return;
+      const res = await fetch(getApiUrl(`/api/orders?${queryParams.toString()}`), {
+        headers: getAuthHeaders(),
+        credentials: "include",
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.data?.orders) {
+          let list = data.data.orders;
+          if (search.trim()) {
+            const q = search.toLowerCase();
+            list = list.filter((o: any) =>
+              o.orderNumber?.toLowerCase().includes(q) ||
+              o.serviceTitle?.toLowerCase().includes(q)
+            );
           }
+          setOrders(list);
+          return;
         }
-      } catch (err) {
-        console.warn("[OrdersPage] Falling back to client store cache:", err);
-      } finally {
-        if (isMounted) setLoading(false);
       }
-
-      if (isMounted) {
-        const list = platformApi.getOrders({
-          status: selectedStatus,
-          search,
-        });
-        setOrders(list);
-      }
+      setOrders([]);
+    } catch (err) {
+      console.warn("[OrdersPage] Error loading orders:", err);
+      setLoadError("Unable to retrieve order history from server. Please refresh.");
+      setOrders([]);
+    } finally {
+      setLoading(false);
     }
-
-    fetchOrders();
-    return () => {
-      isMounted = false;
-    };
   }, [search, selectedStatus]);
 
+  useEffect(() => {
+    fetchOrders();
+  }, [fetchOrders]);
+
   const loadOrders = () => {
-    const list = platformApi.getOrders({
-      status: selectedStatus,
-      search,
-    });
-    setOrders(list);
+    fetchOrders();
   };
 
   const getStatusBadge = (status: OrderStatus) => {

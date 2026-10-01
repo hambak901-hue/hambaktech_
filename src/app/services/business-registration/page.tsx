@@ -15,8 +15,8 @@ import {
   Briefcase,
   HelpCircle,
 } from "lucide-react";
-import platformApi from "@/lib/api-client";
 import companyConfig from "@/data/companyConfig";
+import { getApiUrl } from "@/lib/api-config";
 
 export default function BusinessRegistrationPublicPage() {
   const [trackRef, setTrackRef] = useState("");
@@ -27,25 +27,39 @@ export default function BusinessRegistrationPublicPage() {
     status?: string;
     notes?: string;
   } | null>(null);
+  const [tracking, setTracking] = useState(false);
 
-  const handleTrack = (e: React.FormEvent) => {
+  const handleTrack = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!trackRef.trim()) return;
+    const query = trackRef.trim();
+    if (!query) return;
 
-    const res = platformApi.trackCACRequest(trackRef.trim());
-    if (res) {
-      setTrackResult({
-        found: true,
-        reference: res.referenceNumber,
-        proposedName: res.proposedName1,
-        status: res.status,
-        notes: res.notes,
-      });
-    } else {
+    setTracking(true);
+    try {
+      const res = await fetch(getApiUrl(`/api/cac/track/${encodeURIComponent(query)}`));
+      const json = await res.json();
+      if (res.ok && json.success && json.data) {
+        const item = json.data;
+        setTrackResult({
+          found: true,
+          reference: item.referenceNumber || item.reference,
+          proposedName: item.proposedName1 || item.proposed_name1,
+          status: item.status,
+          notes: item.notes,
+        });
+      } else {
+        setTrackResult({
+          found: false,
+          notes: json.message || `No active CAC filing found for reference "${query}". Please check your order details.`,
+        });
+      }
+    } catch {
       setTrackResult({
         found: false,
-        notes: `No active CAC filing found for reference "${trackRef}". Please check your order details.`,
+        notes: `Unable to connect to registration verification server. Please verify reference and try again.`,
       });
+    } finally {
+      setTracking(false);
     }
   };
 

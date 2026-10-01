@@ -19,7 +19,8 @@ import {
 } from "lucide-react";
 import AdminLayout from "@/components/Admin/AdminLayout";
 import AdminDataTable, { Column, FilterOption } from "@/components/Admin/AdminDataTable";
-import platformApi from "@/lib/api-client";
+import { getApiUrl } from "@/lib/api-config";
+import { getAuthHeaders } from "@/lib/auth-token";
 import { User, Wallet as UserWallet } from "@/types/platform";
 
 interface WalletRow {
@@ -38,7 +39,8 @@ export default function AdminWalletsPage() {
   const [showAdjustModal, setShowAdjustModal] = useState(false);
   const [viewingWallet, setViewingWallet] = useState<WalletRow | null>(null);
   const [statusWallet, setStatusWallet] = useState<WalletRow | null>(null);
-  const [newStatus, setNewStatus] = useState<"ACTIVE" | "FROZEN" | "SUSPENDED">("ACTIVE");
+  const [newStatus, setNewStatus] = useState<"ACTIVE" | "FROZEN" | "RESTRICTED">("ACTIVE");
+  const [statusReason, setStatusReason] = useState("");
 
   const [selectedWallet, setSelectedWallet] = useState<WalletRow | null>(null);
   const [adjustType, setAdjustType] = useState<"CREDIT" | "DEBIT">("CREDIT");
@@ -46,17 +48,44 @@ export default function AdminWalletsPage() {
   const [adjustReason, setAdjustReason] = useState("");
   const [adjusting, setAdjusting] = useState(false);
 
-  const loadWallets = () => {
+  const loadWallets = async () => {
     try {
       setLoading(true);
-      const data = platformApi.getAllWallets();
-      const rows: WalletRow[] = data.map((d) => ({
-        id: d.wallet.id,
-        user: d.user,
-        wallet: d.wallet,
-      }));
-      setWallets(rows);
-      setError(null);
+      const res = await fetch(getApiUrl("/api/admin/wallets"), {
+        headers: getAuthHeaders(),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        const list = Array.isArray(json.data) ? json.data : [];
+        const rows: WalletRow[] = list.map((d: any) => ({
+          id: d.id,
+          user: {
+            id: d.user_id || d.id,
+            fullName: `${d.first_name || ""} ${d.last_name || ""}`.trim() || d.email || "Account Holder",
+            email: d.email || "",
+            phone: d.phone || "",
+            role: "customer",
+            status: "ACTIVE",
+            state: "Lagos State",
+            lga: "Ibeju-Lekki",
+            address: "",
+            createdAt: d.created_at || new Date().toISOString(),
+          },
+          wallet: {
+            id: d.id,
+            userId: d.user_id,
+            currentBalance: Number(d.balance ?? 0),
+            ledgerBalance: Number(d.ledger_balance ?? 0),
+            currency: d.currency || "NGN",
+            status: d.status || "ACTIVE",
+            lastUpdated: d.updated_at || new Date().toISOString(),
+          },
+        }));
+        setWallets(rows);
+        setError(null);
+      } else {
+        setError("Failed to load wallets from backend");
+      }
     } catch (err: any) {
       setError(err.message || "Failed to load wallets");
     } finally {
@@ -68,7 +97,7 @@ export default function AdminWalletsPage() {
     loadWallets();
   }, []);
 
-  const handleAdjustSubmit = (e: React.FormEvent) => {
+  const handleAdjustSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedWallet) return;
 
@@ -77,32 +106,64 @@ export default function AdminWalletsPage() {
     if (!adjustReason.trim()) return;
 
     setAdjusting(true);
-    setTimeout(() => {
-      platformApi.adjustWalletBalance(
-        selectedWallet.user.id,
-        amount,
-        adjustType,
-        adjustReason.trim()
-      );
+    try {
+      const res = await fetch(getApiUrl("/api/admin/wallets/adjust"), {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          userId: selectedWallet.user.id,
+          amount,
+          type: adjustType,
+          reason: adjustReason.trim(),
+        }),
+      });
+
+      if (res.ok) {
+        setShowAdjustModal(false);
+        setAdjustAmount("");
+        setAdjustReason("");
+        setFeedback(`Adjusted wallet for ${selectedWallet.user.fullName}: ${adjustType === "CREDIT" ? "+" : "-"}₦${amount.toLocaleString()}`);
+        loadWallets();
+        setTimeout(() => setFeedback(null), 3500);
+      } else {
+        const json = await res.json().catch(() => ({}));
+        setError(json.message || "Wallet adjustment failed");
+      }
+    } catch (err: any) {
+      setError(err.message || "Network error adjusting wallet");
+    } finally {
       setAdjusting(false);
-      setShowAdjustModal(false);
-      setAdjustAmount("");
-      setAdjustReason("");
-      setFeedback(`Adjusted wallet for ${selectedWallet.user.fullName}: ${adjustType === "CREDIT" ? "+" : "-"}₦${amount.toLocaleString()}`);
-      loadWallets();
-      setTimeout(() => setFeedback(null), 3500);
-    }, 500);
+    }
   };
 
-  const handleStatusSubmit = (e: React.FormEvent) => {
+  const handleStatusSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!statusWallet) return;
 
-    platformApi.updateWalletStatus(statusWallet.user.id, newStatus);
-    setStatusWallet(null);
-    setFeedback(`Wallet for ${statusWallet.user.fullName} status updated to ${newStatus}.`);
-    loadWallets();
-    setTimeout(() => setFeedback(null), 3500);
+    try {
+      const res = await fetch(getApiUrl("/api/admin/wallets/status"), {
+        method: "PATCH",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          userId: statusWallet.user.id,
+          status: newStatus,
+          reason: statusReason.trim() || `Administrative update to ${newStatus}`,
+        }),
+      });
+
+      if (res.ok) {
+        setStatusWallet(null);
+        setStatusReason("");
+        setFeedback(`Wallet for ${statusWallet.user.fullName} status updated to ${newStatus}.`);
+        loadWallets();
+        setTimeout(() => setFeedback(null), 3500);
+      } else {
+        const json = await res.json().catch(() => ({}));
+        setError(json.message || "Failed to update wallet status");
+      }
+    } catch (err: any) {
+      setError(err.message || "Network error updating wallet status");
+    }
   };
 
   const totalCurrent = wallets.reduce((sum, w) => sum + w.wallet.currentBalance, 0);
@@ -239,7 +300,7 @@ export default function AdminWalletsPage() {
       options: [
         { label: "Active", value: "ACTIVE" },
         { label: "Frozen", value: "FROZEN" },
-        { label: "Suspended", value: "SUSPENDED" },
+        { label: "Restricted", value: "RESTRICTED" },
       ],
     },
   ];
@@ -522,8 +583,21 @@ export default function AdminWalletsPage() {
                   >
                     <option value="ACTIVE">ACTIVE (Normal deposits & withdrawals)</option>
                     <option value="FROZEN">FROZEN (Prevent debits & service purchases)</option>
-                    <option value="SUSPENDED">SUSPENDED (Account locked pending review)</option>
+                    <option value="RESTRICTED">RESTRICTED (Administrative compliance restriction)</option>
                   </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-dark dark:text-white mb-1.5">
+                    Reason for Status Change (Audit Trail)
+                  </label>
+                  <input
+                    type="text"
+                    value={statusReason}
+                    onChange={(e) => setStatusReason(e.target.value)}
+                    placeholder="e.g. KYC verification pending or suspect activity"
+                    className="w-full px-4 py-2 text-xs sm:text-sm rounded-xl border border-stroke dark:border-strokedark bg-gray-50 dark:bg-gray-dark text-dark dark:text-white focus:border-primary focus:outline-none"
+                  />
                 </div>
 
                 <div className="flex items-center justify-end gap-2 pt-2">

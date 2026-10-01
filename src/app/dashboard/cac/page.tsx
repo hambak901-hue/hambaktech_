@@ -16,8 +16,9 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import DashboardLayout from "@/components/Dashboard/DashboardLayout";
-import platformApi from "@/lib/api-client";
 import { CACRequest } from "@/types/platform";
+import { getApiUrl } from "@/lib/api-config";
+import { getAuthHeaders } from "@/lib/auth-token";
 
 const CAC_SERVICES = [
   {
@@ -41,7 +42,7 @@ const CAC_SERVICES = [
 ];
 
 export default function DashboardCACPage() {
-  const [filings, setFilings] = useState<CACRequest[]>(platformApi.getCACRequests());
+  const [filings, setFilings] = useState<CACRequest[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [step, setStep] = useState(1);
   const [regType, setRegType] = useState<any>("BUSINESS_NAME");
@@ -53,26 +54,71 @@ export default function DashboardCACPage() {
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
   const [loading, setLoading] = useState(false);
-  const [wallet, setWallet] = useState(platformApi.getWallet());
+  const [isFetching, setIsFetching] = useState(true);
+  const [walletBalance, setWalletBalance] = useState<number>(0);
 
   const selectedService = CAC_SERVICES.find((s) => s.id === regType) || CAC_SERVICES[0];
 
-  const handleSubmitFiling = (e: React.FormEvent) => {
+  const loadData = async () => {
+    setIsFetching(true);
+    try {
+      const [cacRes, walRes] = await Promise.all([
+        fetch(getApiUrl("/api/cac/requests"), {
+          headers: getAuthHeaders(),
+          credentials: "include",
+        }),
+        fetch(getApiUrl("/api/wallet"), {
+          headers: getAuthHeaders(),
+          credentials: "include",
+        }),
+      ]);
+
+      if (cacRes.ok) {
+        const cJson = await cacRes.json();
+        if (cJson.success && Array.isArray(cJson.data)) {
+          setFilings(cJson.data);
+        }
+      }
+
+      if (walRes.ok) {
+        const wJson = await walRes.json();
+        if (wJson.success && wJson.data?.wallet) {
+          setWalletBalance(Number(wJson.data.wallet.balance ?? wJson.data.wallet.currentBalance ?? 0));
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load CAC filings:", err);
+    } finally {
+      setIsFetching(false);
+    }
+  };
+
+  React.useEffect(() => {
+    loadData();
+  }, []);
+
+  const handleSubmitFiling = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!proposedName1 || !businessNature || !proprietorName || !phone) {
       alert("Please complete all required fields");
       return;
     }
-    if (wallet.currentBalance < selectedService.price) {
+    if (walletBalance < selectedService.price) {
       alert("Insufficient wallet balance. Please fund your wallet to proceed.");
       return;
     }
 
     setLoading(true);
 
-    setTimeout(() => {
-      try {
-        const created = platformApi.createCACRequest({
+    try {
+      const res = await fetch(getApiUrl("/api/cac/requests"), {
+        method: "POST",
+        headers: {
+          ...getAuthHeaders(),
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
           registrationType: regType,
           proposedName1,
           proposedName2: proposedName2 || undefined,
@@ -82,22 +128,27 @@ export default function DashboardCACPage() {
           proprietorEmail: email,
           businessAddress: address,
           amount: selectedService.price,
-        });
+        }),
+      });
 
-        setFilings(platformApi.getCACRequests());
-        setWallet(platformApi.getWallet());
-        setLoading(false);
-        setShowModal(false);
-        setStep(1);
-        setProposedName1("");
-        setProposedName2("");
-        setBusinessNature("");
-        alert(`CAC Application Submitted! Your tracking reference is: ${created.referenceNumber}`);
-      } catch (err: any) {
-        setLoading(false);
-        alert(err.message || "Failed to submit CAC application");
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || "Failed to submit CAC application");
       }
-    }, 1200);
+
+      const created = json.data;
+      await loadData();
+      setShowModal(false);
+      setStep(1);
+      setProposedName1("");
+      setProposedName2("");
+      setBusinessNature("");
+      alert(`CAC Application Submitted! Your tracking reference is: ${created?.referenceNumber || "Saved"}`);
+    } catch (err: any) {
+      alert(err.message || "Failed to submit CAC application");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const getStatusBadge = (status: string) => {

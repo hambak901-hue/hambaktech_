@@ -4,6 +4,7 @@ import React, { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import BrandLogo from "@/components/Common/BrandLogo";
+import { getApiUrl } from "@/lib/api-config";
 import { ArrowRight, RefreshCw, AlertCircle, CheckCircle2, MailCheck, ArrowLeft } from "lucide-react";
 
 function VerifyEmailContent() {
@@ -27,7 +28,7 @@ function VerifyEmailContent() {
     setErrorMessage(null);
 
     try {
-      const res = await fetch("/api/auth/verify-email", {
+      const res = await fetch(getApiUrl("/api/auth/verify-email"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token: tokenToVerify.trim() }),
@@ -63,7 +64,7 @@ function VerifyEmailContent() {
     setErrorMessage(null);
 
     try {
-      const res = await fetch("/api/auth/resend-verification", {
+      const res = await fetch(getApiUrl("/api/auth/resend-verification"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: resendEmail.trim() }),

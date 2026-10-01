@@ -52,18 +52,17 @@ HambakTech operates 14 distinct business divisions designed to deliver comprehen
 
 ## 4. Multi-Phase Implementation Roadmap
 
-### Phase 1: Foundation & Brand Showcase (Milestones 0 – 2)
-- [x] Milestone 0: Business specifications and legal entity verification
-- [x] Milestone 1: Technical foundation audit, git baseline, documentation suite
-- [x] Milestone 2: Public website launch, brand visual identity overhaul, interactive 9-category service showcase, and final blocker resolution pass
+### Phase 1: Foundation & Brand Showcase (Milestones 1 – 2)
+- [x] Milestone 1: Project Foundation, brand showcase, technical foundation audit, git baseline, documentation suite
+- [x] Milestone 2: Real Database & Data Architecture (MySQL authoritative schema, 39 tables, reconciliation_and_compat.sql with 100% parity, double-entry financial ledger, safe decimal precision, deterministic seed)
 
-### Phase 2: Database Architecture & Commerce Core (Milestones 3 – 5)
-- [x] Milestone 3: Real Database & Data Architecture (MySQL schema, Prisma ORM, double-entry financial ledger, safe decimal precision, deterministic seed)
-- [ ] Milestone 4: Customer, Staff, and Admin authentication & session management (RBAC)
-- [ ] Milestone 5: Customer dashboard, profile, order tracking, and live payment gateways (Paystack, Flutterwave, Moniepoint)
+### Phase 2: Security & Customer Core (Milestones 3 – 5)
+- [x] Milestone 3: Authentication, Session Management & RBAC (Argon2id production crypto, PBKDF2/SHA-512 dev fallback, SHA-256 tokens, 77/77 M3 tests, 37/37 regression tests, zero token leaks)
+- [x] Milestone 4: User & Customer Management (Customer dashboard, profile settings, password change, email update, KYC document submission, admin customer 360 directory, search, filter, account status & suspension, audit logs, super-admin guardrails, 41/41 dedicated tests passing)
+- [ ] Milestone 5: Digital Wallet & Payment Gateway Engine (Double-entry ledger, wallet fund/debit, overdraft protection, HMAC webhook verification, Paystack, Flutterwave, Moniepoint)
 
 ### Phase 3: Service Engines (Milestones 6 – 8)
-- [ ] Milestone 6: Business service request workflows (NIN/BVN, CAC, VTU telecom, Printing)
+- [ ] Milestone 6: Telecom Services (VTU) & Identity Services (NIN/BVN, CAC, VTU telecom, Printing)
 - [ ] Milestone 7: HambakTech Computer Institute portal (curriculum, enrollments, certificates)
 - [ ] Milestone 8: Stationery & Bookshop e-commerce store with distance-based shipping
 

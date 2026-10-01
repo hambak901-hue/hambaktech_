@@ -22,57 +22,183 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import AdminLayout from "@/components/Admin/AdminLayout";
-import platformApi from "@/lib/api-client";
-import { Order, NINRequest, CACRequest, SupportTicket } from "@/types/platform";
+import { getApiUrl } from "@/lib/api-config";
+import { getAuthHeaders } from "@/lib/auth-token";
+import type { Order, NINRequest, CACRequest, SupportTicket, Wallet } from "@/types/platform";
 
 export default function AdminOverviewPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [ninRequests, setNinRequests] = useState<NINRequest[]>([]);
   const [cacRequests, setCacRequests] = useState<CACRequest[]>([]);
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
-  const [wallet, setWallet] = useState(platformApi.getWallet());
+  const [wallet, setWallet] = useState<Wallet>({
+    id: "wal-admin",
+    userId: "admin",
+    currentBalance: 0,
+    ledgerBalance: 0,
+    lockedBalance: 0,
+    currency: "NGN",
+    status: "ACTIVE",
+    updatedAt: new Date().toISOString(),
+  });
 
   // Manual Credit Modal
   const [showCreditModal, setShowCreditModal] = useState(false);
   const [creditAmount, setCreditAmount] = useState(5000);
   const [creditDesc, setCreditDesc] = useState("Manual Admin Adjustment");
 
+  const loadData = async () => {
+    try {
+      const headers = getAuthHeaders();
+      const [ordersRes, ninRes, cacRes, ticketsRes, walletRes] = await Promise.all([
+        fetch(getApiUrl("/api/admin/orders"), { headers }).catch(() => null),
+        fetch(getApiUrl("/api/admin/nin"), { headers }).catch(() => null),
+        fetch(getApiUrl("/api/admin/cac"), { headers }).catch(() => null),
+        fetch(getApiUrl("/api/support/tickets"), { headers }).catch(() => null),
+        fetch(getApiUrl("/api/wallet"), { headers }).catch(() => null),
+      ]);
+
+      if (ordersRes && ordersRes.ok) {
+        const json = await ordersRes.json();
+        const data = Array.isArray(json.data) ? json.data : [];
+        setOrders(data.map((o: any) => ({
+          ...o,
+          id: o.id || o.order_number,
+          orderNumber: o.order_number || o.orderNumber || o.id,
+          totalAmount: Number(o.total_amount ?? o.totalAmount ?? 0),
+          serviceCode: o.service_code || o.serviceCode || "GENERAL",
+          paymentStatus: o.payment_status || o.paymentStatus || "PAID",
+          status: o.status || "PENDING",
+          createdAt: o.created_at || o.createdAt || new Date().toISOString(),
+          customerName: o.user_name || o.customerName || "Customer",
+        })));
+      }
+
+      if (ninRes && ninRes.ok) {
+        const json = await ninRes.json();
+        const data = Array.isArray(json.data) ? json.data : [];
+        setNinRequests(data.map((n: any) => ({
+          ...n,
+          id: n.id,
+          trackingNumber: n.tracking_id || n.trackingNumber || n.reference,
+          serviceType: n.service_type || n.serviceType || "NIN_CARD",
+          status: n.status || "PENDING",
+          submittedAt: n.created_at || n.submittedAt || new Date().toISOString(),
+        })));
+      }
+
+      if (cacRes && cacRes.ok) {
+        const json = await cacRes.json();
+        const data = Array.isArray(json.data) ? json.data : [];
+        setCacRequests(data.map((c: any) => ({
+          ...c,
+          id: c.id,
+          trackingNumber: c.reference || c.trackingNumber || c.id,
+          businessName: c.proposed_name1 || c.businessName || "Business Entity",
+          type: c.business_type || c.type || "BUSINESS_NAME",
+          status: c.status || "SUBMITTED",
+          submittedAt: c.created_at || c.submittedAt || new Date().toISOString(),
+        })));
+      }
+
+      if (ticketsRes && ticketsRes.ok) {
+        const json = await ticketsRes.json();
+        const data = Array.isArray(json.data) ? json.data : [];
+        setTickets(data);
+      }
+
+      if (walletRes && walletRes.ok) {
+        const json = await walletRes.json();
+        if (json.data) {
+          const w = json.data;
+          setWallet({
+            id: w.id || "wal-admin",
+            userId: w.userId || w.user_id || "admin",
+            currentBalance: Number(w.balance ?? w.currentBalance ?? 0),
+            ledgerBalance: Number(w.ledger_balance ?? w.ledgerBalance ?? 0),
+            lockedBalance: Number(w.locked_balance ?? w.lockedBalance ?? 0),
+            currency: w.currency || "NGN",
+            status: w.status || "ACTIVE",
+            updatedAt: w.updated_at || w.updatedAt || new Date().toISOString(),
+          });
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load operations dashboard data", err);
+    }
+  };
+
   useEffect(() => {
-    // Ensure admin role for this view
-    platformApi.switchRole("ADMIN");
-    setOrders(platformApi.getOrders());
-    setNinRequests(platformApi.getNINRequests());
-    setCacRequests(platformApi.getCACRequests());
-    setTickets(platformApi.getTickets());
-    setWallet(platformApi.getWallet());
+    loadData();
   }, []);
 
-  const totalRevenue = orders.reduce((sum, o) => sum + o.totalAmount, 0);
-  const pendingNIN = ninRequests.filter((n) => n.status !== "COMPLETED" && n.status !== "READY_FOR_PICKUP").length;
-  const pendingCAC = cacRequests.filter((c) => c.status !== "APPROVED_CERTIFICATE_READY").length;
-  const openTickets = tickets.filter((t) => t.status !== "RESOLVED" && t.status !== "CLOSED").length;
+  const totalRevenue = orders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+  const pendingNIN = ninRequests.filter((n) => (n.status as string) !== "COMPLETED" && (n.status as string) !== "READY_FOR_PICKUP" && (n.status as string) !== "VERIFIED").length;
+  const pendingCAC = cacRequests.filter((c) => (c.status as string) !== "APPROVED_CERTIFICATE_READY" && (c.status as string) !== "INCORPORATED").length;
+  const openTickets = tickets.filter((t) => (t.status as string) !== "RESOLVED" && (t.status as string) !== "CLOSED").length;
 
-  const handleUpdateOrderStatus = (orderId: string, newStatus: any) => {
-    platformApi.updateOrderStatus(orderId, newStatus);
-    setOrders(platformApi.getOrders());
+  const handleUpdateOrderStatus = async (orderId: string, newStatus: any) => {
+    try {
+      await fetch(getApiUrl(`/api/admin/orders/${orderId}`), {
+        method: "PUT",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ status: newStatus }),
+      });
+      loadData();
+    } catch (err) {
+      console.error("Failed to update order status", err);
+    }
   };
 
-  const handleUpdateNINStatus = (id: string, newStatus: any) => {
-    platformApi.updateNINStatus(id, newStatus, "Status updated by Operations Admin");
-    setNinRequests(platformApi.getNINRequests());
+  const handleUpdateNINStatus = async (id: string, newStatus: any) => {
+    try {
+      await fetch(getApiUrl("/api/admin/nin"), {
+        method: "PUT",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ id, status: newStatus, notes: "Status updated by Operations Admin" }),
+      });
+      loadData();
+    } catch (err) {
+      console.error("Failed to update NIN status", err);
+    }
   };
 
-  const handleUpdateCACStatus = (id: string, newStatus: any) => {
-    platformApi.updateCACStatus(id, newStatus, "Status updated by CAC Liaison Desk");
-    setCacRequests(platformApi.getCACRequests());
+  const handleUpdateCACStatus = async (id: string, newStatus: any) => {
+    try {
+      await fetch(getApiUrl("/api/admin/cac"), {
+        method: "PUT",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ id, status: newStatus, notes: "Status updated by CAC Liaison Desk" }),
+      });
+      loadData();
+    } catch (err) {
+      console.error("Failed to update CAC status", err);
+    }
   };
 
-  const handleManualCredit = (e: React.FormEvent) => {
+  const handleManualCredit = async (e: React.FormEvent) => {
     e.preventDefault();
-    platformApi.fundWallet(creditAmount, "ADMIN_TRANSFER", creditDesc);
-    setWallet(platformApi.getWallet());
-    setShowCreditModal(false);
-    alert(`Successfully credited wallet with ₦${creditAmount.toLocaleString()}`);
+    try {
+      const res = await fetch(getApiUrl("/api/admin/wallets/adjust"), {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          amount: creditAmount,
+          type: "CREDIT",
+          reason: creditDesc,
+        }),
+      });
+      if (res.ok) {
+        setShowCreditModal(false);
+        loadData();
+        alert(`Successfully credited wallet with ₦${creditAmount.toLocaleString()}`);
+      } else {
+        const errJson = await res.json().catch(() => ({}));
+        alert(errJson.message || "Failed to adjust wallet");
+      }
+    } catch (err) {
+      alert("Network error adjusting wallet");
+    }
   };
 
   return (

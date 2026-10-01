@@ -18,7 +18,8 @@ import {
 } from "lucide-react";
 import AdminLayout from "@/components/Admin/AdminLayout";
 import AdminDataTable, { Column, FilterOption } from "@/components/Admin/AdminDataTable";
-import platformApi from "@/lib/api-client";
+import { getApiUrl } from "@/lib/api-config";
+import { getAuthHeaders } from "@/lib/auth-token";
 import { ServiceCategory, ServiceStatus, OnlineAvailability } from "@/types/service";
 
 export default function AdminServicesPage() {
@@ -47,12 +48,40 @@ export default function AdminServicesPage() {
   const [formFeaturesText, setFormFeaturesText] = useState("");
   const [formDeliverablesText, setFormDeliverablesText] = useState("");
 
-  const loadServices = () => {
+  const loadServices = async () => {
     try {
       setLoading(true);
-      const list = platformApi.getServices();
-      setServices([...list]);
-      setError(null);
+      const res = await fetch(getApiUrl("/api/admin/services"), {
+        headers: getAuthHeaders(),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        const list = Array.isArray(json.data) ? json.data : [];
+        setServices(
+          list.map((s: any) => ({
+            id: s.id,
+            title: s.title || s.name,
+            slug: s.code?.toLowerCase() || s.slug || s.title?.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+            shortDescription: s.description || s.shortDescription || s.title || s.name,
+            fullDescription: s.description || s.fullDescription || s.title || s.name,
+            status: s.is_active === 1 || s.is_active === "1" || s.status === "available" ? "available" : "request_only",
+            onlineAvailability: s.onlineAvailability || "Physical Walk-in & Online",
+            estimatedProcessingTime: s.estimatedProcessingTime || "10–30 Minutes",
+            targetAudience: s.targetAudience || "Public, Agents, Corporates",
+            startingPrice: s.base_price != null ? `₦${Number(s.base_price).toLocaleString()}` : (s.base_fee != null ? `₦${Number(s.base_fee).toLocaleString()}` : (s.startingPrice || "₦1,000")),
+            featured: !!s.featured,
+            iconName: s.iconName || "Shield",
+            features: Array.isArray(s.features) ? s.features : ["Official validation", "Real-time processing"],
+            deliverables: Array.isArray(s.deliverables) ? s.deliverables : ["Official acknowledgement certificate"],
+            requirements: ["Valid identification details"],
+            ctaText: "Request Service",
+            ctaLink: `/services/${s.code?.toLowerCase() || s.id}`,
+          }))
+        );
+        setError(null);
+      } else {
+        setError("Failed to load services from backend");
+      }
     } catch (err: any) {
       setError(err.message || "Failed to load services");
     } finally {
@@ -96,95 +125,122 @@ export default function AdminServicesPage() {
     setFormDeliverablesText((s.deliverables || []).join("\n"));
   };
 
-  const handleCreateService = (e: React.FormEvent) => {
+  const handleCreateService = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formTitle.trim()) return;
 
     const slug = formSlug.trim() || formTitle.toLowerCase().replace(/[^a-z0-9]+/g, "-");
-    const features = formFeaturesText.split("\n").map((f) => f.trim()).filter(Boolean);
-    const deliverables = formDeliverablesText.split("\n").map((d) => d.trim()).filter(Boolean);
+    const numericFee = parseFloat(formStartingPrice.replace(/[^0-9.]/g, "")) || 1000;
 
     try {
-      platformApi.createService({
-        title: formTitle.trim(),
-        slug,
-        shortDescription: formShortDesc.trim() || formTitle.trim(),
-        fullDescription: formFullDesc.trim() || formShortDesc.trim() || formTitle.trim(),
-        status: formStatus,
-        onlineAvailability: formChannel,
-        estimatedProcessingTime: formTurnaround,
-        targetAudience: formAudience,
-        startingPrice: formStartingPrice,
-        featured: formFeatured,
-        iconName: "Shield",
-        features: features.length > 0 ? features : ["Fast processing", "Full compliance"],
-        deliverables: deliverables.length > 0 ? deliverables : ["Official confirmation slip"],
-        requirements: ["Valid government ID", "Application details"],
-        ctaText: "Request Service",
-        ctaLink: `/services/${slug}`,
+      const res = await fetch(getApiUrl("/api/admin/services"), {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          title: formTitle.trim(),
+          name: formTitle.trim(),
+          code: slug.toUpperCase(),
+          description: formShortDesc.trim() || formTitle.trim(),
+          base_price: numericFee,
+          base_fee: numericFee,
+        }),
       });
-      setShowCreateModal(false);
-      setActionFeedback("Service created successfully");
-      setTimeout(() => setActionFeedback(null), 3500);
-      loadServices();
+
+      if (res.ok) {
+        setShowCreateModal(false);
+        setActionFeedback("Service created successfully");
+        setTimeout(() => setActionFeedback(null), 3500);
+        loadServices();
+      } else {
+        const json = await res.json().catch(() => ({}));
+        alert(json.message || "Failed to create service");
+      }
     } catch (err: any) {
       alert(err.message || "Failed to create service");
     }
   };
 
-  const handleUpdateService = (e: React.FormEvent) => {
+  const handleUpdateService = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingService) return;
 
-    const features = formFeaturesText.split("\n").map((f) => f.trim()).filter(Boolean);
-    const deliverables = formDeliverablesText.split("\n").map((d) => d.trim()).filter(Boolean);
+    const numericFee = parseFloat(formStartingPrice.replace(/[^0-9.]/g, "")) || 1000;
 
     try {
-      platformApi.updateService(editingService.id, {
-        title: formTitle.trim(),
-        slug: formSlug.trim(),
-        shortDescription: formShortDesc.trim(),
-        fullDescription: formFullDesc.trim(),
-        status: formStatus,
-        onlineAvailability: formChannel,
-        estimatedProcessingTime: formTurnaround,
-        targetAudience: formAudience,
-        startingPrice: formStartingPrice,
-        featured: formFeatured,
-        features,
-        deliverables,
+      const res = await fetch(getApiUrl(`/api/admin/services/${editingService.id}`), {
+        method: "PATCH",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          title: formTitle.trim(),
+          name: formTitle.trim(),
+          description: formShortDesc.trim() || formFullDesc.trim(),
+          base_price: numericFee,
+          base_fee: numericFee,
+          status: formStatus,
+        }),
       });
-      setEditingService(null);
-      setActionFeedback("Service details updated successfully");
-      setTimeout(() => setActionFeedback(null), 3500);
-      loadServices();
+
+      if (res.ok) {
+        setEditingService(null);
+        setActionFeedback("Service details updated successfully");
+        setTimeout(() => setActionFeedback(null), 3500);
+        loadServices();
+      } else {
+        const json = await res.json().catch(() => ({}));
+        alert(json.message || "Failed to update service");
+      }
     } catch (err: any) {
       alert(err.message || "Failed to update service");
     }
   };
 
-  const handleDeleteService = () => {
+  const handleDeleteService = async () => {
     if (!deletingService) return;
     try {
-      platformApi.deleteService(deletingService.id);
-      setDeletingService(null);
-      setActionFeedback(`Service ${deletingService.title} has been deleted`);
-      setTimeout(() => setActionFeedback(null), 3500);
-      loadServices();
+      const res = await fetch(getApiUrl(`/api/admin/services/${deletingService.id}`), {
+        method: "DELETE",
+        headers: getAuthHeaders(),
+      });
+
+      if (res.ok) {
+        setDeletingService(null);
+        setActionFeedback(`Service ${deletingService.title} has been deactivated`);
+        setTimeout(() => setActionFeedback(null), 3500);
+        loadServices();
+      } else {
+        const json = await res.json().catch(() => ({}));
+        alert(json.message || "Failed to delete service");
+      }
     } catch (err: any) {
       alert(err.message || "Failed to delete service");
     }
   };
 
-  const handleToggleStatus = (srv: ServiceCategory) => {
+  const handleToggleStatus = async (srv: ServiceCategory) => {
     const nextStatus: ServiceStatus = srv.status === "available" ? "request_only" : "available";
-    platformApi.updateService(srv.id, { status: nextStatus });
-    loadServices();
+    try {
+      await fetch(getApiUrl(`/api/admin/services/${srv.id}`), {
+        method: "PATCH",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ status: nextStatus }),
+      });
+      loadServices();
+    } catch (err) {
+      console.error("Failed to toggle service status", err);
+    }
   };
 
-  const handleToggleFeatured = (srv: ServiceCategory) => {
-    platformApi.updateService(srv.id, { featured: !srv.featured });
-    loadServices();
+  const handleToggleFeatured = async (srv: ServiceCategory) => {
+    try {
+      await fetch(getApiUrl(`/api/admin/services/${srv.id}`), {
+        method: "PATCH",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ featured: !srv.featured }),
+      });
+      loadServices();
+    } catch (err) {
+      console.error("Failed to toggle featured status", err);
+    }
   };
 
   const columns: Column<ServiceCategory>[] = [

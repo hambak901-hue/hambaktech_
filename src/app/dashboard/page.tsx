@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import {
-  Wallet,
+  Wallet as WalletIcon,
   ShoppingBag,
   Clock,
   CheckCircle2,
@@ -23,15 +23,39 @@ import {
   Compass,
 } from "lucide-react";
 import DashboardLayout from "@/components/Dashboard/DashboardLayout";
-import platformApi from "@/lib/api-client";
-import { Order, Transaction, NINRequest, CACRequest } from "@/types/platform";
+import type { Order, Transaction, Wallet } from "@/types/platform";
 import companyConfig from "@/data/companyConfig";
+import { getApiUrl } from "@/lib/api-config";
+import { getAuthHeaders } from "@/lib/auth-token";
 
 export default function DashboardOverviewPage() {
-  const [wallet, setWallet] = useState(platformApi.getWallet());
+  const [wallet, setWallet] = useState<Wallet>({
+    id: "",
+    userId: "",
+    currency: "NGN",
+    currentBalance: 0,
+    ledgerBalance: 0,
+    lockedBalance: 0,
+    status: "ACTIVE",
+    updatedAt: new Date().toISOString(),
+  });
   const [orders, setOrders] = useState<Order[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [profile, setProfile] = useState<{
+    fullName: string;
+    customerTier: string;
+    kycStatus: string;
+    kycTier: number;
+  }>({
+    fullName: "Valued Customer",
+    customerTier: "STANDARD",
+    kycStatus: "UNVERIFIED",
+    kycTier: 1,
+  });
+  const [loading, setLoading] = useState(true);
+  const [dashboardError, setDashboardError] = useState<string | null>(null);
   const [quickTrackQuery, setQuickTrackQuery] = useState("");
+  const [trackingLoading, setTrackingLoading] = useState(false);
   const [trackResult, setTrackResult] = useState<{
     found: boolean;
     type?: "NIN" | "CAC" | "ORDER";
@@ -45,10 +69,14 @@ export default function DashboardOverviewPage() {
 
     async function loadDashboardData() {
       try {
-        const [walletRes, ordersRes, txRes] = await Promise.all([
-          fetch("/api/v1/wallet"),
-          fetch("/api/v1/orders?limit=5"),
-          fetch("/api/v1/wallet/transactions?limit=5"),
+        setLoading(true);
+        setDashboardError(null);
+        const headers = getAuthHeaders();
+        const [walletRes, ordersRes, txRes, profileRes] = await Promise.all([
+          fetch(getApiUrl("/api/wallet"), { headers, credentials: "include" }),
+          fetch(getApiUrl("/api/orders?limit=5"), { headers, credentials: "include" }),
+          fetch(getApiUrl("/api/wallet/transactions?limit=5"), { headers, credentials: "include" }),
+          fetch(getApiUrl("/api/profile"), { headers, credentials: "include" }),
         ]);
 
         if (walletRes.ok) {
@@ -71,12 +99,28 @@ export default function DashboardOverviewPage() {
             setTransactions(tJson.data.transactions);
           }
         }
+
+        if (profileRes.ok) {
+          const pJson = await profileRes.json();
+          if (pJson.success && pJson.data && isMounted) {
+            const p = pJson.data;
+            const name = [p.first_name || p.firstName, p.last_name || p.lastName].filter(Boolean).join(" ");
+            setProfile({
+              fullName: name || "Valued Customer",
+              customerTier: p.customer_tier || p.customerTier || "STANDARD",
+              kycStatus: p.kyc_status || p.kycStatus || "UNVERIFIED",
+              kycTier: Number(p.kyc_tier || p.kycTier || 1),
+            });
+          }
+        }
       } catch (err) {
-        console.warn("[DashboardOverview] Falling back to client store cache:", err);
+        console.warn("[DashboardOverview] Failed to load authoritative data:", err);
         if (isMounted) {
-          setWallet(platformApi.getWallet());
-          setOrders(platformApi.getOrders().slice(0, 5));
-          setTransactions(platformApi.getTransactions().slice(0, 5));
+          setDashboardError("Unable to synchronize latest dashboard data. Please check your network connection.");
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
         }
       }
     }
@@ -87,53 +131,87 @@ export default function DashboardOverviewPage() {
     };
   }, []);
 
-  const handleQuickTrack = (e: React.FormEvent) => {
+  const handleQuickTrack = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!quickTrackQuery.trim()) return;
 
     const q = quickTrackQuery.trim().toUpperCase();
-    if (q.includes("NIN")) {
-      const nin = platformApi.trackNINRequest(q);
-      if (nin) {
-        setTrackResult({
-          found: true,
-          type: "NIN",
-          title: `NIN Service: ${nin.serviceType.replace(/_/g, " ")}`,
-          status: nin.status,
-          notes: nin.notes || "Document under review with verification channels.",
-        });
-        return;
-      }
-    } else if (q.includes("CAC")) {
-      const cac = platformApi.trackCACRequest(q);
-      if (cac) {
-        setTrackResult({
-          found: true,
-          type: "CAC",
-          title: `CAC Registration: ${cac.proposedName1}`,
-          status: cac.status,
-          notes: cac.notes || "Filing in progress with Corporate Affairs Commission portal.",
-        });
-        return;
-      }
-    } else if (q.includes("ORD")) {
-      const ord = platformApi.getOrderById(q);
-      if (ord) {
-        setTrackResult({
-          found: true,
-          type: "ORDER",
-          title: `Order: ${ord.serviceTitle}`,
-          status: ord.status,
-          notes: `Total Amount: ₦${ord.totalAmount.toLocaleString()} (${ord.deliveryType})`,
-        });
-        return;
-      }
-    }
+    setTrackingLoading(true);
+    setTrackResult(null);
 
-    setTrackResult({
-      found: false,
-      notes: `No active request found for reference "${quickTrackQuery}". Please verify and try again.`,
-    });
+    try {
+      const headers = getAuthHeaders();
+      if (q.includes("NIN") || q.startsWith("NIN-") || q.startsWith("V-NIN")) {
+        const res = await fetch(getApiUrl(`/api/nin/track/${encodeURIComponent(q)}`), {
+          headers,
+          credentials: "include",
+        });
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && json.data) {
+            const nin = json.data;
+            setTrackResult({
+              found: true,
+              type: "NIN",
+              title: `NIN Service: ${(nin.serviceType || nin.service_type || "VERIFICATION").replace(/_/g, " ")}`,
+              status: nin.status,
+              notes: nin.notes || "Document processed through NIMC verification channels.",
+            });
+            return;
+          }
+        }
+      } else if (q.includes("CAC") || q.startsWith("CAC-") || q.startsWith("RC-")) {
+        const res = await fetch(getApiUrl(`/api/cac/track/${encodeURIComponent(q)}`), {
+          headers,
+          credentials: "include",
+        });
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && json.data) {
+            const cac = json.data;
+            setTrackResult({
+              found: true,
+              type: "CAC",
+              title: `CAC Registration: ${cac.proposedName1 || cac.proposed_name1 || "Enterprise"}`,
+              status: cac.status,
+              notes: cac.notes || "Filing in progress with Corporate Affairs Commission portal.",
+            });
+            return;
+          }
+        }
+      } else {
+        const res = await fetch(getApiUrl(`/api/orders/${encodeURIComponent(q)}`), {
+          headers,
+          credentials: "include",
+        });
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && json.data?.order) {
+            const ord = json.data.order;
+            setTrackResult({
+              found: true,
+              type: "ORDER",
+              title: `Order: ${ord.serviceTitle || ord.title || ord.orderNumber}`,
+              status: ord.status,
+              notes: `Total Amount: ₦${Number(ord.totalAmount || ord.total_amount || 0).toLocaleString()} (${ord.deliveryType || "Digital"})`,
+            });
+            return;
+          }
+        }
+      }
+
+      setTrackResult({
+        found: false,
+        notes: `No active request found for reference "${quickTrackQuery}". Please verify and try again.`,
+      });
+    } catch {
+      setTrackResult({
+        found: false,
+        notes: `Unable to verify reference "${quickTrackQuery}" at this time. Please check your network.`,
+      });
+    } finally {
+      setTrackingLoading(false);
+    }
   };
 
   const getStatusBadge = (status: string) => {
@@ -159,6 +237,45 @@ export default function DashboardOverviewPage() {
   return (
     <DashboardLayout pageTitle="Welcome to Your Dashboard">
       <div className="space-y-8">
+        {/* Customer Status & KYC Banner */}
+        <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-primary/10 via-primary/5 to-transparent border border-primary/20 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-primary text-white font-bold text-base flex items-center justify-center shrink-0 shadow-sm">
+              {profile.fullName.charAt(0)}
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-base font-bold text-dark dark:text-white">
+                  Good day, {profile.fullName}
+                </h2>
+                <span className="px-2.5 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-extrabold uppercase tracking-wider border border-primary/20">
+                  {profile.customerTier} TIER
+                </span>
+              </div>
+              <p className="text-xs text-body-color mt-0.5">
+                Manage your digital orders, identity verification, wallet debits, and store purchases.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 shrink-0">
+            {profile.kycStatus === "VERIFIED" ? (
+              <span className="px-3 py-1.5 rounded-xl bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 text-xs font-bold flex items-center gap-1.5 border border-emerald-200 dark:border-emerald-800">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>KYC Tier {profile.kycTier} Verified</span>
+              </span>
+            ) : (
+              <Link
+                href="/dashboard/profile"
+                className="px-3 py-1.5 rounded-xl bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 text-xs font-bold hover:bg-amber-200 transition flex items-center gap-1.5 border border-amber-200 dark:border-amber-800"
+              >
+                <ShieldCheck className="w-3.5 h-3.5" />
+                <span>KYC: {profile.kycStatus} • Upgrade Tier</span>
+              </Link>
+            )}
+          </div>
+        </div>
+
         {/* Top Metric Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
           {/* Card 1: Wallet Balance */}
@@ -166,7 +283,7 @@ export default function DashboardOverviewPage() {
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-body-color">Available Balance</span>
               <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 flex items-center justify-center">
-                <Wallet className="w-4 h-4" />
+                <WalletIcon className="w-4 h-4" />
               </div>
             </div>
             <div className="mt-3">
@@ -269,7 +386,7 @@ export default function DashboardOverviewPage() {
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
             {/* Shortcut 1 */}
             <Link
-              href="/dashboard/services/airtime"
+              href="/dashboard/telecom"
               className="p-4 rounded-xl bg-white dark:bg-dark border border-stroke dark:border-strokedark hover:border-primary transition group text-center flex flex-col items-center justify-center"
             >
               <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 flex items-center justify-center mb-2 group-hover:scale-110 transition">
@@ -281,7 +398,7 @@ export default function DashboardOverviewPage() {
 
             {/* Shortcut 2 */}
             <Link
-              href="/dashboard/services/data"
+              href="/dashboard/telecom?service=data"
               className="p-4 rounded-xl bg-white dark:bg-dark border border-stroke dark:border-strokedark hover:border-primary transition group text-center flex flex-col items-center justify-center"
             >
               <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/50 text-blue-600 flex items-center justify-center mb-2 group-hover:scale-110 transition">
@@ -293,7 +410,7 @@ export default function DashboardOverviewPage() {
 
             {/* Shortcut 3 */}
             <Link
-              href="/dashboard/services/electricity"
+              href="/dashboard/telecom?service=electricity"
               className="p-4 rounded-xl bg-white dark:bg-dark border border-stroke dark:border-strokedark hover:border-primary transition group text-center flex flex-col items-center justify-center"
             >
               <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-950/50 text-amber-600 flex items-center justify-center mb-2 group-hover:scale-110 transition">

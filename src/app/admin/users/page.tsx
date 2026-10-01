@@ -21,7 +21,8 @@ import {
 } from "lucide-react";
 import AdminLayout from "@/components/Admin/AdminLayout";
 import AdminDataTable, { Column, FilterOption } from "@/components/Admin/AdminDataTable";
-import platformApi from "@/lib/api-client";
+import { getApiUrl } from "@/lib/api-config";
+import { getAuthHeaders } from "@/lib/auth-token";
 import { User, RoleSlug, UserStatus } from "@/types/platform";
 
 export default function AdminUsersPage() {
@@ -42,16 +43,43 @@ export default function AdminUsersPage() {
   const [formPhone, setFormPhone] = useState("");
   const [formRole, setFormRole] = useState<RoleSlug>("customer");
   const [formStatus, setFormStatus] = useState<UserStatus>("ACTIVE");
+  const [formCustomerTier, setFormCustomerTier] = useState("STANDARD");
   const [formState, setFormState] = useState("Lagos State");
   const [formLga, setFormLga] = useState("Ibeju-Lekki");
   const [formAddress, setFormAddress] = useState("");
 
-  const loadUsers = () => {
+  const loadUsers = async () => {
     try {
       setLoading(true);
-      const list = platformApi.getUsers();
-      setUsers([...list]);
-      setError(null);
+      const res = await fetch(getApiUrl("/api/admin/users"), {
+        headers: getAuthHeaders(),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        const list = Array.isArray(json.data) ? json.data : (json.data?.items || []);
+        setUsers(
+          list.map((u: any) => ({
+            id: u.id,
+            fullName: `${u.first_name || ""} ${u.last_name || ""}`.trim() || u.fullName || u.email.split("@")[0],
+            email: u.email,
+            phone: u.phone,
+            role: (u.role || "customer") as RoleSlug,
+            status: (u.status || "ACTIVE") as UserStatus,
+            customerTier: u.customer_tier || u.customerTier || "STANDARD",
+            walletBalance: Number(u.wallet_balance || u.walletBalance || 0),
+            createdAt: u.created_at || u.createdAt || new Date().toISOString(),
+            updatedAt: u.updated_at || u.updatedAt || new Date().toISOString(),
+            lastLoginAt: u.last_login_at || u.lastLoginAt,
+            kycLevel: Number(u.kyc_tier || u.kycLevel || 1),
+            state: u.state || "Lagos State",
+            lga: u.lga || "Ibeju-Lekki",
+            address: u.address,
+          }))
+        );
+        setError(null);
+      } else {
+        setError("Failed to load users from backend");
+      }
     } catch (err: any) {
       setError(err.message || "Failed to load users");
     } finally {
@@ -69,6 +97,7 @@ export default function AdminUsersPage() {
     setFormPhone("");
     setFormRole("customer");
     setFormStatus("ACTIVE");
+    setFormCustomerTier("STANDARD");
     setFormState("Lagos State");
     setFormLga("Ibeju-Lekki");
     setFormAddress("");
@@ -82,76 +111,159 @@ export default function AdminUsersPage() {
     setFormPhone(u.phone || "");
     setFormRole(u.role);
     setFormStatus(u.status);
+    setFormCustomerTier(u.customerTier || "STANDARD");
     setFormState(u.state || "Lagos State");
     setFormLga(u.lga || "Ibeju-Lekki");
     setFormAddress(u.address || "");
   };
 
-  const handleCreateUser = (e: React.FormEvent) => {
+  const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formFullName.trim() || !formEmail.trim()) return;
 
     try {
-      platformApi.createUser({
-        fullName: formFullName.trim(),
-        email: formEmail.trim(),
-        phone: formPhone.trim() || undefined,
-        role: formRole,
-        status: formStatus,
-        state: formState,
-        lga: formLga,
-        address: formAddress.trim() || undefined,
+      const res = await fetch(getApiUrl("/api/admin/users"), {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          fullName: formFullName.trim(),
+          email: formEmail.trim(),
+          phone: formPhone.trim() || undefined,
+          role: formRole,
+          status: formStatus,
+          customerTier: formCustomerTier,
+          state: formState,
+          lga: formLga,
+          address: formAddress.trim() || undefined,
+        }),
       });
-      setShowCreateModal(false);
-      setActionFeedback("User created successfully");
-      setTimeout(() => setActionFeedback(null), 3500);
-      loadUsers();
+
+      if (res.ok) {
+        setShowCreateModal(false);
+        setActionFeedback("User created successfully");
+        setTimeout(() => setActionFeedback(null), 3500);
+        loadUsers();
+      } else {
+        const json = await res.json().catch(() => ({}));
+        alert(json.message || "Failed to create user");
+      }
     } catch (err: any) {
       alert(err.message || "Failed to create user");
     }
   };
 
-  const handleUpdateUser = (e: React.FormEvent) => {
+  const handleUpdateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingUser) return;
 
     try {
-      platformApi.updateUser(editingUser.id, {
-        fullName: formFullName.trim(),
-        email: formEmail.trim(),
-        phone: formPhone.trim() || undefined,
-        role: formRole,
-        status: formStatus,
-        state: formState,
-        lga: formLga,
-        address: formAddress.trim() || undefined,
+      const res = await fetch(getApiUrl(`/api/admin/users/${editingUser.id}`), {
+        method: "PUT",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          id: editingUser.id,
+          fullName: formFullName.trim(),
+          email: formEmail.trim(),
+          phone: formPhone.trim() || undefined,
+          role: formRole,
+          status: formStatus,
+          customerTier: formCustomerTier,
+          state: formState,
+          lga: formLga,
+          address: formAddress.trim() || undefined,
+        }),
       });
-      setEditingUser(null);
-      setActionFeedback("User details updated successfully");
-      setTimeout(() => setActionFeedback(null), 3500);
-      loadUsers();
+
+      if (res.ok) {
+        setEditingUser(null);
+        setActionFeedback("User details updated successfully");
+        setTimeout(() => setActionFeedback(null), 3500);
+        loadUsers();
+      } else {
+        const json = await res.json().catch(() => ({}));
+        alert(json.message || "Failed to update user");
+      }
     } catch (err: any) {
       alert(err.message || "Failed to update user");
     }
   };
 
-  const handleDeleteUser = () => {
+  const handleDeleteUser = async () => {
     if (!deletingUser) return;
     try {
-      platformApi.deleteUser(deletingUser.id);
-      setDeletingUser(null);
-      setActionFeedback(`User ${deletingUser.fullName} has been removed`);
-      setTimeout(() => setActionFeedback(null), 3500);
-      loadUsers();
+      const res = await fetch(getApiUrl(`/api/admin/users/${deletingUser.id}`), {
+        method: "DELETE",
+        headers: getAuthHeaders(),
+      });
+
+      if (res.ok) {
+        setDeletingUser(null);
+        setActionFeedback(`User ${deletingUser.fullName} has been removed`);
+        setTimeout(() => setActionFeedback(null), 3500);
+        loadUsers();
+      } else {
+        const json = await res.json().catch(() => ({}));
+        alert(json.message || "Failed to delete user");
+      }
     } catch (err: any) {
       alert(err.message || "Failed to delete user");
     }
   };
 
-  const handleToggleStatus = (user: User) => {
+  const handleToggleStatus = async (user: User) => {
     const nextStatus: UserStatus = user.status === "ACTIVE" ? "SUSPENDED" : "ACTIVE";
-    platformApi.updateUserStatus(user.id, nextStatus);
-    loadUsers();
+    try {
+      const res = await fetch(getApiUrl(`/api/admin/users/${user.id}/status`), {
+        method: "PATCH",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          status: nextStatus,
+          reason: nextStatus === "SUSPENDED" ? "Administrative suspension" : "Administrative reactivation",
+        }),
+      });
+      if (res.ok) {
+        setActionFeedback(`User status changed to ${nextStatus}`);
+        setTimeout(() => setActionFeedback(null), 3000);
+        loadUsers();
+      } else {
+        const json = await res.json().catch(() => ({}));
+        alert(json.message || "Failed to update user status");
+      }
+    } catch (err: any) {
+      alert(err.message || "Failed to toggle status");
+    }
+  };
+
+  const handleAdminKYCChange = async (userId: string, kycStatus: "VERIFIED" | "REJECTED", kycTier: number = 2) => {
+    try {
+      const res = await fetch(getApiUrl(`/api/admin/users/${userId}/kyc`), {
+        method: "PATCH",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          kycStatus,
+          kycTier: kycStatus === "VERIFIED" ? kycTier : 1,
+          notes: `KYC ${kycStatus} by compliance officer`,
+        }),
+      });
+      if (res.ok) {
+        setActionFeedback(`KYC status updated to ${kycStatus}`);
+        setTimeout(() => setActionFeedback(null), 3000);
+        loadUsers();
+        if (viewingUser && viewingUser.id === userId) {
+          setViewingUser({
+            ...viewingUser,
+            kycLevel: kycStatus === "VERIFIED" ? kycTier : 1,
+            kycStatus: kycStatus as any,
+            kycTier: `TIER_${kycTier}`,
+          });
+        }
+      } else {
+        const json = await res.json().catch(() => ({}));
+        alert(json.message || "Failed to update KYC status");
+      }
+    } catch (err: any) {
+      alert(err.message || "Failed to update KYC status");
+    }
   };
 
   const columns: Column<User>[] = [
@@ -546,6 +658,18 @@ export default function AdminUsersPage() {
                   <span className="font-mono text-dark dark:text-white">{viewingUser.phone || "None registered"}</span>
                 </div>
                 <div className="flex items-center justify-between">
+                  <span className="text-body-color">Customer Tier:</span>
+                  <span className="font-bold text-dark dark:text-white px-2 py-0.5 rounded bg-primary/10 text-primary text-[11px]">{viewingUser.customerTier || "STANDARD"}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-body-color">Wallet Balance:</span>
+                  <span className="font-mono font-bold text-dark dark:text-white">₦{Number(viewingUser.walletBalance || 0).toLocaleString("en-NG", { minimumFractionDigits: 2 })}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-body-color">KYC Verification Tier:</span>
+                  <span className="font-semibold text-dark dark:text-white">Tier {viewingUser.kycLevel || 1}</span>
+                </div>
+                <div className="flex items-center justify-between">
                   <span className="text-body-color">State / LGA:</span>
                   <span className="text-dark dark:text-white">{viewingUser.lga || "Ibeju-Lekki"}, {viewingUser.state || "Lagos"}</span>
                 </div>
@@ -559,6 +683,38 @@ export default function AdminUsersPage() {
                     <span className="text-dark dark:text-white">{viewingUser.address}</span>
                   </div>
                 )}
+              </div>
+
+              {/* Quick Admin Actions */}
+              <div className="p-3 bg-gray-50/70 dark:bg-gray-dark/50 rounded-xl border border-stroke dark:border-strokedark space-y-2">
+                <span className="text-[11px] font-bold text-dark dark:text-white block uppercase tracking-wider">Quick Management Controls</span>
+                <div className="flex flex-wrap gap-2 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => handleToggleStatus(viewingUser)}
+                    className={`px-3 py-1.5 rounded-lg font-bold transition ${
+                      viewingUser.status === "ACTIVE"
+                        ? "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 hover:bg-rose-200"
+                        : "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 hover:bg-emerald-200"
+                    }`}
+                  >
+                    {viewingUser.status === "ACTIVE" ? "Suspend Account" : "Reactivate Account"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleAdminKYCChange(viewingUser.id, "VERIFIED", 2)}
+                    className="px-3 py-1.5 rounded-lg bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 font-bold hover:bg-blue-200 transition"
+                  >
+                    Approve KYC (Tier 2)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleAdminKYCChange(viewingUser.id, "REJECTED", 1)}
+                    className="px-3 py-1.5 rounded-lg bg-gray-200 text-gray-800 dark:bg-gray-800 dark:text-gray-300 font-medium hover:bg-gray-300 transition"
+                  >
+                    Reject KYC
+                  </button>
+                </div>
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-2">
@@ -669,6 +825,30 @@ export default function AdminUsersPage() {
                       <option value="PENDING_VERIFICATION">PENDING_VERIFICATION</option>
                       <option value="SUSPENDED">SUSPENDED</option>
                     </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-dark dark:text-white mb-1">Customer Tier</label>
+                    <select
+                      value={formCustomerTier}
+                      onChange={(e) => setFormCustomerTier(e.target.value)}
+                      className="w-full px-3 py-2 text-xs rounded-xl border border-stroke dark:border-strokedark bg-gray-50 dark:bg-gray-dark text-dark dark:text-white focus:border-primary focus:outline-none"
+                    >
+                      <option value="STANDARD">STANDARD (Retail Customer)</option>
+                      <option value="AGENT">AGENT (Reseller Discount Tier)</option>
+                      <option value="CORPORATE">CORPORATE (Enterprise Partner)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-dark dark:text-white mb-1">State</label>
+                    <input
+                      type="text"
+                      value={formState}
+                      onChange={(e) => setFormState(e.target.value)}
+                      className="w-full px-3 py-2 text-xs rounded-xl border border-stroke dark:border-strokedark bg-gray-50 dark:bg-gray-dark text-dark dark:text-white focus:border-primary focus:outline-none"
+                    />
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-dark dark:text-white mb-1">LGA</label>

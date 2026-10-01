@@ -14,8 +14,9 @@ import {
   RefreshCw,
 } from "lucide-react";
 import DashboardLayout from "@/components/Dashboard/DashboardLayout";
-import platformApi from "@/lib/api-client";
 import { Transaction } from "@/types/platform";
+import { getApiUrl } from "@/lib/api-config";
+import { getAuthHeaders } from "@/lib/auth-token";
 
 export default function WalletTransactionsHistoryPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -23,62 +24,52 @@ export default function WalletTransactionsHistoryPage() {
   const [selectedType, setSelectedType] = useState("ALL");
   const [selectedStatus, setSelectedStatus] = useState("ALL");
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  useEffect(() => {
-    let isMounted = true;
-    async function fetchTx() {
-      setLoading(true);
-      try {
-        const queryParams = new URLSearchParams();
-        if (selectedType !== "ALL") queryParams.append("type", selectedType);
-        if (selectedStatus !== "ALL") queryParams.append("status", selectedStatus);
-        queryParams.append("limit", "50");
+  const fetchTx = React.useCallback(async () => {
+    setLoading(true);
+    setErrorMessage(null);
+    try {
+      const queryParams = new URLSearchParams();
+      if (selectedType !== "ALL") queryParams.append("type", selectedType);
+      if (selectedStatus !== "ALL") queryParams.append("status", selectedStatus);
+      queryParams.append("limit", "50");
 
-        const res = await fetch(`/api/v1/wallet/transactions?${queryParams.toString()}`);
-        if (res.ok) {
-          const data = await res.json();
-          if (data.success && data.data?.transactions && isMounted) {
-            let list = data.data.transactions;
-            if (search.trim()) {
-              const q = search.toLowerCase();
-              list = list.filter((t: any) =>
-                t.reference?.toLowerCase().includes(q) ||
-                t.description?.toLowerCase().includes(q)
-              );
-            }
-            setTransactions(list);
-            return;
+      const res = await fetch(getApiUrl(`/api/wallet/transactions?${queryParams.toString()}`), {
+        headers: getAuthHeaders(),
+        credentials: "include",
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.data?.transactions) {
+          let list = data.data.transactions;
+          if (search.trim()) {
+            const q = search.toLowerCase();
+            list = list.filter((t: any) =>
+              t.reference?.toLowerCase().includes(q) ||
+              t.description?.toLowerCase().includes(q)
+            );
           }
+          setTransactions(list);
+          return;
         }
-      } catch (err) {
-        console.warn("[WalletTransactions] Falling back to client cache:", err);
-      } finally {
-        if (isMounted) setLoading(false);
       }
-
-      if (isMounted) {
-        const list = platformApi.getTransactions({
-          type: selectedType,
-          status: selectedStatus,
-          search,
-        });
-        setTransactions(list);
-      }
+      setTransactions([]);
+    } catch (err) {
+      console.warn("[WalletTransactions] Error fetching transactions:", err);
+      setErrorMessage("Unable to load transaction records from server. Please refresh.");
+      setTransactions([]);
+    } finally {
+      setLoading(false);
     }
-
-    fetchTx();
-    return () => {
-      isMounted = false;
-    };
   }, [search, selectedType, selectedStatus]);
 
+  useEffect(() => {
+    fetchTx();
+  }, [fetchTx]);
+
   const loadTransactions = () => {
-    const list = platformApi.getTransactions({
-      type: selectedType,
-      status: selectedStatus,
-      search,
-    });
-    setTransactions(list);
+    fetchTx();
   };
 
   const handleExportCSV = () => {

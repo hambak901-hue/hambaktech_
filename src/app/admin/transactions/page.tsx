@@ -19,7 +19,8 @@ import {
 } from "lucide-react";
 import AdminLayout from "@/components/Admin/AdminLayout";
 import AdminDataTable, { Column, FilterOption } from "@/components/Admin/AdminDataTable";
-import platformApi from "@/lib/api-client";
+import { getApiUrl } from "@/lib/api-config";
+import { getAuthHeaders } from "@/lib/auth-token";
 import { Transaction } from "@/types/platform";
 
 export default function AdminTransactionsPage() {
@@ -45,12 +46,34 @@ export default function AdminTransactionsPage() {
     description: "",
   });
 
-  const loadTx = () => {
+  const loadTx = async () => {
     try {
       setLoading(true);
-      const list = platformApi.getTransactions();
-      setTransactions(list);
-      setError(null);
+      const res = await fetch(getApiUrl("/api/admin/transactions"), {
+        headers: getAuthHeaders(),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        const list = Array.isArray(json.data) ? json.data : [];
+        const rows: Transaction[] = list.map((t: any) => ({
+          id: t.id,
+          reference: t.reference,
+          userId: t.user_id || t.userId || "",
+          userName: t.user_name?.trim() || t.user_email || t.userName || "Customer",
+          type: t.type || "WALLET_TOPUP",
+          amount: Number(t.amount ?? 0),
+          fee: Number(t.fee ?? 0),
+          currency: t.currency || "NGN",
+          status: t.status || "SUCCESSFUL",
+          paymentMethod: t.channel || t.paymentMethod || "WALLET",
+          description: t.description || (t.metadata ? (typeof t.metadata === "string" ? t.metadata : JSON.stringify(t.metadata)) : `Transaction ${t.reference}`),
+          createdAt: t.created_at || t.createdAt || new Date().toISOString(),
+        }));
+        setTransactions(rows);
+        setError(null);
+      } else {
+        setError("Failed to load transactions from backend");
+      }
     } catch (err: any) {
       setError(err.message || "Failed to load transactions");
     } finally {
@@ -67,69 +90,89 @@ export default function AdminTransactionsPage() {
     setTimeout(() => setFeedback(null), 3500);
   };
 
-  const handleCreateSubmit = (e: React.FormEvent) => {
+  const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       const ref = `HT-TX-${Date.now()}`;
-      platformApi.createTransaction({
-        reference: ref,
-        userId: "admin-created",
-        userName: formData.userName || "Customer",
-        type: formData.type,
-        amount: Number(formData.amount),
-        fee: Number(formData.fee),
-        currency: "NGN",
-        status: formData.status,
-        paymentMethod: formData.paymentMethod,
-        description: formData.description || `Manual Transaction ${ref}`,
+      const res = await fetch(getApiUrl("/api/admin/wallets/adjust"), {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          amount: Number(formData.amount),
+          type: "CREDIT",
+          reason: formData.description || `Manual Transaction ${ref}`,
+        }),
       });
-      loadTx();
-      setShowCreateModal(false);
-      setFormData({
-        userName: "",
-        type: "WALLET_TOPUP",
-        amount: 1000,
-        fee: 0,
-        status: "SUCCESSFUL",
-        paymentMethod: "WALLET",
-        description: "",
-      });
-      notify(`Transaction ${ref} recorded successfully.`);
+
+      if (res.ok) {
+        loadTx();
+        setShowCreateModal(false);
+        setFormData({
+          userName: "",
+          type: "WALLET_TOPUP",
+          amount: 1000,
+          fee: 0,
+          status: "SUCCESSFUL",
+          paymentMethod: "WALLET",
+          description: "",
+        });
+        notify(`Transaction recorded successfully via server.`);
+      } else {
+        const json = await res.json().catch(() => ({}));
+        setError(json.message || "Failed to record transaction");
+      }
     } catch (err: any) {
       setError(err.message || "Failed to record transaction");
     }
   };
 
-  const handleEditSubmit = (e: React.FormEvent) => {
+  const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingTx) return;
     try {
-      platformApi.updateTransaction(editingTx.id, {
-        userName: formData.userName,
-        type: formData.type,
-        amount: Number(formData.amount),
-        fee: Number(formData.fee),
-        status: formData.status,
-        paymentMethod: formData.paymentMethod,
-        description: formData.description,
+      const res = await fetch(getApiUrl(`/api/admin/transactions/${editingTx.id}`), {
+        method: "PATCH",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          status: formData.status,
+        }),
       });
-      loadTx();
-      setEditingTx(null);
-      notify(`Transaction ${editingTx.reference} updated successfully.`);
+
+      if (res.ok) {
+        loadTx();
+        setEditingTx(null);
+        notify(`Transaction ${editingTx.reference} status updated to ${formData.status}.`);
+      } else {
+        const json = await res.json().catch(() => ({}));
+        setError(json.message || "Failed to update transaction status");
+      }
     } catch (err: any) {
       setError(err.message || "Failed to update transaction");
     }
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!deletingTx) return;
     try {
-      platformApi.deleteTransaction(deletingTx.id);
-      loadTx();
-      notify(`Transaction ${deletingTx.reference} voided.`);
-      setDeletingTx(null);
+      // In compliance with immutable double-entry principles, mark transaction as REVERSED
+      const res = await fetch(getApiUrl(`/api/admin/transactions/${deletingTx.id}`), {
+        method: "PATCH",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          status: "REVERSED",
+        }),
+      });
+
+      if (res.ok) {
+        loadTx();
+        notify(`Transaction ${deletingTx.reference} marked as REVERSED.`);
+        setDeletingTx(null);
+      } else {
+        const json = await res.json().catch(() => ({}));
+        setError(json.message || "Failed to reverse transaction");
+      }
     } catch (err: any) {
-      setError(err.message || "Failed to delete transaction");
+      setError(err.message || "Failed to reverse transaction");
     }
   };
 

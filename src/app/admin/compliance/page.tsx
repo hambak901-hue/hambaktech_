@@ -20,6 +20,8 @@ import {
 } from "lucide-react";
 import AdminLayout from "@/components/Admin/AdminLayout";
 import { maskNIN, maskBVN, maskPhone, maskEmail, NDPR_COMPLIANCE_STATEMENT } from "@/lib/privacy";
+import { getApiUrl } from "@/lib/api-config";
+import { getAuthHeaders } from "@/lib/auth-token";
 
 interface ComplianceDomain {
   status: string;
@@ -54,7 +56,10 @@ export default function AdminCompliancePage() {
   const loadCompliance = async () => {
     try {
       setLoading(true);
-      const res = await fetch("/api/v1/system/compliance");
+      const res = await fetch(getApiUrl("/api/v1/system/compliance"), {
+        headers: getAuthHeaders(),
+        credentials: "include",
+      });
       const json = await res.json();
       if (json?.data) {
         setReport(json.data);

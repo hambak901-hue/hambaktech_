@@ -17,6 +17,8 @@ import {
   Zap,
 } from "lucide-react";
 import AdminLayout from "@/components/Admin/AdminLayout";
+import { getApiUrl } from "@/lib/api-config";
+import { getAuthHeaders } from "@/lib/auth-token";
 
 export default function AdminPricingPage() {
   const [saving, setSaving] = useState(false);
@@ -42,7 +44,10 @@ export default function AdminPricingPage() {
   });
 
   React.useEffect(() => {
-    fetch("/api/admin/pricing")
+    fetch(getApiUrl("/api/admin/pricing"), {
+      headers: getAuthHeaders(),
+      credentials: "include",
+    })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (data?.data) {
@@ -57,9 +62,13 @@ export default function AdminPricingPage() {
     setSaving(true);
     setError(null);
     try {
-      const res = await fetch("/api/admin/pricing", {
+      const res = await fetch(getApiUrl("/api/admin/pricing"), {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...getAuthHeaders(),
+        },
+        credentials: "include",
         body: JSON.stringify(pricing),
       });
       const json = await res.json();

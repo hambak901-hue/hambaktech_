@@ -19,7 +19,8 @@ import {
   RefreshCw,
 } from "lucide-react";
 import AdminLayout from "@/components/Admin/AdminLayout";
-import platformApi from "@/lib/api-client";
+import { getApiUrl } from "@/lib/api-config";
+import { getAuthHeaders } from "@/lib/auth-token";
 
 interface ServiceReportItem {
   id: string;
@@ -105,23 +106,21 @@ export default function AdminReportsPage() {
   });
 
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem("ht_report_items");
-      if (saved) {
-        setReportItems(JSON.parse(saved));
-      }
-    } catch {
-      // ignore
-    }
+    fetch(getApiUrl("/api/admin/reports"), {
+      headers: getAuthHeaders(),
+      credentials: "include",
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        if (json?.data?.services && Array.isArray(json.data.services) && json.data.services.length > 0) {
+          setReportItems(json.data.services);
+        }
+      })
+      .catch(() => {});
   }, []);
 
   const saveItems = (items: ServiceReportItem[]) => {
     setReportItems(items);
-    try {
-      localStorage.setItem("ht_report_items", JSON.stringify(items));
-    } catch {
-      // ignore
-    }
   };
 
   const notify = (msg: string) => {
@@ -144,8 +143,20 @@ export default function AdminReportsPage() {
       marginPct: pct,
     };
 
+    const logServerAudit = async (action: string, id: string, notes: string) => {
+      try {
+        await fetch(getApiUrl("/api/admin/audit-logs"), {
+          method: "POST",
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ action, entity: "FINANCIAL_REPORT", entity_id: id, status: "SUCCESS", details: notes }),
+        });
+      } catch (err) {
+        console.error("Audit log error", err);
+      }
+    };
+
     saveItems([...reportItems, newItem]);
-    platformApi.logAuditEvent("CREATE", "FINANCIAL_REPORT", newItem.id, "SUCCESS", `Added report item: ${newItem.name}`);
+    logServerAudit("CREATE", newItem.id, `Added report item: ${newItem.name}`);
     setShowCreateModal(false);
     setFormData({ name: "", category: "Telecom VTU", volume: 1, revenue: 1000, providerCost: 500 });
     notify(`Report entry "${newItem.name}" added successfully.`);
@@ -173,7 +184,11 @@ export default function AdminReportsPage() {
     );
 
     saveItems(updated);
-    platformApi.logAuditEvent("UPDATE", "FINANCIAL_REPORT", editingItem.id, "SUCCESS", `Updated report item: ${formData.name}`);
+    fetch(getApiUrl("/api/admin/audit-logs"), {
+      method: "POST",
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ action: "UPDATE", entity: "FINANCIAL_REPORT", entity_id: editingItem.id, status: "SUCCESS", details: `Updated report item: ${formData.name}` }),
+    }).catch(() => null);
     setEditingItem(null);
     notify(`Report entry updated successfully.`);
   };
@@ -182,14 +197,22 @@ export default function AdminReportsPage() {
     if (!deletingItem) return;
     const updated = reportItems.filter((i) => i.id !== deletingItem.id);
     saveItems(updated);
-    platformApi.logAuditEvent("DELETE", "FINANCIAL_REPORT", deletingItem.id, "SUCCESS", `Deleted report item: ${deletingItem.name}`);
+    fetch(getApiUrl("/api/admin/audit-logs"), {
+      method: "POST",
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ action: "DELETE", entity: "FINANCIAL_REPORT", entity_id: deletingItem.id, status: "SUCCESS", details: `Deleted report item: ${deletingItem.name}` }),
+    }).catch(() => null);
     setDeletingItem(null);
     notify(`Report entry deleted.`);
   };
 
   const handleResetDefaults = () => {
     saveItems(DEFAULT_REPORT_DATA);
-    platformApi.logAuditEvent("RESET", "FINANCIAL_REPORT", "all", "SUCCESS", "Reset financial reports to default baseline");
+    fetch(getApiUrl("/api/admin/audit-logs"), {
+      method: "POST",
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ action: "RESET", entity: "FINANCIAL_REPORT", entity_id: "all", status: "SUCCESS", details: "Reset financial reports to default baseline" }),
+    }).catch(() => null);
     notify("Reset reports to default system metrics.");
   };
 

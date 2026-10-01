@@ -17,20 +17,46 @@ import {
   ExternalLink,
 } from "lucide-react";
 import DashboardLayout from "@/components/Dashboard/DashboardLayout";
-import platformApi from "@/lib/api-client";
 import { SupportTicket, TicketCategory, TicketPriority } from "@/types/platform";
 import companyConfig from "@/data/companyConfig";
+import { getApiUrl } from "@/lib/api-config";
+import { getAuthHeaders } from "@/lib/auth-token";
 
 export default function DashboardSupportPage() {
-  const [tickets, setTickets] = useState<SupportTicket[]>(platformApi.getTickets());
+  const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [subject, setSubject] = useState("");
   const [category, setCategory] = useState<TicketCategory>("VTU_BILLS");
   const [priority, setPriority] = useState<TicketPriority>("MEDIUM");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  const [isFetching, setIsFetching] = useState(true);
 
-  const handleCreateTicket = (e: React.FormEvent) => {
+  const loadTickets = async () => {
+    setIsFetching(true);
+    try {
+      const res = await fetch(getApiUrl("/api/v1/support/tickets"), {
+        headers: getAuthHeaders(),
+        credentials: "include",
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data)) {
+          setTickets(json.data);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load tickets:", err);
+    } finally {
+      setIsFetching(false);
+    }
+  };
+
+  React.useEffect(() => {
+    loadTickets();
+  }, []);
+
+  const handleCreateTicket = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!subject || !message) {
       alert("Please provide a subject and message description");
@@ -39,26 +65,37 @@ export default function DashboardSupportPage() {
 
     setLoading(true);
 
-    setTimeout(() => {
-      try {
-        const t = platformApi.createTicket({
+    try {
+      const res = await fetch(getApiUrl("/api/v1/support/tickets"), {
+        method: "POST",
+        headers: {
+          ...getAuthHeaders(),
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
           subject,
           category,
           priority,
           message,
-        });
+        }),
+      });
 
-        setTickets(platformApi.getTickets());
-        setLoading(false);
-        setShowModal(false);
-        setSubject("");
-        setMessage("");
-        alert(`Support Ticket created successfully! Ticket No: ${t.ticketNumber}`);
-      } catch (err: any) {
-        setLoading(false);
-        alert(err.message || "Failed to create ticket");
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || "Failed to create ticket");
       }
-    }, 800);
+
+      await loadTickets();
+      setShowModal(false);
+      setSubject("");
+      setMessage("");
+      alert(`Support Ticket created successfully! Ticket No: ${json.data?.ticketNumber || "Logged"}`);
+    } catch (err: any) {
+      alert(err.message || "Failed to create ticket");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const getStatusBadge = (status: string) => {

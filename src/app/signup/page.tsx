@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import BrandLogo from "@/components/Common/BrandLogo";
-import platformApi from "@/lib/api-client";
+import { getApiUrl } from "@/lib/api-config";
 import { ArrowRight, RefreshCw, AlertCircle, CheckCircle2, ShieldCheck, MailCheck } from "lucide-react";
 
 export default function SignupPage() {
@@ -30,6 +30,26 @@ export default function SignupPage() {
     e.preventDefault();
     setErrorMessage(null);
 
+    const trimmedFirstName = firstName.trim();
+    const trimmedLastName = lastName.trim();
+    const trimmedEmail = email.trim();
+    const trimmedPhone = phone.trim();
+
+    if (!trimmedFirstName || !trimmedLastName) {
+      setErrorMessage("Please provide both your First Name and Last Name.");
+      return;
+    }
+
+    if (!trimmedEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+      setErrorMessage("Please enter a valid email address.");
+      return;
+    }
+
+    if (password.length < 8) {
+      setErrorMessage("Password must be at least 8 characters long.");
+      return;
+    }
+
     if (password !== confirmPassword) {
       setErrorMessage("Passwords do not match. Please re-enter.");
       return;
@@ -43,14 +63,14 @@ export default function SignupPage() {
     setLoading(true);
 
     try {
-      const res = await fetch("/api/auth/register", {
+      const res = await fetch(getApiUrl("/api/auth/register"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          firstName: firstName.trim(),
-          lastName: lastName.trim(),
-          email: email.trim(),
-          phone: phone.trim(),
+          firstName: trimmedFirstName,
+          lastName: trimmedLastName,
+          email: trimmedEmail,
+          phone: trimmedPhone,
           password,
           confirmPassword,
           customerTier,
@@ -59,30 +79,39 @@ export default function SignupPage() {
         }),
       });
 
-      const data = await res.json();
+      let data: any = null;
+      try {
+        data = await res.json();
+      } catch {
+        // Response was not JSON
+      }
 
-      if (!res.ok || !data.success) {
-        throw new Error(data.error?.message || data.message || "Registration failed. Please verify your details.");
+      if (!res.ok || !data?.success) {
+        if (res.status === 409) {
+          throw new Error("An account with this email address or phone number already exists. Please sign in.");
+        }
+        const serverMsg = data?.error?.message || data?.message;
+        if (serverMsg) {
+          throw new Error(serverMsg);
+        }
+        throw new Error(`Registration request returned status ${res.status}. Please check your details and try again.`);
       }
 
       const { user, verificationToken } = data.data;
 
-      // Update transitional client store
-      if (user) {
-        platformApi.updateUserProfile({
-          name: `${firstName} ${lastName}`.trim(),
-          email: user.email,
-          phone: user.phone || phone,
-        });
-        platformApi.switchRole("CUSTOMER");
-      }
-
       setRegistrationSuccess({
-        email: user.email,
+        email: user?.email || trimmedEmail,
         token: verificationToken,
       });
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "An unexpected error occurred during registration.";
+      let msg = "An unexpected error occurred during registration. Please try again.";
+      if (err instanceof Error) {
+        if (err.message === "Load failed" || err.message === "Failed to fetch" || err.name === "TypeError") {
+          msg = "Network connection failed or server did not respond. Please ensure you are connected to the internet and try again.";
+        } else {
+          msg = err.message;
+        }
+      }
       setErrorMessage(msg);
     } finally {
       setLoading(false);

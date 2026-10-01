@@ -17,42 +17,66 @@ import {
   Shield,
 } from "lucide-react";
 import DashboardLayout from "@/components/Dashboard/DashboardLayout";
-import platformApi from "@/lib/api-client";
-import { Wallet, Transaction } from "@/types/platform";
+import type { Wallet, Transaction } from "@/types/platform";
+import { getApiUrl } from "@/lib/api-config";
+import { getAuthHeaders } from "@/lib/auth-token";
 
 export default function CustomerWalletPage() {
-  const [wallet, setWallet] = useState<Wallet>(platformApi.getWallet());
+  const [wallet, setWallet] = useState<Wallet>({
+    id: "",
+    userId: "",
+    currency: "NGN",
+    currentBalance: 0,
+    ledgerBalance: 0,
+    lockedBalance: 0,
+    status: "ACTIVE",
+    updatedAt: new Date().toISOString(),
+  });
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
 
     async function loadAuthoritativeWallet() {
       try {
+        setLoading(true);
+        setLoadError(null);
+        const headers = getAuthHeaders();
         const [walletRes, txRes] = await Promise.all([
-          fetch("/api/v1/wallet"),
-          fetch("/api/v1/wallet/transactions?limit=10"),
+          fetch(getApiUrl("/api/wallet"), { headers, credentials: "include" }),
+          fetch(getApiUrl("/api/wallet/transactions?limit=10"), { headers, credentials: "include" }),
         ]);
 
         if (walletRes.ok) {
           const wJson = await walletRes.json();
-          if (wJson.success && wJson.data?.wallet && isMounted) {
-            setWallet(wJson.data.wallet);
+          const walletData = wJson.data?.wallet ?? wJson.data;
+          if (wJson.success && walletData && isMounted) {
+            setWallet({
+              id: walletData.id || "",
+              userId: walletData.userId || walletData.user_id || "",
+              currency: walletData.currency || "NGN",
+              currentBalance: Number(walletData.currentBalance ?? walletData.balance ?? 0),
+              ledgerBalance: Number(walletData.ledgerBalance ?? walletData.ledger_balance ?? walletData.balance ?? 0),
+              lockedBalance: Number(walletData.lockedBalance ?? 0),
+              status: walletData.status || "ACTIVE",
+              updatedAt: walletData.updatedAt || walletData.updated_at || new Date().toISOString(),
+            });
           }
         }
 
         if (txRes.ok) {
           const tJson = await txRes.json();
-          if (tJson.success && tJson.data?.transactions && isMounted) {
-            setTransactions(tJson.data.transactions);
+          const txList = tJson.data?.transactions ?? (Array.isArray(tJson.data) ? tJson.data : []);
+          if (tJson.success && Array.isArray(txList) && isMounted) {
+            setTransactions(txList);
           }
         }
       } catch (err) {
-        console.warn("[WalletPage] Falling back to client store cache:", err);
+        console.warn("[WalletPage] Error loading wallet details:", err);
         if (isMounted) {
-          setWallet(platformApi.getWallet());
-          setTransactions(platformApi.getTransactions().slice(0, 10));
+          setLoadError("Unable to load live wallet balance and transactions. Please refresh.");
         }
       } finally {
         if (isMounted) setLoading(false);

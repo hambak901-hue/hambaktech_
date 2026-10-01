@@ -33,7 +33,7 @@ import {
   UserCheck,
 } from "lucide-react";
 import BrandLogo from "@/components/Common/BrandLogo";
-import platformApi from "@/lib/api-client";
+import AuthGuard, { useAuth } from "@/components/Common/AuthGuard";
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -42,7 +42,7 @@ interface AdminLayoutProps {
   actionButton?: React.ReactNode;
 }
 
-export default function AdminLayout({
+function AdminLayoutInner({
   children,
   pageTitle,
   breadcrumbs,
@@ -51,44 +51,21 @@ export default function AdminLayout({
   const pathname = usePathname();
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [user, setUser] = useState(platformApi.getCurrentUser());
+  const { user: authUser, logout } = useAuth();
 
-  useEffect(() => {
-    // Ensure admin user representation
-    const cur = platformApi.getCurrentUser();
-    setUser(cur);
-
-    // Fetch server session
-    fetch("/api/auth/me")
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (data?.success && data?.data?.user) {
-          const u = data.data.user;
-          const fullName = u.profile ? `${u.profile.firstName} ${u.profile.lastName}` : u.email;
-          setUser((prev) => ({
-            ...prev,
-            id: u.id,
-            fullName,
-            email: u.email,
-            phone: u.phone || prev.phone,
-            role: ((typeof u.role === "string" ? u.role : u.role?.slug) as any) || prev.role,
-            status: (u.status as any) || prev.status,
-          }));
-        }
-      })
-      .catch(() => {
-        // graceful fallback to local state
-      });
-  }, [pathname]);
+  const user = {
+    id: authUser?.id || "",
+    fullName: authUser?.profile?.firstName
+      ? `${authUser.profile.firstName} ${authUser.profile.lastName || ""}`.trim()
+      : authUser?.email || "Admin User",
+    email: authUser?.email || "",
+    phone: authUser?.phone || "",
+    role: authUser?.role || "admin",
+    status: authUser?.status || "active",
+  };
 
   const handleLogout = async () => {
-    try {
-      await fetch("/api/auth/logout", { method: "POST" });
-    } catch {
-      // safe fallback
-    } finally {
-      router.push("/signin");
-    }
+    await logout();
   };
 
   const navSections = [
@@ -139,16 +116,6 @@ export default function AdminLayout({
       ],
     },
   ];
-
-  const handleRoleToggle = (targetRole: "customer" | "admin") => {
-    const updated = platformApi.switchRole(targetRole);
-    setUser(updated);
-    if (targetRole === "customer") {
-      router.push("/dashboard");
-    } else {
-      router.push("/admin");
-    }
-  };
 
   return (
     <div className="min-h-screen bg-gray-50/70 dark:bg-black text-dark dark:text-white flex flex-col lg:flex-row">
@@ -201,7 +168,7 @@ export default function AdminLayout({
               </span>
               <button
                 type="button"
-                onClick={() => handleRoleToggle("customer")}
+                onClick={() => router.push("/dashboard")}
                 className="text-[11px] font-semibold text-body-color hover:text-dark dark:hover:text-white transition"
               >
                 Go to Customer →
@@ -357,5 +324,13 @@ export default function AdminLayout({
         </main>
       </div>
     </div>
+  );
+}
+
+export default function AdminLayout(props: AdminLayoutProps) {
+  return (
+    <AuthGuard allowedRoles={["super_admin", "admin", "staff", "customer_service"]}>
+      <AdminLayoutInner {...props} />
+    </AuthGuard>
   );
 }

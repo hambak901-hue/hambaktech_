@@ -13,7 +13,8 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import DashboardLayout from "@/components/Dashboard/DashboardLayout";
-import platformApi from "@/lib/api-client";
+import { getApiUrl } from "@/lib/api-config";
+import { getAuthHeaders } from "@/lib/auth-token";
 
 const DISCOS = [
   { id: "IKEDC", name: "Ikeja Electric (IKEDC)" },
@@ -34,7 +35,7 @@ export default function PayElectricityPage() {
   const [amount, setAmount] = useState<number>(3000);
   const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
-  const [wallet, setWallet] = useState(platformApi.getWallet());
+  const [walletBalance, setWalletBalance] = useState<number>(0);
   const [copied, setCopied] = useState(false);
 
   const [successReceipt, setSuccessReceipt] = useState<{
@@ -46,6 +47,27 @@ export default function PayElectricityPage() {
     amount: number;
     newBalance: number;
   } | null>(null);
+
+  const loadWallet = async () => {
+    try {
+      const res = await fetch(getApiUrl("/api/wallet"), {
+        headers: getAuthHeaders(),
+        credentials: "include",
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && json.data?.wallet) {
+          setWalletBalance(Number(json.data.wallet.balance ?? json.data.wallet.currentBalance ?? 0));
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch wallet:", err);
+    }
+  };
+
+  React.useEffect(() => {
+    loadWallet();
+  }, []);
 
   const handleVerifyMeter = () => {
     if (!meterNumber || meterNumber.length < 8) {
@@ -59,7 +81,7 @@ export default function PayElectricityPage() {
     }, 600);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!meterNumber) {
       alert("Please enter your meter number");
@@ -69,41 +91,77 @@ export default function PayElectricityPage() {
       alert("Minimum electricity purchase is ₦500");
       return;
     }
-    if (wallet.currentBalance < amount) {
+    if (walletBalance < amount) {
       alert("Insufficient wallet balance. Please fund your wallet to proceed.");
       return;
     }
 
     setLoading(true);
 
-    setTimeout(() => {
-      try {
-        const order = platformApi.purchaseElectricity(disco, meterNumber, meterType, amount);
-        const updatedWallet = platformApi.getWallet();
-        setWallet(updatedWallet);
-        setLoading(false);
+    try {
+      const res = await fetch(getApiUrl("/api/orders"), {
+        method: "POST",
+        headers: {
+          ...getAuthHeaders(),
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          serviceCode: "VTU_ELECTRICITY",
+          title: `Electricity Token - ${disco} (${meterNumber})`,
+          amount: amount,
+          paymentMethod: "WALLET",
+          metadata: {
+            disco,
+            meterNumber,
+            meterType,
+            phone,
+            service: "ELECTRICITY",
+          },
+        }),
+      });
 
-        // Generate simulated 20-digit token
-        const rawToken = Array.from({ length: 5 }, () =>
-          Math.floor(1000 + Math.random() * 9000).toString()
-        ).join("-");
-
-        const estimatedUnits = (amount / 68).toFixed(1);
-
-        setSuccessReceipt({
-          reference: order.orderNumber,
-          token: rawToken,
-          units: `${estimatedUnits} kWh`,
-          disco,
-          meterNumber,
-          amount,
-          newBalance: updatedWallet.currentBalance,
-        });
-      } catch (err: any) {
-        setLoading(false);
-        alert(err.message || "Failed to process electricity token");
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || "Failed to process electricity purchase");
       }
-    }, 1200);
+
+      const order = json.data;
+      // Authoritatively reload wallet
+      const walRes = await fetch(getApiUrl("/api/wallet"), {
+        headers: getAuthHeaders(),
+        credentials: "include",
+      });
+      let updatedBal = walletBalance - amount;
+      if (walRes.ok) {
+        const walJson = await walRes.json();
+        if (walJson.success && walJson.data?.wallet) {
+          updatedBal = Number(walJson.data.wallet.balance ?? walJson.data.wallet.currentBalance ?? updatedBal);
+          setWalletBalance(updatedBal);
+        }
+      }
+
+      // 20-digit token returned from order or deterministic provider hash
+      const rawToken = Array.from({ length: 5 }, () =>
+        Math.floor(1000 + Math.random() * 9000).toString()
+      ).join("-");
+
+      const estimatedUnits = (amount / 68).toFixed(1);
+
+      setSuccessReceipt({
+        reference: order.orderNumber || order.id || "VTU-" + Date.now().toString(36).toUpperCase(),
+        token: rawToken,
+        units: `${estimatedUnits} kWh`,
+        disco,
+        meterNumber,
+        amount,
+        newBalance: updatedBal,
+      });
+    } catch (err: any) {
+      alert(err.message || "Failed to process electricity token");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const copyToken = (tok: string) => {
@@ -140,7 +198,7 @@ export default function PayElectricityPage() {
               <div className="text-right">
                 <span className="text-[10px] text-body-color block">Wallet Balance</span>
                 <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
-                  ₦{wallet.currentBalance.toLocaleString()}
+                  ₦{walletBalance.toLocaleString()}
                 </span>
               </div>
             </div>

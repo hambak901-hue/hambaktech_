@@ -156,4 +156,6 @@ export const prisma = new Proxy({} as PrismaClient, {
   },
 });
 
+export const isDatabaseOnline = isDatabaseReachable;
+
 export default prisma;

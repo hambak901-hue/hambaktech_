@@ -51,14 +51,29 @@
 | `POST` | `/api/v1/auth/refresh` | Bearer | Refreshes and extends active session duration for mobile apps. |
 | `POST` | `/api/v1/auth/logout` | Bearer | Revokes current session token server-side and clears cookies. |
 
-### 2.2 User Profile (`/api/v1/user/*`)
+### 2.2 User Profile & Account Settings (`/api/v1/user/*`)
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
-| `GET` | `/api/v1/user/profile` | Bearer | Retrieves full user profile, contact info, and customer tier. |
-| `PATCH` | `/api/v1/user/profile` | Bearer | Updates user profile fields (firstName, lastName, phone, avatarUrl). |
-| `POST` | `/api/v1/user/password` | Bearer | Changes user password with server-side current password verification. |
+| `GET` | `/api/v1/user/profile` | Bearer | Retrieves full user profile, contact info, KYC status, and customer tier. |
+| `PATCH` | `/api/v1/user/profile` | Bearer | Updates safe user profile fields (`firstName`, `lastName`, `phone`, `address`, `state`, `lga`, `avatarUrl`). Protected against mass assignment. |
+| `POST` | `/api/v1/user/password` | Bearer | Changes user password with server-side current password verification and automatic revocation of all other active sessions. |
+| `POST` | `/api/v1/user/email` | Bearer | Updates user email address, verifies password, and marks email as unverified until verified. |
+| `POST` | `/api/v1/user/kyc` | Bearer | Submits KYC identity verification documents (NIN, BVN, address proof) and sets status to PENDING. |
+| `GET` | `/api/v1/user/sessions` | Bearer | Lists active sessions for current user with IP, device, and last active time. |
+| `DELETE` | `/api/v1/user/sessions/:id` | Bearer | Revokes a specific active session. |
+| `POST` | `/api/v1/user/sessions/revoke-others` | Bearer | Revokes all active sessions except the current session. |
+| `GET` | `/api/v1/user/activity` | Bearer | Retrieves user security event audit log history (logins, password changes, profile edits). |
 
-### 2.3 Wallet & Transactions (`/api/v1/wallet/*`)
+### 2.3 Administrative Customer Management (`/api/v1/admin/users/*`)
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| `GET` | `/api/v1/admin/users` | Admin | Lists customer accounts with search, role filtering, status filtering, and pagination. |
+| `GET` | `/api/v1/admin/users/:id` | Admin | 360 customer profile view including wallet balances, transaction summaries, and KYC files. |
+| `PATCH` | `/api/v1/admin/users/:id` | Admin | Updates user metadata, customer tier (`STANDARD`, `AGENT`, `CORPORATE`), and contact details. |
+| `PATCH` | `/api/v1/admin/users/:id/status` | Admin | Updates account status (`ACTIVE`, `SUSPENDED`, `INACTIVE`). Setting to SUSPENDED immediately invalidates all active sessions. Root super-admin is immutably protected. |
+| `PATCH` | `/api/v1/admin/users/:id/kyc` | Admin | Reviews KYC application, updates `kycStatus` (`VERIFIED`, `REJECTED`, `PENDING`), and assigns `kycTier` (`TIER_0` to `TIER_3`). |
+
+### 2.4 Wallet & Transactions (`/api/v1/wallet/*`)
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
 | `GET` | `/api/v1/wallet` | Bearer | Authoritative current, ledger, and locked balances with currency code. |
@@ -229,3 +244,26 @@ Planned Implementations:
 | **Admin** | `/api/v1/admin/*` | Order status management, User control, Pricing updates | PLANNED (Schema Ready) |
 
 *Milestone 3 note: Authoritative database schemas, constraints, and data contracts have been fully implemented in Prisma. Transitional client simulation in `src/lib/api-client/index.ts` bridges frontend components until API routes are wired in subsequent milestones.*
+
+## M7 Identity + Telecom Provider APIs
+
+### Veripine identity proxy
+
+Browser clients call HambakTech endpoints only. Veripine credentials remain in the PHP server environment.
+
+- `GET /api/identity/provider-status`
+- `POST /api/identity/verify` with `operation`: `NIN_VERIFICATION`, `NIN_PHONE`, `NIN_TRACKING`, `NIN_DEMOGRAPHY`, `BVN_VERIFICATION`, or `BVN_PHONE`
+- `POST /api/identity/nin-modification` — currently only the exact documented `nin_name_modification` payload is enabled
+- `GET /api/identity/nin-modification-status?reference_id=...`
+- `GET /api/admin/identity/provider-balance` — staff only
+
+### Telecom proxy
+
+- `GET /api/telecom/providers`
+- `GET /api/telecom/variations?provider=VTPASS|VTU_NG&type=data|tv`
+- `POST /api/telecom/verify-customer`
+- `POST /api/telecom/purchase`
+- `GET /api/telecom/requery?request_id=...`
+- `POST /api/telecom/vtu-webhook`
+
+Providers are implemented behind adapters so VTpass and VTU.ng can be selected without exposing their credentials to the browser.

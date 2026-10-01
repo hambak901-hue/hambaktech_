@@ -19,7 +19,8 @@ import {
 } from "lucide-react";
 import AdminLayout from "@/components/Admin/AdminLayout";
 import AdminDataTable, { Column } from "@/components/Admin/AdminDataTable";
-import platformApi from "@/lib/api-client";
+import { getApiUrl } from "@/lib/api-config";
+import { getAuthHeaders } from "@/lib/auth-token";
 import { ServiceCategoryRecord } from "@/types/platform";
 
 export default function AdminCategoriesPage() {
@@ -42,12 +43,30 @@ export default function AdminCategoriesPage() {
   const [formStatus, setFormStatus] = useState<"ACTIVE" | "INACTIVE">("ACTIVE");
   const [formSortOrder, setFormSortOrder] = useState<number>(1);
 
-  const loadCategories = () => {
+  const loadCategories = async () => {
     try {
       setLoading(true);
-      const list = platformApi.getCategories();
-      setCategories([...list]);
-      setError(null);
+      const res = await fetch(getApiUrl("/api/admin/categories"), {
+        headers: getAuthHeaders(),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        const list = Array.isArray(json.data) ? json.data : [];
+        setCategories(
+          list.map((c: any) => ({
+            id: c.id,
+            name: c.name,
+            code: c.code,
+            description: c.description || "",
+            activeOfferings: Number(c.sort_order ?? 1),
+            status: c.is_active === 1 || c.is_active === "1" || c.status === "ACTIVE" ? "ACTIVE" : "INACTIVE",
+            sortOrder: Number(c.sort_order ?? 1),
+          }))
+        );
+        setError(null);
+      } else {
+        setError("Failed to load categories from backend");
+      }
     } catch (err: any) {
       setError(err.message || "Failed to load categories");
     } finally {
@@ -79,69 +98,103 @@ export default function AdminCategoriesPage() {
     setFormSortOrder(c.sortOrder);
   };
 
-  const handleCreateCategory = (e: React.FormEvent) => {
+  const handleCreateCategory = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formName.trim() || !formCode.trim()) return;
 
     try {
-      platformApi.createCategory({
-        name: formName.trim(),
-        code: formCode.trim().toUpperCase(),
-        description: formDescription.trim(),
-        activeOfferings: Number(formActiveOfferings) || 0,
-        status: formStatus,
-        sortOrder: Number(formSortOrder) || 1,
+      const res = await fetch(getApiUrl("/api/admin/categories"), {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          name: formName.trim(),
+          code: formCode.trim().toUpperCase(),
+          description: formDescription.trim(),
+          sortOrder: Number(formSortOrder) || 1,
+        }),
       });
-      setShowCreateModal(false);
-      setActionFeedback("Category added successfully");
-      setTimeout(() => setActionFeedback(null), 3500);
-      loadCategories();
+
+      if (res.ok) {
+        setShowCreateModal(false);
+        setActionFeedback("Category added successfully");
+        setTimeout(() => setActionFeedback(null), 3500);
+        loadCategories();
+      } else {
+        const json = await res.json().catch(() => ({}));
+        alert(json.message || "Failed to create category");
+      }
     } catch (err: any) {
       alert(err.message || "Failed to create category");
     }
   };
 
-  const handleUpdateCategory = (e: React.FormEvent) => {
+  const handleUpdateCategory = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingCategory) return;
 
     try {
-      platformApi.updateCategory(editingCategory.id, {
-        name: formName.trim(),
-        code: formCode.trim().toUpperCase(),
-        description: formDescription.trim(),
-        activeOfferings: Number(formActiveOfferings) || 0,
-        status: formStatus,
-        sortOrder: Number(formSortOrder) || 1,
+      const res = await fetch(getApiUrl(`/api/admin/categories/${editingCategory.id}`), {
+        method: "PATCH",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          name: formName.trim(),
+          code: formCode.trim().toUpperCase(),
+          description: formDescription.trim(),
+          sortOrder: Number(formSortOrder) || 1,
+          status: formStatus,
+        }),
       });
-      setEditingCategory(null);
-      setActionFeedback("Category updated successfully");
-      setTimeout(() => setActionFeedback(null), 3500);
-      loadCategories();
+
+      if (res.ok) {
+        setEditingCategory(null);
+        setActionFeedback("Category updated successfully");
+        setTimeout(() => setActionFeedback(null), 3500);
+        loadCategories();
+      } else {
+        const json = await res.json().catch(() => ({}));
+        alert(json.message || "Failed to update category");
+      }
     } catch (err: any) {
       alert(err.message || "Failed to update category");
     }
   };
 
-  const handleDeleteCategory = () => {
+  const handleDeleteCategory = async () => {
     if (!deletingCategory) return;
     try {
-      platformApi.deleteCategory(deletingCategory.id);
-      setDeletingCategory(null);
-      setActionFeedback(`Category ${deletingCategory.name} deleted`);
-      setTimeout(() => setActionFeedback(null), 3500);
-      loadCategories();
+      const res = await fetch(getApiUrl(`/api/admin/categories/${deletingCategory.id}`), {
+        method: "DELETE",
+        headers: getAuthHeaders(),
+      });
+
+      if (res.ok) {
+        setDeletingCategory(null);
+        setActionFeedback(`Category ${deletingCategory.name} deactivated`);
+        setTimeout(() => setActionFeedback(null), 3500);
+        loadCategories();
+      } else {
+        const json = await res.json().catch(() => ({}));
+        alert(json.message || "Failed to delete category");
+      }
     } catch (err: any) {
       alert(err.message || "Failed to delete category");
     }
   };
 
-  const handleToggleStatus = (catId: string) => {
+  const handleToggleStatus = async (catId: string) => {
     const item = categories.find((c) => c.id === catId);
     if (!item) return;
     const next = item.status === "ACTIVE" ? "INACTIVE" : "ACTIVE";
-    platformApi.updateCategory(catId, { status: next });
-    loadCategories();
+    try {
+      await fetch(getApiUrl(`/api/admin/categories/${catId}`), {
+        method: "PATCH",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ status: next }),
+      });
+      loadCategories();
+    } catch (err) {
+      console.error("Failed to toggle category status", err);
+    }
   };
 
   const columns: Column<ServiceCategoryRecord>[] = [

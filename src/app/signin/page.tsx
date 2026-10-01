@@ -4,7 +4,8 @@ import React, { useState, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import BrandLogo from "@/components/Common/BrandLogo";
-import platformApi from "@/lib/api-client";
+import { getApiUrl } from "@/lib/api-config";
+import { setStoredAuthToken } from "@/lib/auth-token";
 import { ArrowRight, RefreshCw, AlertCircle, CheckCircle2, ShieldCheck, KeyRound } from "lucide-react";
 
 function SigninContent() {
@@ -14,8 +15,8 @@ function SigninContent() {
   const verifiedNotice = searchParams.get("verified") === "true";
   const resetNotice = searchParams.get("reset") === "true";
 
-  const [credential, setCredential] = useState("customer@hambaktech.com.ng");
-  const [password, setPassword] = useState("Admin@123456");
+  const [credential, setCredential] = useState("");
+  const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -27,12 +28,6 @@ function SigninContent() {
       : null
   );
 
-  const handleQuickSelect = (email: string, roleName: string) => {
-    setCredential(email);
-    setPassword("Admin@123456");
-    setErrorMessage(null);
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -40,11 +35,13 @@ function SigninContent() {
     setSuccessMessage(null);
 
     try {
-      const res = await fetch("/api/auth/login", {
+      const trimmedCredential = credential.trim();
+      const res = await fetch(getApiUrl("/api/auth/login"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          credential: credential.trim(),
+          email: trimmedCredential,
+          credential: trimmedCredential,
           password,
           rememberMe,
         }),
@@ -53,31 +50,33 @@ function SigninContent() {
       const data = await res.json();
 
       if (!res.ok || !data.success) {
-        throw new Error(data.error?.message || data.message || "Authentication failed. Please check your credentials.");
+        throw new Error(data.error?.message || data.message || "Invalid email address or password.");
       }
 
-      const { user } = data.data;
+      const { user, token } = data.data;
 
-      // Synchronize client-side transitional API store
-      if (user) {
-        platformApi.updateUserProfile({
-          name: user.profile ? `${user.profile.firstName} ${user.profile.lastName}` : user.email,
-          email: user.email,
-          phone: user.phone || "08147837664",
-        });
-        const roleSlug = typeof user.role === "string" ? user.role : user.role?.slug || "";
-        const roleCategory = ["super_admin", "admin", "staff", "manager", "developer"].includes(roleSlug)
-          ? "ADMIN"
-          : "CUSTOMER";
-        platformApi.switchRole(roleCategory);
+      if (token) {
+        setStoredAuthToken(token);
       }
 
-      // Route according to redirect parameter or user role
-      const userRoleSlug = typeof user.role === "string" ? user.role : user.role?.slug || "";
+      // Authoritative server-side role resolution
+      const roleStr = (typeof user.role === "string" ? user.role : user.role?.slug || "customer").toLowerCase();
+
       if (redirectTarget) {
-        router.push(redirectTarget);
-      } else if (["super_admin", "admin", "staff", "manager", "developer"].includes(userRoleSlug)) {
+        // Enforce role authorization on redirect target
+        const isTargetAdmin = redirectTarget.startsWith("/admin");
+        const isAdminRole = ["super_admin", "admin", "staff", "customer_service"].includes(roleStr);
+        if (isTargetAdmin && !isAdminRole) {
+          router.push("/dashboard");
+        } else {
+          router.push(redirectTarget);
+        }
+      } else if (["super_admin", "admin", "staff"].includes(roleStr)) {
         router.push("/admin");
+      } else if (roleStr === "customer_service") {
+        router.push("/admin/support");
+      } else if (roleStr === "student") {
+        router.push("/dashboard/academy");
       } else {
         router.push("/dashboard");
       }
@@ -102,7 +101,7 @@ function SigninContent() {
                 Sign in to HambakTech
               </h3>
               <p className="text-body-color mb-6 text-center text-xs">
-                Real server-authenticated access to your wallet, services, orders, and portal.
+                Server-authenticated access to your digital wallet, services, orders, and portal.
               </p>
 
               {/* Status Alert Messages */}
@@ -121,48 +120,6 @@ function SigninContent() {
                   <div>{successMessage}</div>
                 </div>
               )}
-
-              {/* Account Preset Quick Switcher */}
-              <div className="mb-6">
-                <p className="text-[11px] font-bold text-body-color uppercase tracking-wider mb-2 text-center">
-                  Quick-Fill Test Credentials
-                </p>
-                <div className="grid grid-cols-3 gap-1.5 p-1 rounded-2xl bg-gray-100 dark:bg-gray-dark border border-stroke dark:border-strokedark text-[11px] font-semibold">
-                  <button
-                    type="button"
-                    onClick={() => handleQuickSelect("customer@hambaktech.com.ng", "Customer")}
-                    className={`py-1.5 px-2 rounded-xl transition text-center truncate ${
-                      credential.includes("customer")
-                        ? "bg-white dark:bg-dark text-primary shadow-xs font-bold"
-                        : "text-body-color hover:text-dark dark:hover:text-white"
-                    }`}
-                  >
-                    Customer
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleQuickSelect("admin@hambaktech.com.ng", "Admin")}
-                    className={`py-1.5 px-2 rounded-xl transition text-center truncate ${
-                      credential.includes("admin@")
-                        ? "bg-white dark:bg-dark text-primary shadow-xs font-bold"
-                        : "text-body-color hover:text-dark dark:hover:text-white"
-                    }`}
-                  >
-                    Admin
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleQuickSelect("superadmin@hambaktech.com.ng", "Super Admin")}
-                    className={`py-1.5 px-2 rounded-xl transition text-center truncate ${
-                      credential.includes("superadmin")
-                        ? "bg-white dark:bg-dark text-primary shadow-xs font-bold"
-                        : "text-body-color hover:text-dark dark:hover:text-white"
-                    }`}
-                  >
-                    Super Admin
-                  </button>
-                </div>
-              </div>
 
               <form onSubmit={handleSubmit} className="space-y-4 text-xs" suppressHydrationWarning>
                 <div>

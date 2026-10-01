@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { getStoredAuthToken } from "@/lib/auth-token";
 import {
   Smartphone,
   Server,
@@ -498,12 +499,16 @@ task.resume()`;
           <div className="flex items-center gap-2">
             <button
               onClick={() => {
-                // Auto-fill demo customer token
-                setAuthToken("demo-auth-token-usr-customer-01");
+                const currentToken = getStoredAuthToken();
+                if (currentToken) {
+                  setAuthToken(currentToken);
+                } else {
+                  setAuthToken("");
+                }
               }}
               className="text-xs text-emerald-400 hover:text-emerald-300 underline"
             >
-              Demo Token
+              Load Active Session
             </button>
             <button
               onClick={() => setAuthToken("")}

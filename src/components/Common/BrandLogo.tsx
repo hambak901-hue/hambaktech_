@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 
 interface BrandLogoProps {
@@ -8,113 +9,24 @@ interface BrandLogoProps {
 }
 
 /**
- * HambakTech Brand Identity Component (Replaceable Architecture)
- * Centralized brand display component awaiting owner-supplied official logo asset.
- * Any future official logo asset will be slotted in here without touching layout consumers.
+ * HambakTech Brand Identity Component
+ * Renders the authoritative logo (logo.png) verified in the canonical project tree.
  */
 export function HambakEmblem({ className = "w-10 h-10" }: { className?: string }) {
   return (
-    <svg
-      className={`${className} shrink-0 transition-transform duration-300 group-hover:scale-105 drop-shadow-sm`}
-      viewBox="0 0 320 320"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      aria-hidden="true"
+    <div
+      className={`relative ${className} shrink-0 transition-transform duration-300 group-hover:scale-105 drop-shadow-sm flex items-center justify-center`}
     >
-      <defs>
-        {/* Aperture / quadrant gap cutouts */}
-        <mask id="brand-quadrant-mask">
-          <rect width="320" height="320" fill="#FFFFFF" />
-          <rect x="0" y="148" width="320" height="24" fill="#000000" />
-          <rect x="148" y="0" width="24" height="320" fill="#000000" />
-        </mask>
-
-        <linearGradient id="b-lobe-front" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#FACD74" />
-          <stop offset="100%" stopColor="#EEA738" />
-        </linearGradient>
-        <linearGradient id="b-lobe-bevel" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor="#C9741B" />
-          <stop offset="100%" stopColor="#9C5209" />
-        </linearGradient>
-      </defs>
-
-      {/* 4-Quadrant Segmented Outer Ring */}
-      <path
-        d="M 160 25 A 135 135 0 1 0 160 295 A 135 135 0 1 0 160 25 Z M 160 75 A 85 85 0 1 1 160 245 A 85 85 0 1 1 160 75 Z"
-        fill="#C85A17"
-        fillRule="evenodd"
-        mask="url(#brand-quadrant-mask)"
+      <Image
+        src="/logo.png"
+        alt="HAMBAK Tech Logo"
+        width={160}
+        height={160}
+        priority
+        className="w-full h-full object-contain"
+        referrerPolicy="no-referrer"
       />
-
-      {/* Monogram 'H' (Left) */}
-      <g>
-        <rect x="108" y="74" width="34" height="172" rx="2" fill="#C85A17" />
-        <rect x="140" y="138" width="38" height="44" fill="#C85A17" />
-        <rect x="139" y="74" width="3.5" height="172" fill="#9C3E0A" opacity="0.4" />
-      </g>
-
-      {/* Monogram 'B' (Right) with 3D bevel depth */}
-      <g>
-        {/* 3D Depth Extrusion */}
-        <path
-          d="M 164 78
-             H 194
-             C 222 78, 240 94, 240 118
-             C 240 135, 230 148, 212 154
-             C 232 159, 246 176, 246 200
-             C 246 228, 224 246, 190 246
-             H 164
-             Z"
-          fill="url(#b-lobe-bevel)"
-          transform="translate(3, 3)"
-        />
-
-        {/* B Front Face */}
-        <path
-          d="M 164 76
-             H 192
-             C 220 76, 238 92, 238 116
-             C 238 133, 228 146, 210 152
-             C 230 157, 244 174, 244 198
-             C 244 226, 222 244, 188 244
-             H 164
-             Z"
-          fill="url(#b-lobe-front)"
-        />
-
-        {/* Top inner counter */}
-        <path
-          d="M 184 98
-             H 192
-             C 206 98, 214 105, 214 115
-             C 214 125, 206 132, 192 132
-             H 184
-             Z"
-          fill="#FFFFFF"
-          className="dark:fill-dark"
-        />
-
-        {/* Bottom inner counter */}
-        <path
-          d="M 184 186
-             H 192
-             C 208 186, 218 194, 218 206
-             C 218 217, 208 224, 192 224
-             H 184
-             Z"
-          fill="#FFFFFF"
-          className="dark:fill-dark"
-        />
-
-        {/* Subtle upper sheen */}
-        <path
-          d="M 164 76 C 184 76, 208 82, 222 94 C 212 86, 190 80, 164 80 Z"
-          fill="#FFF4D6"
-          opacity="0.8"
-        />
-      </g>
-    </svg>
+    </div>
   );
 }
 
@@ -141,7 +53,11 @@ export default function BrandLogo({
 
   if (variant === "stacked") {
     return (
-      <Link href="/" aria-label="HambakTech Home" className={`inline-flex flex-col items-center text-center group ${className}`}>
+      <Link
+        href="/"
+        aria-label="HambakTech Home"
+        className={`inline-flex flex-col items-center text-center group ${className}`}
+      >
         <HambakEmblem className={emblemSizes[size]} />
         <div className="mt-2.5 flex flex-col items-center">
           <span className="text-xl sm:text-2xl font-black tracking-tight text-dark dark:text-white font-serif">
@@ -189,4 +105,3 @@ export default function BrandLogo({
     </Link>
   );
 }
-

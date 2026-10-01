@@ -4,7 +4,10 @@ import { AUTH_CONFIG } from "./lib/auth-constants";
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const sessionToken = request.cookies.get(AUTH_CONFIG.SESSION_COOKIE_NAME)?.value;
+  const sessionToken =
+    request.cookies.get(AUTH_CONFIG.SESSION_COOKIE_NAME)?.value ||
+    request.cookies.get("hambak_token")?.value ||
+    request.cookies.get("session_token")?.value;
 
   // Protect /dashboard and /admin routes
   const isDashboardRoute = pathname.startsWith("/dashboard");
@@ -23,7 +26,10 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
+    "/dashboard",
     "/dashboard/:path*",
+    "/admin",
     "/admin/:path*",
   ],
 };
+

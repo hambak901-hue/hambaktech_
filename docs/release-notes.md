@@ -2,6 +2,86 @@
 
 ---
 
+## Version 0.5.0-user-mgmt (Milestone 4 — User & Customer Management Integration & Closure)
+
+**Release Date:** Milestone 4 Closure Audit  
+**Target Environment:** Authoritative PHP REST API + Next.js App Router  
+**Status:** MILESTONE 4 COMPLETE — 100% PASSING (41/41 M4 TESTS, 411+ TOTAL PLATFORM TESTS)
+
+### What is Included in Milestone 4:
+1. **Customer Dashboard & Profile Experience (`/dashboard/*`):**
+   - Full customer profile editing with validation on first name, last name, phone, address, state, LGA.
+   - Strict mass-assignment protection rejecting client attempts to overwrite roles, tiers, or status.
+   - Dedicated password change modal with current-password verification and automatic session revocation across all other devices.
+   - Email update workflow marking accounts unverified until confirmed.
+   - Security activity log showing device, IP, and timestamp telemetry.
+2. **Customer Identity & KYC Tier Submission (`/dashboard/kyc`):**
+   - Tier 0 to Tier 3 compliance flow with government ID verification (NIN/BVN).
+   - Secure PII storage masking (storing only last 4 digits `bvn_last4`, `nin_last4`).
+   - Dynamic status transitions: `UNVERIFIED` → `PENDING` → `VERIFIED` or `REJECTED`.
+3. **Administrative 360 Customer Directory (`/admin/users`):**
+   - Comprehensive customer search by name, email, or phone.
+   - Role and account status filters with server-side pagination.
+   - 360 customer profile modal with live wallet balance visibility and tier management.
+   - Account status suspension control with immediate session invalidation.
+   - Administrative KYC approval and rejection review workflow.
+4. **Security & Guardrail Invariants:**
+   - Root super-admin (`hambak901@gmail.com`) is immutably protected from suspension, deactivation, or demotion.
+   - Non-super-admins strictly blocked from escalating privileges or assigning the `super_admin` role.
+   - Strict customer/admin data isolation (IDOR defense) ensuring users cannot inspect or mutate other accounts.
+   - Complete audit trail logging for all sensitive user and administrative actions.
+5. **Quality & Test Verifications:**
+   - Dedicated M4 test suite (`scripts/test-m4-user-management.ts`): 41/41 PASSED (100%).
+   - Total platform tests passing: 411+ across 8 suites with 0 failures.
+   - Canonical schema reconciliation: 39/39 tables match with 100% parity.
+   - Next.js production build: 73 static pages rendered cleanly, 0 errors.
+
+---
+
+## Version 0.4.0-auth-closure (Milestone 3 — Authentication & Authorization Final Closure Audit)
+
+**Release Date:** Milestone 3 Closure Audit  
+**Target Environment:** Authoritative PHP REST API + Next.js App Router  
+**Status:** M3 LOCALLY COMPLETE — EXTERNAL/ENVIRONMENTAL VERIFICATION PENDING  
+
+### What is Included in Milestone 3 Closure:
+1. **Dedicated M3 Test Suite (`scripts/test-m3-auth.ts`):**
+   - 77/77 passed test assertions spanning 12 security groups.
+2. **Regression Test Suite (`scripts/test-m4-auth.ts`):**
+   - 37/37 passed test assertions.
+3. **Cryptographic Standards:**
+   - Production password hashing utilizes **Argon2id** (`PASSWORD_ARGON2ID`, 64MB memory cost) in PHP `Security.php`.
+   - TypeScript PBKDF2 serves strictly as a development/test compatibility path.
+   - Zero plaintext password storage across all code paths.
+   - All session, email verification, and password reset tokens stored strictly as SHA-256 digests.
+4. **Browser Security:**
+   - Zero authoritative authentication tokens persisted in `localStorage` or `sessionStorage`.
+   - Production cookies configured with `HttpOnly`, `SameSite=Lax`, and `Secure`.
+5. **Environmental Audit Transparency:**
+   - Local validation: `npm run build` (PASS), `npx tsc --noEmit` (PASS), `npm run lint` (PASS).
+   - PHP CLI and Truehost live remote MySQL limitations documented transparently.
+
+
+## Version 0.12.0-database-migration (Milestone 1 — Truehost Database Reconciliation & Safe Migration)
+
+**Release Date:** Current Milestone 1 Execution  
+**Target Environment:** Truehost cPanel MySQL 8.0+ / MariaDB 10.4+  
+**Status:** 100% REBUILT, VERIFIED NON-DESTRUCTIVE & CANONICALLY COMPLIANT  
+
+### What is Included in Milestone 1 Database Migration Rebuild:
+1. **Rebuilt `database/reconciliation_and_compat.sql`:**
+   - **Zero Destructive Commands**: Completely eliminated risk to live production data (0 `DROP`, 0 `TRUNCATE`, 0 `DELETE`).
+   - **Full Canonical Parity**: Defines all 39 tables specified in `database/schema.sql` via `CREATE TABLE IF NOT EXISTS`.
+   - **Dynamic Information Schema Guards**: Uses dynamic SQL statements to inspect table and column existence (`Role`, `User`, `UserProfile`, `Wallet`, `WalletLedgerEntry`, `Transaction`, `ServiceCategory`, `Service`, `Order`, `OrderItem`, `OrderStatusHistory`, `Course`, `CourseModule`, `CourseEnrollment`, `Certificate`, `NINRequest`, `CACRequest`, `SupportTicket`, `TicketMessage`).
+   - **Financial Data Integrity**: Safely maps `currentBalance` to `balance`, preserves ledger history with unique references, avoids artificial floating-point or currency division errors.
+   - **Foreign Key Safety**: Toggles `FOREIGN_KEY_CHECKS = 0` during structure initialization and data synchronization, seeds prerequisite baseline roles and permissions, and restores `FOREIGN_KEY_CHECKS = 1`.
+   - **Read-Only Verification Report**: Appends diagnostic queries reporting table counts, wallet balance sums, transaction volume, and zero-orphan integrity checks.
+2. **Automated Static Verification Suite (`scripts/verify-reconciliation-sql.ts`):**
+   - Statically verifies non-destructiveness, table parity across all 39 tables, foreign key safety toggling, and information_schema guards.
+   - 100% passing automated static test suite.
+
+---
+
 ## Version 0.11.0-mobile-api (Milestone 11 — Unified Authoritative Mobile API Engine)
 
 **Release Date:** Milestone 11 Execution  
@@ -135,3 +215,19 @@
 - **NO Payment Gateway Live:** Paystack, Flutterwave, and Remita are designed in architecture only.
 - **NO Identity Integrations Active:** NIN, BVN, and CAC forms are not yet active.
 - **NO Mobile Build Deployed:** Native mobile applications and standalone PWA manifests are scheduled for Milestone 10.
+
+
+## Milestone 5 — Wallet & Financial Foundation
+
+- Added authoritative two-phase wallet funding.
+- Added payment provider adapter architecture and webhook verification.
+- Added fixed-point wallet arithmetic and reconciliation.
+- Added customer funding verification flow and admin wallet governance.
+- Local verification is complete; live PHP/Truehost/provider verification remains pending.
+
+## Milestone 7 — Provider Integrations (Veripine, VTpass, VTU.ng)
+
+- Integrated Veripine identity adapter for NIN & BVN verification operations.
+- Added unified telecom adapter architecture supporting VTpass and VTU.ng.
+- Added resilient webhook processing with HMAC signature validation and replay protection.
+- Enforced strict credential isolation: zero provider secrets in client code or browser bundles.

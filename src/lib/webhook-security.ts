@@ -1,6 +1,5 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { UnauthorizedError } from "./errors";
-import { AuditService } from "./server/platform-store";
 
 /**
  * In-memory idempotency cache for processed webhook event identifiers.
@@ -125,18 +124,7 @@ export const WebhookSecurity = {
     }
 
     if (!isValid) {
-      AuditService.log({
-        actorName: `${provider}_WEBHOOK_GATEWAY`,
-        actorEmail: "webhook@gateway.external",
-        role: "admin",
-        action: "WEBHOOK_SIGNATURE_FAILED",
-        entity: "PAYMENT_WEBHOOK",
-        entityId: `${provider}-untrusted`,
-        ipAddress: "0.0.0.0",
-        status: "FAILED",
-        metadata: { provider, reason: "Cryptographic signature or secret verification failed" },
-      });
-
+      console.warn(`[Security Alert] Invalid webhook cryptographic signature for provider: ${provider}`);
       throw new UnauthorizedError(`Invalid webhook cryptographic signature for provider: ${provider}`);
     }
   },

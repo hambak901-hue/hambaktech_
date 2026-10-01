@@ -11,7 +11,8 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import DashboardLayout from "@/components/Dashboard/DashboardLayout";
-import platformApi from "@/lib/api-client";
+import { getApiUrl } from "@/lib/api-config";
+import { getAuthHeaders } from "@/lib/auth-token";
 
 interface Bouquet {
   id: string;
@@ -52,7 +53,7 @@ export default function PayCableTVPage() {
   const [verifying, setVerifying] = useState(false);
   const [selectedBouquetId, setSelectedBouquetId] = useState("gotv-jolli");
   const [loading, setLoading] = useState(false);
-  const [wallet, setWallet] = useState(platformApi.getWallet());
+  const [walletBalance, setWalletBalance] = useState<number>(0);
 
   const [successReceipt, setSuccessReceipt] = useState<{
     reference: string;
@@ -62,6 +63,27 @@ export default function PayCableTVPage() {
     amount: number;
     newBalance: number;
   } | null>(null);
+
+  const loadWallet = async () => {
+    try {
+      const res = await fetch(getApiUrl("/api/wallet"), {
+        headers: getAuthHeaders(),
+        credentials: "include",
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && json.data?.wallet) {
+          setWalletBalance(Number(json.data.wallet.balance ?? json.data.wallet.currentBalance ?? 0));
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch wallet:", err);
+    }
+  };
+
+  React.useEffect(() => {
+    loadWallet();
+  }, []);
 
   const currentBouquets = CABLE_PACKAGES[provider] || [];
   const selectedBouquet = currentBouquets.find((b) => b.id === selectedBouquetId) || currentBouquets[0];
@@ -87,7 +109,7 @@ export default function PayCableTVPage() {
     }, 600);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!iucNumber) {
       alert("Please enter your Smartcard or IUC number");
@@ -95,32 +117,69 @@ export default function PayCableTVPage() {
     }
     if (!selectedBouquet) return;
 
-    if (wallet.currentBalance < selectedBouquet.price) {
+    if (walletBalance < selectedBouquet.price) {
       alert("Insufficient wallet balance. Please fund your wallet to proceed.");
       return;
     }
 
     setLoading(true);
 
-    setTimeout(() => {
-      try {
-        const order = platformApi.purchaseCableTV(provider, iucNumber, selectedBouquet.name, selectedBouquet.price);
-        const updatedWallet = platformApi.getWallet();
-        setWallet(updatedWallet);
-        setLoading(false);
-        setSuccessReceipt({
-          reference: order.orderNumber,
-          provider,
-          iucNumber,
-          bouquet: selectedBouquet.name,
+    try {
+      const res = await fetch(getApiUrl("/api/orders"), {
+        method: "POST",
+        headers: {
+          ...getAuthHeaders(),
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          serviceCode: "VTU_CABLE_TV",
+          title: `Cable TV Renewal - ${provider} ${selectedBouquet.name} (${iucNumber})`,
           amount: selectedBouquet.price,
-          newBalance: updatedWallet.currentBalance,
-        });
-      } catch (err: any) {
-        setLoading(false);
-        alert(err.message || "Failed to renew cable TV subscription");
+          paymentMethod: "WALLET",
+          metadata: {
+            provider,
+            iucNumber,
+            bouquetId: selectedBouquet.id,
+            bouquetName: selectedBouquet.name,
+            service: "CABLE_TV",
+          },
+        }),
+      });
+
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || "Failed to renew cable TV subscription");
       }
-    }, 1200);
+
+      const order = json.data;
+      // Authoritatively reload wallet
+      const walRes = await fetch(getApiUrl("/api/wallet"), {
+        headers: getAuthHeaders(),
+        credentials: "include",
+      });
+      let updatedBal = walletBalance - selectedBouquet.price;
+      if (walRes.ok) {
+        const walJson = await walRes.json();
+        if (walJson.success && walJson.data?.wallet) {
+          updatedBal = Number(walJson.data.wallet.balance ?? walJson.data.wallet.currentBalance ?? updatedBal);
+          setWalletBalance(updatedBal);
+        }
+      }
+
+      setSuccessReceipt({
+        reference: order.orderNumber || order.id || "VTU-" + Date.now().toString(36).toUpperCase(),
+        provider,
+        iucNumber,
+        bouquet: selectedBouquet.name,
+        amount: selectedBouquet.price,
+        newBalance: updatedBal,
+      });
+    } catch (err: any) {
+      alert(err.message || "Failed to renew cable TV subscription");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -151,7 +210,7 @@ export default function PayCableTVPage() {
               <div className="text-right">
                 <span className="text-[10px] text-body-color block">Wallet Balance</span>
                 <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
-                  ₦{wallet.currentBalance.toLocaleString()}
+                  ₦{walletBalance.toLocaleString()}
                 </span>
               </div>
             </div>

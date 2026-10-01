@@ -20,6 +20,8 @@ import {
 } from "lucide-react";
 import AdminLayout from "@/components/Admin/AdminLayout";
 import { companyConfig } from "@/data/companyConfig";
+import { getApiUrl } from "@/lib/api-config";
+import { getAuthHeaders } from "@/lib/auth-token";
 
 export default function AdminSettingsPage() {
   const [config, setConfig] = useState({ ...companyConfig });
@@ -30,7 +32,10 @@ export default function AdminSettingsPage() {
   const [success, setSuccess] = useState(false);
 
   React.useEffect(() => {
-    fetch("/api/admin/settings")
+    fetch(getApiUrl("/api/admin/settings"), {
+      headers: getAuthHeaders(),
+      credentials: "include",
+    })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (data?.data) {
@@ -51,9 +56,13 @@ export default function AdminSettingsPage() {
     e.preventDefault();
     setSaving(true);
     try {
-      await fetch("/api/admin/settings", {
+      await fetch(getApiUrl("/api/admin/settings"), {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...getAuthHeaders(),
+        },
+        credentials: "include",
         body: JSON.stringify({
           companyConfig: config,
           systemStatus: {

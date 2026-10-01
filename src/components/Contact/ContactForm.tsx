@@ -3,10 +3,14 @@ import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { Send, CheckCircle2, MapPin, Mail, Clock, Phone } from "lucide-react";
 import { companyConfig } from "@/data/companyConfig";
+import { getApiUrl } from "@/lib/api-config";
 
 export default function ContactForm() {
   const searchParams = useSearchParams();
   const [submitted, setSubmitted] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [ticketNumber, setTicketNumber] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -30,10 +34,31 @@ export default function ContactForm() {
     }
   }, [searchParams]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Professional client submission handling
-    setSubmitted(true);
+    setLoading(true);
+    setError(null);
+
+    try {
+      const res = await fetch(getApiUrl("/api/v1/support/inquiry"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      });
+
+      const data = await res.json();
+      if (!res.ok || (!data.success && data.error)) {
+        throw new Error(data.error?.message || data.message || "Failed to submit inquiry.");
+      }
+
+      setTicketNumber(data.data?.ticketNumber || `HT-INQ-${Date.now().toString(36).toUpperCase()}`);
+      setSubmitted(true);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to send inquiry. Please try again.";
+      setError(msg);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -49,13 +74,19 @@ export default function ContactForm() {
               <h3 className="text-2xl font-bold text-dark dark:text-white mb-2">
                 Thank You for Contacting HambakTech
               </h3>
+              {ticketNumber && (
+                <div className="inline-block mb-3 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-mono font-bold">
+                  Reference: {ticketNumber}
+                </div>
+              )}
               <p className="text-sm text-body-color dark:text-body-color-dark max-w-md mx-auto mb-6 leading-relaxed">
-                Your message regarding <strong>{formData.service}</strong> has been received by our helpdesk. A representative will contact you via email or phone shortly.
+                Your message regarding <strong>{formData.service}</strong> has been logged in our authoritative desk. An acknowledgement email with your tracking reference has been dispatched.
               </p>
               <button
                 type="button"
                 onClick={() => {
                   setSubmitted(false);
+                  setTicketNumber(null);
                   setFormData({
                     name: "",
                     email: "",
@@ -79,6 +110,12 @@ export default function ContactForm() {
                   Fill in your details below and our operations team will respond promptly.
                 </p>
               </div>
+
+              {error && (
+                <div className="p-4 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/50 text-red-700 dark:text-red-300 text-xs">
+                  {error}
+                </div>
+              )}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <div>
@@ -183,10 +220,11 @@ export default function ContactForm() {
 
               <button
                 type="submit"
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-xl bg-primary text-sm font-semibold text-white shadow-md hover:bg-primary/90 transition duration-200"
+                disabled={loading}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-xl bg-primary text-sm font-semibold text-white shadow-md hover:bg-primary/90 disabled:opacity-60 transition duration-200 cursor-pointer"
               >
-                <Send className="w-4 h-4" />
-                <span>Submit Service Inquiry</span>
+                <Send className={`w-4 h-4 ${loading ? "animate-pulse" : ""}`} />
+                <span>{loading ? "Lodging Inquiry..." : "Submit Service Inquiry"}</span>
               </button>
             </form>
           )}
