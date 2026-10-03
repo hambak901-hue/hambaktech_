@@ -54,14 +54,14 @@ def ensure_remote_dir(ftp, remote_dir):
 
 def deploy():
     parser = argparse.ArgumentParser(description="HambakTech cPanel Deployment Automation")
-    parser.add_argument("--host", default=os.getenv("FTP_HOST"), help="FTP hostname (e.g. ftp.hambaktech.com.ng)")
+    parser.add_argument("--host", default=os.getenv("FTP_HOST", "ftp.hambaktech.com.ng"), help="FTP hostname (e.g. ftp.hambaktech.com.ng)")
     parser.add_argument("--port", type=int, default=int(os.getenv("FTP_PORT", 21)), help="FTP port (default: 21)")
-    parser.add_argument("--user", default=os.getenv("FTP_USERNAME"), help="FTP username")
-    parser.add_argument("--password", default=os.getenv("FTP_PASSWORD"), help="FTP password")
-    parser.add_argument("--protocol", default=os.getenv("FTP_PROTOCOL", "ftps"), choices=["ftp", "ftps"], help="FTP protocol")
-    parser.add_argument("--remote-path", default=os.getenv("REMOTE_PATH", "/public_html"), help="Remote target root path")
+    parser.add_argument("--user", default=os.getenv("FTP_USERNAME", "business@business.hambaktech.com.ng"), help="FTP username (e.g. business@business.hambaktech.com.ng)")
+    parser.add_argument("--password", default=os.getenv("FTP_PASSWORD", "Hamohullah19@.."), help="FTP password")
+    parser.add_argument("--protocol", default=os.getenv("FTP_PROTOCOL", "ftp"), choices=["ftp", "ftps"], help="FTP protocol (default: ftp)")
+    parser.add_argument("--remote-path", default=os.getenv("REMOTE_PATH", "/"), help="Remote target path on subdomain root (default: /)")
     parser.add_argument("--dry-run", action="store_true", help="Simulate upload without writing remote files")
-    parser.add_argument("--staging-dir", default="dist/staging", help="Local staging directory containing build artifacts")
+    parser.add_argument("--staging-dir", default=os.getenv("STAGING_DIR", "dist/cpanel_deploy"), help="Local staging directory containing build artifacts")
     
     args = parser.parse_args()
 
@@ -110,7 +110,10 @@ def deploy():
     if args.dry_run:
         print("\n[DRY RUN] The following directories and key files would be deployed:")
         for local_full, rel, size in files_to_upload[:15]:
-            print(f"  -> {args.remote_path}/{rel} ({size} bytes)")
+            rel_str = str(rel).replace("\\", "/")
+            base_remote = args.remote_path.rstrip("/")
+            path_display = f"{base_remote}/{rel_str}" if base_remote else f"/{rel_str}"
+            print(f"  -> {path_display} ({size} bytes)")
         if len(files_to_upload) > 15:
             print(f"  ... and {len(files_to_upload) - 15} more files.")
         print("\n✅ DRY RUN SUCCESSFUL: Packaging and file inventory verified.")
@@ -122,7 +125,9 @@ def deploy():
 
     uploaded_count = 0
     for local_full, rel, size in files_to_upload:
-        remote_file_path = f"{args.remote_path}/{rel}".replace("\\", "/")
+        rel_str = str(rel).replace("\\", "/")
+        base_remote = args.remote_path.rstrip("/")
+        remote_file_path = f"{base_remote}/{rel_str}" if base_remote else f"/{rel_str}"
         remote_dir = os.path.dirname(remote_file_path)
         ensure_remote_dir(ftp, remote_dir)
         ftp.cwd(remote_dir)

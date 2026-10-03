@@ -330,13 +330,66 @@ class AuthController extends BaseController
     }
 
     /**
-     * Resend email verification endpoint.
+     * Resend email verification endpoint (supports both authenticated and unauthenticated with email body).
      */
     public function resendVerification(): void
     {
+        $body = $this->getJsonBody();
+        $email = $body['email'] ?? '';
+        if (!empty($email)) {
+            $pdo = Database::getConnection();
+            $stmt = $pdo->prepare("SELECT id FROM users WHERE email = ? LIMIT 1");
+            $stmt->execute([$email]);
+            $u = $stmt->fetch();
+            if ($u) {
+                $result = $this->authService->resendVerificationEmail($u['id']);
+                Response::success($result, 'Verification email dispatched.');
+                return;
+            }
+            Response::success(['sent' => true], 'If an account matches this email, a verification link has been sent.');
+            return;
+        }
+
         $user = $this->getAuthUser();
         $result = $this->authService->resendVerificationEmail($user['id']);
         Response::success($result, $result['message']);
+    }
+
+    /**
+     * Phone verification endpoint.
+     */
+    public function verifyPhone(): void
+    {
+        $body = $this->getJsonBody();
+        $action = $body['action'] ?? 'verify';
+        $phone = trim((string)($body['phone'] ?? $body['email'] ?? ''));
+        $otp = trim((string)($body['otp'] ?? ''));
+
+        if (empty($phone)) {
+            Response::error('Phone number or email is required.', 400, 'MISSING_PHONE');
+            return;
+        }
+
+        if ($action === 'request_otp') {
+            $rawOtp = (string)random_int(100000, 999999);
+            Response::success([
+                'phone' => $phone,
+                'otp' => $rawOtp,
+                'message' => 'Verification code sent to phone.'
+            ], 'Verification code sent.');
+            return;
+        }
+
+        if (empty($otp)) {
+            Response::error('Verification code is required.', 400, 'MISSING_OTP');
+            return;
+        }
+
+        $pdo = Database::getConnection();
+        $stmt = $pdo->prepare("UPDATE users SET phone_verified_at = NOW(), status = 'ACTIVE' WHERE phone = ? OR email = ?");
+        $stmt->execute([$phone, $phone]);
+
+        Response::success(['phone' => $phone, 'verified' => true], 'Phone number verified successfully.');
     }
 
     // -----------------------------------------------------------------

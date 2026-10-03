@@ -59,6 +59,8 @@ $router->post('/api/v1/auth/reset-password', [AuthController::class, 'resetPassw
 $router->post('/api/auth/verify-email', [AuthController::class, 'verifyEmail']);
 $router->get('/api/auth/verify-email', [AuthController::class, 'verifyEmail']);
 $router->post('/api/v1/auth/verify-email', [AuthController::class, 'verifyEmail']);
+$router->post('/api/auth/verify-phone', [AuthController::class, 'verifyPhone']);
+$router->post('/api/v1/auth/verify-phone', [AuthController::class, 'verifyPhone']);
 $router->post('/api/auth/resend-verification', [AuthController::class, 'resendVerification']);
 $router->post('/api/v1/auth/resend-verification', [AuthController::class, 'resendVerification']);
 

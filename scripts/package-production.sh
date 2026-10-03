@@ -16,12 +16,22 @@ rm -rf "$DIST_DIR"
 mkdir -p "$STAGING_DIR"
 
 echo "2. Building production Next.js static export..."
-npm run build
+if [ -d "$ROOT_DIR/src/app/api" ]; then
+  mv "$ROOT_DIR/src/app/api" "$ROOT_DIR/src/app_api_temp_backup"
+fi
+trap 'if [ -d "$ROOT_DIR/src/app_api_temp_backup" ]; then mv "$ROOT_DIR/src/app_api_temp_backup" "$ROOT_DIR/src/app/api"; fi' EXIT
+
+NEXT_EXPORT=true npm run build
+
+if [ -d "$ROOT_DIR/src/app_api_temp_backup" ]; then
+  mv "$ROOT_DIR/src/app_api_temp_backup" "$ROOT_DIR/src/app/api"
+fi
 
 if [ ! -d "$ROOT_DIR/out" ]; then
   echo "❌ Error: Production build output 'out/' not found!"
   exit 1
 fi
+
 
 echo "3. Assembling cPanel production directory structure..."
 
@@ -68,17 +78,27 @@ cp "$ROOT_DIR/README.md" "$STAGING_DIR/README.md"
 
 echo "4. Creating production deployment archives..."
 
-python3 -c "
-import zipfile, os
-dist = ''
-staging = ''
+mkdir -p "$DIST_DIR/cpanel_deploy"
+cp -R "$STAGING_DIR/public_html/"* "$DIST_DIR/cpanel_deploy/"
+cp "$STAGING_DIR/public_html/.htaccess" "$DIST_DIR/cpanel_deploy/.htaccess"
+cp -R "$STAGING_DIR/php-backend" "$DIST_DIR/cpanel_deploy/"
+cp -R "$STAGING_DIR/storage" "$DIST_DIR/cpanel_deploy/"
+cp -R "$STAGING_DIR/database" "$DIST_DIR/cpanel_deploy/"
+cp -R "$STAGING_DIR/config" "$DIST_DIR/cpanel_deploy/"
 
+python3 -c "
+import zipfile, os, sys
+dist = '$DIST_DIR'
+staging = '$STAGING_DIR'
+cpanel_deploy = os.path.join(dist, 'cpanel_deploy')
+
+# Build flat cPanel archive directly from cpanel_deploy
 zip_path = os.path.join(dist, 'hambaktech-production-cpanel.zip')
 with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as z:
-    for root, dirs, files in os.walk(staging):
+    for root, dirs, files in os.walk(cpanel_deploy):
         for f in files:
             full = os.path.join(root, f)
-            rel = os.path.relpath(full, staging)
+            rel = os.path.relpath(full, cpanel_deploy)
             z.write(full, rel)
 
 pub = os.path.join(staging, 'public_html')
@@ -90,6 +110,7 @@ with zipfile.ZipFile(pub_zip_path, 'w', zipfile.ZIP_DEFLATED) as z:
             rel = os.path.relpath(full, pub)
             z.write(full, rel)
 "
+
 
 tar -czf "$DIST_DIR/hambaktech-production-cpanel.tar.gz" -C "$STAGING_DIR" .
 tar -czf "$DIST_DIR/hambaktech-public_html-only.tar.gz" -C "$STAGING_DIR/public_html" .

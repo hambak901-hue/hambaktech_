@@ -5,11 +5,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import BrandLogo from "@/components/Common/BrandLogo";
 import { getApiUrl } from "@/lib/api-config";
-import { ArrowRight, RefreshCw, AlertCircle, CheckCircle2, ShieldCheck, MailCheck } from "lucide-react";
+import { ArrowRight, RefreshCw, AlertCircle, CheckCircle2, ShieldCheck, MailCheck, GraduationCap, User } from "lucide-react";
 
 export default function SignupPage() {
   const router = useRouter();
 
+  const [accountType, setAccountType] = useState<"customer" | "student">("customer");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
@@ -24,6 +25,7 @@ export default function SignupPage() {
   const [registrationSuccess, setRegistrationSuccess] = useState<{
     email: string;
     token?: string;
+    role?: string;
   } | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -74,7 +76,7 @@ export default function SignupPage() {
           password,
           confirmPassword,
           customerTier,
-          roleSlug: "customer",
+          roleSlug: accountType,
           termsAccepted,
         }),
       });
@@ -102,6 +104,7 @@ export default function SignupPage() {
       setRegistrationSuccess({
         email: user?.email || trimmedEmail,
         token: verificationToken,
+        role: user?.role?.slug || accountType,
       });
     } catch (err: unknown) {
       let msg = "An unexpected error occurred during registration. Please try again.";
@@ -168,10 +171,24 @@ export default function SignupPage() {
                   <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
                     <button
                       type="button"
-                      onClick={() => router.push("/dashboard")}
-                      className="w-full sm:w-auto py-3 px-6 rounded-xl border border-primary text-primary hover:bg-primary/10 text-xs font-bold transition"
+                      onClick={() =>
+                        router.push(
+                          registrationSuccess.role === "student" ? "/dashboard/academy" : "/dashboard"
+                        )
+                      }
+                      className="w-full sm:w-auto py-3 px-6 rounded-xl border border-primary text-primary hover:bg-primary/10 text-xs font-bold transition flex items-center justify-center gap-2"
                     >
-                      Proceed to Dashboard
+                      {registrationSuccess.role === "student" ? (
+                        <>
+                          <GraduationCap className="w-4 h-4" />
+                          <span>Go to Academy Student Portal</span>
+                        </>
+                      ) : (
+                        <>
+                          <User className="w-4 h-4" />
+                          <span>Proceed to Customer Dashboard</span>
+                        </>
+                      )}
                     </button>
                     <button
                       type="button"
@@ -186,11 +203,47 @@ export default function SignupPage() {
                 /* Registration Form */
                 <>
                   <h3 className="mb-2 text-center text-2xl font-bold text-dark dark:text-white">
-                    Create Customer Account
+                    {accountType === "student" ? "Create Academy Student Account" : "Create Customer Account"}
                   </h3>
-                  <p className="text-body-color mb-8 text-center text-xs">
-                    Access digital services, automated VTU, NIN verification, and academy courses.
+                  <p className="text-body-color mb-6 text-center text-xs">
+                    {accountType === "student"
+                      ? "Enroll in hands-on courses, book lab workstations, and access certifications."
+                      : "Access digital business centre, automated VTU, NIN verification, and CAC services."}
                   </p>
+
+                  {/* Account Type Selector */}
+                  <div className="grid grid-cols-2 gap-2 p-1.5 rounded-2xl bg-gray-100 dark:bg-gray-800 mb-6">
+                    <button
+                      type="button"
+                      onClick={() => setAccountType("customer")}
+                      className={`p-3 rounded-xl text-left transition flex items-center gap-2.5 ${
+                        accountType === "customer"
+                          ? "bg-white dark:bg-dark text-dark dark:text-white shadow-sm font-bold"
+                          : "text-body-color hover:text-dark dark:hover:text-white"
+                      }`}
+                    >
+                      <User className={`w-4 h-4 ${accountType === "customer" ? "text-primary" : ""}`} />
+                      <div>
+                        <div className="text-xs font-bold">Customer</div>
+                        <div className="text-[10px] opacity-75">Services & VTU</div>
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAccountType("student")}
+                      className={`p-3 rounded-xl text-left transition flex items-center gap-2.5 ${
+                        accountType === "student"
+                          ? "bg-white dark:bg-dark text-dark dark:text-white shadow-sm font-bold"
+                          : "text-body-color hover:text-dark dark:hover:text-white"
+                      }`}
+                    >
+                      <GraduationCap className={`w-4 h-4 ${accountType === "student" ? "text-primary" : ""}`} />
+                      <div>
+                        <div className="text-xs font-bold">Academy Student</div>
+                        <div className="text-[10px] opacity-75">Courses & Labs</div>
+                      </div>
+                    </button>
+                  </div>
 
                   {errorMessage && (
                     <div className="mb-6 p-4 rounded-2xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/50 flex items-start gap-3 text-red-700 dark:text-red-300 text-xs">

@@ -20,7 +20,7 @@ export const metadata: Metadata = {
     title: "HambakTech — Where Technology Meet Service | Smart Digital Platform",
     description:
       "HambakTech & Services - Where Technology Meet Service. Smart Digital Platform.",
-    url: "https://hambaktech.com.ng",
+    url: "https://business.hambaktech.com.ng",
     siteName: "HambakTech",
     type: "website",
   },
