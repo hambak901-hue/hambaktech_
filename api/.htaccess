@@ -1,7 +1,11 @@
 <IfModule mod_rewrite.c>
     RewriteEngine On
     RewriteBase /api/
-    RewriteCond %{REQUEST_FILENAME} !-f
-    RewriteCond %{REQUEST_FILENAME} !-d
+
+    # Serve physical PHP files directly if they exist
+    RewriteCond %{REQUEST_FILENAME} -f
+    RewriteRule ^ - [L]
+
+    # Virtual routes to front-controller index.php
     RewriteRule ^(.*)$ index.php [QSA,L]
 </IfModule>

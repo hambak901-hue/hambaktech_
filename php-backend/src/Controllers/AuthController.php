@@ -51,12 +51,14 @@ class AuthController extends BaseController
         // Set authoritative HttpOnly session cookie
         $maxAge = $rememberMe ? (86400 * 30) : (86400 * 7);
         $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ||
-                   (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
+                   (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && strtolower($_SERVER['HTTP_X_FORWARDED_PROTO']) === 'https') ||
+                   (isset($_SERVER['HTTP_X_FORWARDED_SSL']) && strtolower($_SERVER['HTTP_X_FORWARDED_SSL']) === 'on') ||
+                   (isset($_SERVER['SERVER_PORT']) && (int)$_SERVER['SERVER_PORT'] === 443) ||
+                   (isset($_SERVER['HTTP_HOST']) && str_contains($_SERVER['HTTP_HOST'], 'hambaktech.com.ng'));
 
         $cookieOptions = [
             'expires'  => time() + $maxAge,
             'path'     => '/',
-            'domain'   => '',
             'secure'   => $isHttps,
             'httponly' => true,
             'samesite' => 'Lax',
@@ -64,6 +66,16 @@ class AuthController extends BaseController
 
         setcookie('ht_session', $result['token'], $cookieOptions);
         setcookie('hambak_token', $result['token'], $cookieOptions);
+
+        // Also issue non-HttpOnly client cookie for frontend JavaScript header sync
+        $clientCookieOptions = [
+            'expires'  => time() + $maxAge,
+            'path'     => '/',
+            'secure'   => $isHttps,
+            'httponly' => false,
+            'samesite' => 'Lax',
+        ];
+        setcookie('hambak_client_token', $result['token'], $clientCookieOptions);
 
         Response::success($result, 'Authenticated successfully.');
     }
@@ -82,6 +94,8 @@ class AuthController extends BaseController
             $rawToken = trim($_COOKIE['ht_session']);
         } elseif (!empty($_COOKIE['hambak_token'])) {
             $rawToken = trim($_COOKIE['hambak_token']);
+        } elseif (!empty($_COOKIE['hambak_client_token'])) {
+            $rawToken = trim($_COOKIE['hambak_client_token']);
         }
 
         if (!empty($rawToken)) {
@@ -91,7 +105,6 @@ class AuthController extends BaseController
         $expireOptions = [
             'expires'  => time() - 3600,
             'path'     => '/',
-            'domain'   => '',
             'secure'   => false,
             'httponly' => true,
             'samesite' => 'Lax',
@@ -99,6 +112,15 @@ class AuthController extends BaseController
         setcookie('ht_session', '', $expireOptions);
         setcookie('hambak_token', '', $expireOptions);
         setcookie('session_token', '', $expireOptions);
+
+        $clientExpireOptions = [
+            'expires'  => time() - 3600,
+            'path'     => '/',
+            'secure'   => false,
+            'httponly' => false,
+            'samesite' => 'Lax',
+        ];
+        setcookie('hambak_client_token', '', $clientExpireOptions);
 
         Response::success(null, 'Signed out successfully.');
     }
@@ -109,7 +131,11 @@ class AuthController extends BaseController
     public function me(): void
     {
         $user = $this->getAuthUser();
-        Response::success($user, 'User profile retrieved.');
+        // Return dual shape: both 'user' key and top-level user attributes for 100% client interoperability
+        Response::success([
+            'user' => $user,
+            ...$user,
+        ], 'User profile retrieved.');
     }
 
     /**
@@ -118,7 +144,10 @@ class AuthController extends BaseController
     public function session(): void
     {
         $user = $this->getAuthUser();
-        Response::success(['user' => $user], 'Session active.');
+        Response::success([
+            'user' => $user,
+            ...$user,
+        ], 'Session active.');
     }
 
     /**

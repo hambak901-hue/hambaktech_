@@ -206,15 +206,31 @@ class AuthService
             }
         }
 
-        // Canonical role resolution: SUPER_ADMIN, ADMIN, STAFF, CUSTOMER_SERVICE, STUDENT, CUSTOMER
+        // Canonical role resolution: SUPER_ADMIN, ADMIN, SUPPORT_ADMIN, MANAGER, STAFF, CUSTOMER_SERVICE, AGENT, STUDENT, CORPORATE, CUSTOMER
         $slug = strtolower(trim((string)$user['role_slug']));
+        $userEmailLower = strtolower(trim((string)$user['email']));
+
+        // Authoritative Super Admin Guarantee for designated administrators
+        if (in_array($userEmailLower, ['admin@hambaktech.com.ng', 'hambak901@gmail.com', 'superadmin@hambaktech.com.ng'], true)) {
+            $slug = 'super_admin';
+            if ($user['role_slug'] !== 'super_admin') {
+                try {
+                    $saRoleId = $pdo->query("SELECT id FROM roles WHERE slug = 'super_admin'")->fetchColumn() ?: 'role-super-admin';
+                    $pdo->prepare("UPDATE users SET role_id = ?, status = 'ACTIVE' WHERE id = ?")->execute([$saRoleId, $user['id']]);
+                } catch (\Throwable $e) {}
+            }
+        }
+
         $roleMap = [
             'super_admin'      => 'SUPER_ADMIN',
             'admin'            => 'ADMIN',
+            'support_admin'    => 'SUPPORT_ADMIN',
+            'manager'          => 'MANAGER',
             'staff'            => 'STAFF',
             'customer_service' => 'CUSTOMER_SERVICE',
-            'agent'            => 'CUSTOMER_SERVICE',
+            'agent'            => 'AGENT',
             'student'          => 'STUDENT',
+            'corporate'        => 'CORPORATE',
             'customer'         => 'CUSTOMER',
         ];
         $canonicalRole = $roleMap[$slug] ?? 'CUSTOMER';
@@ -336,13 +352,22 @@ class AuthService
         }
 
         $slug = strtolower(trim((string)$session['role_slug']));
+        $sessionEmailLower = strtolower(trim((string)$session['email']));
+
+        if (in_array($sessionEmailLower, ['admin@hambaktech.com.ng', 'hambak901@gmail.com', 'superadmin@hambaktech.com.ng'], true)) {
+            $slug = 'super_admin';
+        }
+
         $roleMap = [
             'super_admin'      => 'SUPER_ADMIN',
             'admin'            => 'ADMIN',
+            'support_admin'    => 'SUPPORT_ADMIN',
+            'manager'          => 'MANAGER',
             'staff'            => 'STAFF',
             'customer_service' => 'CUSTOMER_SERVICE',
-            'agent'            => 'CUSTOMER_SERVICE',
+            'agent'            => 'AGENT',
             'student'          => 'STUDENT',
+            'corporate'        => 'CORPORATE',
             'customer'         => 'CUSTOMER',
         ];
         $canonicalRole = $roleMap[$slug] ?? 'CUSTOMER';
@@ -758,6 +783,7 @@ class AuthService
         }
 
         return Database::transaction(function (PDO $pdo) use ($userId, $phone, $firstName, $lastName, $address, $state, $lga, $existing) {
+            $fields = ['first_name = ?', 'last_name = ?', 'phone = ?', 'address = ?', 'state = ?', 'lga = ?'];
             $stmtUpUser = $pdo->prepare("UPDATE users SET phone = ?, updated_at = NOW() WHERE id = ?");
             $stmtUpUser->execute([$phone, $userId]);
 

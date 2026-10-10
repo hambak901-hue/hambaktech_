@@ -26,6 +26,18 @@ export interface CompanyConfig {
   operatingHoursShort: string;
   sundayStatus: string;
   establishedYear: number;
+  description?: string;
+  cacRcNumber?: string;
+  supportEmail?: string;
+  locationLga?: string;
+  locationState?: string;
+  socialLinks?: {
+    facebook?: string;
+    twitter?: string;
+    instagram?: string;
+    linkedin?: string;
+    whatsapp?: string;
+  };
 }
 
 export const companyConfig: CompanyConfig = {
@@ -48,6 +60,18 @@ export const companyConfig: CompanyConfig = {
   operatingHoursShort: "Mon – Sat: 8:00 AM – 6:00 PM",
   sundayStatus: "Sunday: Closed",
   establishedYear: 2020,
+  description: "Where Technology Meets Real-World Service. Physical business centre operations, CAC corporate filings, ICT academy, and enterprise computing.",
+  cacRcNumber: "RC-7489201",
+  supportEmail: "support@hambaktech.com.ng",
+  locationLga: "Ibeju-Lekki",
+  locationState: "Lagos State",
+  socialLinks: {
+    facebook: "https://facebook.com/hambaktech",
+    twitter: "https://x.com/hambaktech",
+    instagram: "https://instagram.com/hambaktech",
+    linkedin: "https://linkedin.com/company/hambaktech",
+    whatsapp: "https://wa.me/2349155104724",
+  },
 };
 
 export default companyConfig;

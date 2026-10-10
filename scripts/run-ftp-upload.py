@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-HAMBAKTECH PRODUCTION FTP UPLOADER
-Zero secret logging. Deploys dist/cpanel_deploy to Truehost cPanel.
+HAMBAKTECH PRODUCTION CPANEL DIRECT DEPLOYMENT ENGINE
+Deploys dist/cpanel_deploy to Truehost cPanel with zero data loss,
+differential smart sync, exponential retry, auto-reconnect, and verification.
 """
 
 import os
@@ -10,35 +11,51 @@ import ftplib
 import time
 from pathlib import Path
 
-FTP_HOST = "ftp.hambaktech.com.ng"
-FTP_PORT = 21
-FTP_USER = "business@business.hambaktech.com.ng"
-FTP_PASS = "Hamohullah19@.."
+FTP_HOST = os.getenv("FTP_HOST", "ftp.hambaktech.com.ng")
+FTP_PORT = int(os.getenv("FTP_PORT", 21))
+FTP_USER = os.getenv("FTP_USER", "business@business.hambaktech.com.ng")
+FTP_PASS = os.getenv("FTP_PASS", "Hamohullah19@..")
 
 def get_ftp():
-    print(f"Connecting to {FTP_HOST}:{FTP_PORT} as {FTP_USER}...")
-    try:
-        ftp = ftplib.FTP_TLS()
-        ftp.connect(FTP_HOST, FTP_PORT, timeout=30)
-        ftp.login(FTP_USER, FTP_PASS)
-        ftp.prot_p()
-        print("✓ Connected securely via FTPS.")
-        return ftp
-    except Exception as e:
-        print(f"FTPS failed: {e}. Falling back to standard FTP...")
-        ftp = ftplib.FTP()
-        ftp.connect(FTP_HOST, FTP_PORT, timeout=30)
-        ftp.login(FTP_USER, FTP_PASS)
-        print("✓ Connected via standard FTP.")
-        return ftp
+    for attempt in range(5):
+        try:
+            print(f"Connecting to {FTP_HOST}:{FTP_PORT} as {FTP_USER} (attempt {attempt+1})...")
+            ftp = ftplib.FTP(timeout=30)
+            ftp.connect(FTP_HOST, FTP_PORT)
+            ftp.login(FTP_USER, FTP_PASS)
+            ftp.set_pasv(True)
+            print("✓ Connected to cPanel FTP server successfully.")
+            return ftp
+        except Exception as e:
+            print(f"Connection attempt {attempt+1} failed: {e}")
+            time.sleep(2)
+    raise RuntimeError("Failed to establish FTP connection after 5 attempts.")
+
+def ensure_remote_dir(ftp, remote_dir, created_dirs):
+    if remote_dir in created_dirs or remote_dir == "/" or not remote_dir:
+        return
+    parts = remote_dir.strip("/").split("/")
+    curr = ""
+    for p in parts:
+        if not p:
+            continue
+        curr += "/" + p
+        if curr not in created_dirs:
+            try:
+                ftp.cwd(curr)
+            except Exception:
+                try:
+                    ftp.mkd(curr)
+                except Exception:
+                    pass
+            created_dirs.add(curr)
 
 def main():
     staging_dir = Path("dist/cpanel_deploy")
     if not staging_dir.exists():
-        print("Error: dist/cpanel_deploy does not exist!")
+        print("Error: dist/cpanel_deploy does not exist! Run npm run package:production first.")
         sys.exit(1)
 
-    # Gather files
     items = []
     total_bytes = 0
     for root, dirs, files in os.walk(staging_dir):
@@ -49,75 +66,121 @@ def main():
             items.append((local_p, rel_p, sz))
             total_bytes += sz
 
-    print(f"Starting upload of {len(items)} files ({total_bytes / (1024*1024):.2f} MB)...")
+    # Priority sorting:
+    # 0: .htaccess, .env, root HTML files
+    # 1: key directory index.html files (login, signin, signup, dashboard, admin, etc.)
+    # 2: api/ and php-backend/
+    # 3: other html files
+    # 4: static assets
+    def sort_key(item):
+        rel = str(item[1]).replace("\\", "/")
+        if rel in (".htaccess", ".env", "index.html", "login.html", "signin.html", "signup.html", "dashboard.html", "admin.html"):
+            return (0, rel)
+        if rel.endswith("/index.html"):
+            return (1, rel)
+        if rel.startswith("api/") or rel.startswith("php-backend/"):
+            return (2, rel)
+        if rel.endswith(".html"):
+            return (3, rel)
+        return (4, rel)
+
+    items.sort(key=sort_key)
+
+    print(f"Preparing deployment of {len(items)} files ({total_bytes / (1024*1024):.2f} MB)...")
 
     ftp = get_ftp()
     remote_dirs_created = set(["/"])
 
     uploaded = 0
+    skipped = 0
     start_time = time.time()
 
-    for local_p, rel_p, sz in items:
+    # Set of files that must ALWAYS be uploaded regardless of size match (excluding .env to preserve live cPanel database/email credentials)
+    ALWAYS_UPLOAD = {".htaccess", "index.php", "extract-production.php"}
+
+    for idx, (local_p, rel_p, sz) in enumerate(items, 1):
         rel_str = str(rel_p).replace("\\", "/")
         remote_file_path = "/" + rel_str
         remote_dir = os.path.dirname(remote_file_path)
-
-        # Ensure directory path exists
-        if remote_dir not in remote_dirs_created:
-            parts = remote_dir.strip("/").split("/")
-            curr = ""
-            for p in parts:
-                if not p:
-                    continue
-                curr += "/" + p
-                if curr not in remote_dirs_created:
-                    try:
-                        ftp.cwd(curr)
-                    except Exception:
-                        try:
-                            ftp.mkd(curr)
-                        except Exception:
-                            pass
-                    remote_dirs_created.add(curr)
-
-        ftp.cwd(remote_dir)
         fname = os.path.basename(remote_file_path)
 
-        # Upload file with retry
-        for attempt in range(3):
+        # STRICT SAFETY: Never overwrite live .env on cPanel
+        if fname == ".env":
             try:
+                rem_size = ftp.size(remote_file_path)
+                if rem_size > 0:
+                    print(f"  🔒 Preserving live remote .env ({rem_size} bytes)")
+                    skipped += 1
+                    continue
+            except Exception:
+                pass
+
+        # Smart Differential check:
+        # If not an always-upload file, check if remote size matches exactly
+        should_upload = True
+        if fname not in ALWAYS_UPLOAD and not rel_str.endswith(".html"):
+            try:
+                rem_size = ftp.size(remote_file_path)
+                if rem_size == sz:
+                    should_upload = False
+                    skipped += 1
+            except Exception:
+                should_upload = True
+
+        if not should_upload:
+            if skipped % 50 == 0:
+                print(f"  [Skipped identical {skipped} files] Current: {rel_str}")
+            continue
+
+        success = False
+        for attempt in range(4):
+            try:
+                ensure_remote_dir(ftp, remote_dir, remote_dirs_created)
+                ftp.cwd(remote_dir if remote_dir else "/")
                 with open(local_p, "rb") as fp:
                     ftp.storbinary(f"STOR {fname}", fp)
                 uploaded += 1
+                success = True
                 break
             except Exception as e:
-                if attempt == 2:
-                    print(f"Failed to upload {rel_str} after 3 attempts: {e}")
-                    raise
-                time.sleep(1)
+                print(f"Warning: Upload error on {rel_str} (attempt {attempt+1}): {e}")
+                time.sleep(1.5)
                 try:
-                    ftp.voidcmd("NOOP")
+                    ftp.close()
                 except Exception:
+                    pass
+                try:
                     ftp = get_ftp()
-                    ftp.cwd(remote_dir)
+                    remote_dirs_created = set(["/"])
+                except Exception as reconnect_err:
+                    print(f"Reconnect failed: {reconnect_err}")
+                    time.sleep(3)
 
-        if uploaded % 50 == 0 or uploaded == len(items):
+        if not success:
+            print(f"❌ Failed to upload {rel_str} after 4 attempts.")
+            sys.exit(1)
+
+        if uploaded % 25 == 0 or uploaded == len(items):
             elapsed = time.time() - start_time
             rate = (uploaded / elapsed) if elapsed > 0 else 0
-            print(f"  [{uploaded}/{len(items)}] files uploaded ({rate:.1f} files/sec)...")
+            pct = ((uploaded + skipped) / len(items)) * 100
+            print(f"  [{uploaded} uploaded, {skipped} skipped / {len(items)} total | {pct:.1f}%] ({rate:.1f} files/sec)... Current: {rel_str}")
 
-    # Verify key files
-    print("\nVerifying uploaded files on remote server...")
-    ftp.cwd("/")
-    root_lines = []
-    ftp.dir(root_lines.append)
-    print(f"Remote root listing ({len(root_lines)} entries):")
-    for l in root_lines[:15]:
-        print(" ", l)
+    elapsed = time.time() - start_time
+    print(f"\n🎉 Deployment completed in {elapsed:.1f}s! ({uploaded} files uploaded, {skipped} files synced).")
+
+    print("\nVerifying remote deployment...")
+    try:
+        ftp.cwd("/")
+        lines = []
+        ftp.dir(lines.append)
+        print(f"Remote root listing ({len(lines)} entries):")
+        for l in lines[:20]:
+            print(" ", l)
+    except Exception as e:
+        print(f"Listing verification notice: {e}")
 
     ftp.quit()
-    duration = round(time.time() - start_time, 2)
-    print(f"\n✅ All {uploaded} files successfully uploaded in {duration}s.")
 
 if __name__ == "__main__":
     main()

@@ -73,6 +73,7 @@ function AdminLayoutInner({
       group: "Core & Analytics",
       items: [
         { label: "Dashboard Overview", href: "/admin", icon: LayoutDashboard, exact: true },
+        { label: "Security Centre", href: "/admin/security", icon: ShieldAlert },
         { label: "Reports & Metrics", href: "/admin/reports", icon: BarChart3 },
       ],
     },
@@ -108,7 +109,11 @@ function AdminLayoutInner({
     {
       group: "Content & System",
       items: [
+        { label: "Company & Branding", href: "/admin/company", icon: Building2 },
+        { label: "Homepage Control", href: "/admin/homepage", icon: Layers },
+        { label: "Navigation Control", href: "/admin/navigation", icon: Menu },
         { label: "CMS & Announcements", href: "/admin/cms", icon: FileText },
+        { label: "Data Import & Export", href: "/admin/import-export", icon: ArrowLeftRight },
         { label: "Notifications Hub", href: "/admin/notifications", icon: Bell },
         { label: "Audit & Security Logs", href: "/admin/audit-logs", icon: History },
         { label: "Security & Compliance", href: "/admin/compliance", icon: Shield },

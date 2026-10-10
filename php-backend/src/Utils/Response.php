@@ -69,9 +69,9 @@ class Response
         self::error($message, 403, 'FORBIDDEN');
     }
 
-    public static function notFound(string $message = 'Resource not found'): void
+    public static function notFound(string $message = 'Resource not found', array $details = []): void
     {
-        self::error($message, 404, 'NOT_FOUND');
+        self::error($message, 404, 'NOT_FOUND', $details);
     }
 
     public static function tooManyRequests(string $message = 'Too many requests. Please try again later.', int $retryAfter = 60): void

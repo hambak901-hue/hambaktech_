@@ -77,11 +77,11 @@ export default function AuthGuard({
       }
 
       const data = await res.json();
-      if (!data?.success || !data?.data?.user) {
+      const rawUser = data?.data?.user || data?.data;
+      if (!data?.success || !rawUser || !rawUser.id) {
         throw new Error("Invalid session response");
       }
 
-      const rawUser = data.data.user;
       const roleSlug = (
         typeof rawUser.role === "string"
           ? rawUser.role
@@ -95,7 +95,13 @@ export default function AuthGuard({
         role: roleSlug,
         status: rawUser.status || "ACTIVE",
         customerTier: rawUser.customer_tier || rawUser.customerTier || "STANDARD",
-        profile: rawUser.profile,
+        profile: rawUser.profile || {
+          firstName: rawUser.firstName || rawUser.first_name,
+          lastName: rawUser.lastName || rawUser.last_name,
+          name: rawUser.name,
+          kycTier: rawUser.kycTier || rawUser.kyc_tier,
+          kycStatus: rawUser.kycStatus || rawUser.kyc_status,
+        },
         wallet: rawUser.wallet,
       };
 
@@ -165,7 +171,7 @@ export default function AuthGuard({
 
   // 2. 403 Forbidden Access Denied State (Authenticated user lacks role permission)
   if (forbidden && user) {
-    const isCustomerInAdmin = !["super_admin", "admin", "staff"].includes(user.role);
+    const isCustomerInAdmin = !["super_admin", "admin", "support_admin", "manager", "staff"].includes(user.role);
 
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-dark flex flex-col items-center justify-center p-4">

@@ -1,6 +1,8 @@
 # HAMBAKTECH SMART DIGITAL PLATFORM v1.0 — CPANEL APACHE CONFIGURATION
 # Production Target: https://www.business.hambaktech.com.ng
 
+DirectoryIndex index.html index.php
+
 # Block viewing of sensitive files
 <FilesMatch "^(\.env.*|\.git.*|composer\.(json|lock)|package\.(json|lock)|tsconfig\.json|.*\.sql|.*\.log|.*\.md|.*\.sh)$">
     <IfModule mod_authz_core.c>
@@ -19,28 +21,52 @@
 
 <IfModule mod_rewrite.c>
     RewriteEngine On
+    RewriteBase /
 
     # Block direct web access to private application directories
     RewriteRule ^(php-backend|storage|database|prisma|scripts|node_modules)(\/|$) - [F,L]
 
-    # Route /api/v1/* and /api/* to PHP API front-controller
-    RewriteRule ^api/v1/(.*)$ api/index.php [QSA,L]
-    RewriteRule ^api/(.*)$ api/index.php [QSA,L]
-
-    # Serve existing files directly
+    # 1. Serve existing physical files directly (scripts, images, stylesheets, chunks, standalone tools)
     RewriteCond %{REQUEST_FILENAME} -f
     RewriteRule ^ - [L]
 
-    # Serve existing directories directly
-    RewriteCond %{REQUEST_FILENAME} -d
-    RewriteRule ^ - [L]
+    # 2. Route virtual /api/v1/* and /api/* to live PHP API front-controller
+    RewriteRule ^api/v1/(.*)$ api/index.php [QSA,L]
+    RewriteRule ^api/(.*)$ api/index.php [QSA,L]
+    RewriteRule ^api$ api/index.php [QSA,L]
 
-    # Clean URL support for static HTML pages (e.g., /signin -> /signin.html)
+    # 3. Direct internal rewrites for directories with trailing slash
+    RewriteRule ^(.+)/$ /$1/index.html [L]
+
+    # 4. Direct internal rewrites for top-level application routes (clean URLs -> HTML files)
+    RewriteRule ^admin/?$ admin.html [L]
+    RewriteRule ^dashboard/?$ dashboard.html [L]
+    RewriteRule ^signin/?$ signin.html [L]
+    RewriteRule ^login/?$ login.html [L]
+    RewriteRule ^signup/?$ signup.html [L]
+    RewriteRule ^academy/?$ academy.html [L]
+    RewriteRule ^services/?$ services.html [L]
+    RewriteRule ^shop/?$ shop.html [L]
+    RewriteRule ^about/?$ about.html [L]
+    RewriteRule ^contact/?$ contact.html [L]
+    RewriteRule ^support/?$ support.html [L]
+    RewriteRule ^verify/?$ verify.html [L]
+    RewriteRule ^api-docs/?$ api-docs.html [L]
+    RewriteRule ^forgot-password/?$ forgot-password.html [L]
+    RewriteRule ^reset-password/?$ reset-password.html [L]
+    RewriteRule ^verify-email/?$ verify-email.html [L]
+
+    # 4. Check if appending .html matches a physical file (e.g. /services/printing -> services/printing.html)
+    RewriteCond %{DOCUMENT_ROOT}/$1.html -f [OR]
     RewriteCond %{REQUEST_FILENAME}.html -f
-    RewriteRule ^([^/]+)/?$ .html [L]
+    RewriteRule ^(.*)/?$ $1.html [L]
 
-    # Fallback to index.html for SPA routing
+    # 5. Check if directory has an index.html
+    RewriteCond %{REQUEST_FILENAME}/index.html -f
+    RewriteRule ^(.*)/?$ $1/index.html [L]
+
+    # 6. Fallback to index.html for SPA client-side routing
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteCond %{REQUEST_FILENAME} !-d
-    RewriteRule ^(.*)$ index.html [L]
+    RewriteRule ^ index.html [L]
 </IfModule>

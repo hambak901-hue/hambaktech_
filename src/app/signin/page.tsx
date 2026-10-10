@@ -14,17 +14,21 @@ function SigninContent() {
   const redirectTarget = searchParams.get("redirect") || "";
   const verifiedNotice = searchParams.get("verified") === "true";
   const resetNotice = searchParams.get("reset") === "true";
+  const expiredNotice = searchParams.get("expired") === "true";
 
   const [credential, setCredential] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [redirecting, setRedirecting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(
     verifiedNotice
       ? "Email address verified successfully. Please log in."
       : resetNotice
       ? "Password reset successfully. Please log in with your new password."
+      : expiredNotice
+      ? "Your session has expired. Please sign in again to continue."
       : null
   );
 
@@ -39,6 +43,7 @@ function SigninContent() {
       const res = await fetch(getApiUrl("/api/auth/login"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
           email: trimmedCredential,
           credential: trimmedCredential,
@@ -50,41 +55,69 @@ function SigninContent() {
       const data = await res.json();
 
       if (!res.ok || !data.success) {
-        throw new Error(data.error?.message || data.message || "Invalid email address or password.");
+        const errorMsg = data.error?.message || data.message || "Invalid email address or password.";
+        throw new Error(errorMsg);
       }
 
-      const { user, token } = data.data;
+      const rawData = data.data || {};
+      const user = rawData.user || rawData;
+      const token = rawData.token;
 
       if (token) {
         setStoredAuthToken(token);
       }
 
-      // Authoritative server-side role resolution
-      const roleStr = (typeof user.role === "string" ? user.role : user.role?.slug || "customer").toLowerCase();
+      // Authoritative server-side role resolution from API response:
+      const roleStr = (
+        typeof user.role === "string"
+          ? user.role
+          : user.role?.slug || "customer"
+      ).toLowerCase();
+
+      // Determine authoritative destination based strictly on server response
+      let destination = "/dashboard";
+      if (["super_admin", "admin", "manager", "staff"].includes(roleStr)) {
+        destination = "/admin";
+      } else if (roleStr === "support_admin" || roleStr === "customer_service") {
+        destination = "/admin/support";
+      } else if (roleStr === "student") {
+        destination = "/dashboard/academy";
+      } else if (roleStr === "agent" || roleStr === "corporate" || roleStr === "customer") {
+        destination = "/dashboard";
+      } else {
+        destination = "/dashboard";
+      }
 
       if (redirectTarget) {
-        // Enforce role authorization on redirect target
         const isTargetAdmin = redirectTarget.startsWith("/admin");
-        const isAdminRole = ["super_admin", "admin", "staff", "customer_service"].includes(roleStr);
+        const isAdminRole = ["super_admin", "admin", "support_admin", "manager", "staff", "customer_service"].includes(roleStr);
         if (isTargetAdmin && !isAdminRole) {
-          router.push("/dashboard");
+          destination = "/dashboard";
         } else {
-          router.push(redirectTarget);
+          destination = redirectTarget;
         }
-      } else if (["super_admin", "admin", "staff"].includes(roleStr)) {
-        router.push("/admin");
-      } else if (roleStr === "customer_service") {
-        router.push("/admin/support");
-      } else if (roleStr === "student") {
-        router.push("/dashboard/academy");
-      } else {
-        router.push("/dashboard");
       }
+
+      setLoading(false);
+      setRedirecting(true);
+      setSuccessMessage("Signing in approved. Taking you to your dashboard...");
+
+      // Execute client redirect with fallback for cPanel static hosting
+      setTimeout(() => {
+        try {
+          router.push(destination);
+        } catch {
+          // fallback
+        }
+        if (typeof window !== "undefined") {
+          window.location.href = destination;
+        }
+      }, 150);
     } catch (err: unknown) {
+      setLoading(false);
+      setRedirecting(false);
       const msg = err instanceof Error ? err.message : "An unexpected error occurred.";
       setErrorMessage(msg);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -184,20 +217,32 @@ function SigninContent() {
                       onChange={(e) => setRememberMe(e.target.checked)}
                       className="w-4 h-4 rounded text-primary border-stroke dark:border-strokedark"
                     />
-                    <span className="text-body-color text-xs">Remember session (30 days)</span>
+                    <span className="text-body-color text-xs">Remember session</span>
                   </label>
+
+                  <Link
+                    href="/forgot-password"
+                    className="text-primary hover:underline text-xs font-semibold"
+                  >
+                    Forgot Password?
+                  </Link>
                 </div>
 
                 <div className="pt-2">
                   <button
                     type="submit"
-                    disabled={loading}
+                    disabled={loading || redirecting}
                     className="w-full py-3.5 px-6 rounded-2xl bg-primary hover:bg-primary/90 text-white font-bold text-sm shadow-md shadow-primary/25 transition flex items-center justify-center gap-2 disabled:opacity-70 cursor-pointer"
                   >
-                    {loading ? (
+                    {redirecting ? (
+                      <>
+                        <CheckCircle2 className="w-4 h-4 text-emerald-300 animate-pulse" />
+                        <span>Redirecting to your dashboard...</span>
+                      </>
+                    ) : loading ? (
                       <>
                         <RefreshCw className="w-4 h-4 animate-spin" />
-                        <span>Validating Credentials...</span>
+                        <span>Signing you in...</span>
                       </>
                     ) : (
                       <>
@@ -209,11 +254,17 @@ function SigninContent() {
                 </div>
               </form>
 
-              <div className="mt-6 pt-6 border-t border-stroke dark:border-strokedark text-center">
+              <div className="mt-6 pt-6 border-t border-stroke dark:border-strokedark text-center space-y-2">
                 <p className="text-body-color text-xs">
                   Don&apos;t have an account yet?{" "}
                   <Link href="/signup" className="text-primary font-bold hover:underline">
-                    Create Customer Account
+                    Create Account (Customer or Student)
+                  </Link>
+                </p>
+                <p className="text-body-color text-xs">
+                  Already registered?{" "}
+                  <Link href="/verify-email" className="text-primary font-semibold hover:underline">
+                    Verify Email or Phone Number
                   </Link>
                 </p>
                 <div className="mt-4 flex items-center justify-center gap-2 text-[11px] text-body-color">

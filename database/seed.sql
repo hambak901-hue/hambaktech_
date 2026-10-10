@@ -12,6 +12,8 @@ SET FOREIGN_KEY_CHECKS = 0;
 INSERT INTO `roles` (`id`, `name`, `slug`, `description`, `is_system`, `created_at`, `updated_at`) VALUES
 ('role-super-admin', 'Super Administrator', 'super_admin', 'Full platform access, operational governance, and financial configuration', 1, NOW(), NOW()),
 ('role-admin', 'Platform Administrator', 'admin', 'Operations, staff supervision, order fulfillment, and user administration', 1, NOW(), NOW()),
+('role-support-admin', 'Support Administrator', 'support_admin', 'Customer support, order status inspection, inquiry management, and academy review', 1, NOW(), NOW()),
+('role-manager', 'Operations Manager', 'manager', 'Operational workflows, supervisor review, ticket escalation, and inventory', 1, NOW(), NOW()),
 ('role-staff', 'Operational Staff', 'staff', 'Order processing, student management, counter services, and ticket replies', 1, NOW(), NOW()),
 ('role-agent', 'Business Agent / Reseller', 'agent', 'Wholesale pricing, VTU bulk resale, CAC desk partner, and regional liaison', 1, NOW(), NOW()),
 ('role-customer', 'Retail Customer', 'customer', 'Standard retail services, personal wallet, order placement, and tracking', 1, NOW(), NOW()),
@@ -73,6 +75,24 @@ INSERT INTO `role_permissions` (`id`, `role_id`, `permission_id`, `created_at`) 
 ('rp-stf-order-update', 'role-staff', 'p-order-update', NOW()),
 ('rp-stf-support-manage', 'role-staff', 'p-support-manage', NOW()),
 ('rp-stf-identity-ops', 'role-staff', 'p-identity-ops', NOW()),
+
+-- Support Admin: Customer Support & Desk Supervision (Never adjustments/settings/promotions)
+('rp-supadm-user-read', 'role-support-admin', 'p-user-read', NOW()),
+('rp-supadm-order-create', 'role-support-admin', 'p-order-create', NOW()),
+('rp-supadm-order-update', 'role-support-admin', 'p-order-update', NOW()),
+('rp-supadm-support-manage', 'role-support-admin', 'p-support-manage', NOW()),
+('rp-supadm-services-manage', 'role-support-admin', 'p-services-manage', NOW()),
+('rp-supadm-academy-manage', 'role-support-admin', 'p-academy-manage', NOW()),
+('rp-supadm-identity-ops', 'role-support-admin', 'p-identity-ops', NOW()),
+
+-- Manager: Operations Supervision
+('rp-mgr-user-read', 'role-manager', 'p-user-read', NOW()),
+('rp-mgr-order-create', 'role-manager', 'p-order-create', NOW()),
+('rp-mgr-order-update', 'role-manager', 'p-order-update', NOW()),
+('rp-mgr-support-manage', 'role-manager', 'p-support-manage', NOW()),
+('rp-mgr-services-manage', 'role-manager', 'p-services-manage', NOW()),
+('rp-mgr-academy-manage', 'role-manager', 'p-academy-manage', NOW()),
+('rp-mgr-identity-ops', 'role-manager', 'p-identity-ops', NOW()),
 
 -- Customer: Consumer Level Authority
 ('rp-cst-order-create', 'role-customer', 'p-order-create', NOW()),
@@ -149,5 +169,35 @@ INSERT INTO `system_settings` (`key`, `value`, `description`) VALUES
 ('otp_expiry_minutes', '15', 'Time window for password reset OTP'),
 ('rate_limit_per_minute', '60', 'Standard API rate limit per client IP')
 ON DUPLICATE KEY UPDATE `value`=VALUES(`value`);
+
+-- ---------------------------------------------------------------------
+-- 9. Baseline System Accounts (Super Admin & Support Admin)
+-- ---------------------------------------------------------------------
+-- Super Admin (Root Authority)
+INSERT INTO `users` (`id`, `email`, `phone`, `password_hash`, `status`, `customer_tier`, `email_verified_at`, `role_id`, `created_at`, `updated_at`) VALUES
+('usr-super-admin-root', 'hambak901@gmail.com', '+2348000000000', 'pbkdf2$100000$4f4f9944ad0c319a2548341173faae8d$1aa6a7c184bc4e2155d23dbf7144ec0b4208d5968e9493ff7832dce9868339de2e7b73f22bf89eb7a376e3d50e00ee995dd1ac65d3bbadcee3b12e6bbaa12adc', 'ACTIVE', 'CORPORATE', NOW(), 'role-super-admin', NOW(), NOW())
+ON DUPLICATE KEY UPDATE `status`='ACTIVE', `role_id`='role-super-admin';
+
+INSERT INTO `user_profiles` (`id`, `user_id`, `first_name`, `last_name`, `kyc_tier`, `kyc_status`, `created_at`, `updated_at`) VALUES
+('prof-super-admin-root', 'usr-super-admin-root', 'Hambak', 'SuperAdmin', 'TIER_3', 'VERIFIED', NOW(), NOW())
+ON DUPLICATE KEY UPDATE `first_name`='Hambak', `last_name`='SuperAdmin';
+
+-- Permanent Root Super Admin
+INSERT INTO `users` (`id`, `email`, `phone`, `password_hash`, `status`, `customer_tier`, `email_verified_at`, `role_id`, `created_at`, `updated_at`) VALUES
+('usr-super-admin-01', 'admin@hambaktech.com.ng', '+2348000000002', 'pbkdf2$100000$66d14786f83f264742cd09f8545b1e67$cc00489f3ba99943f0d4909cfb5834cb360e4e780da39b3b8349ffefc5cdf8a21ad1536c6ef141c3cccee9bf52ecafae2f38858e5bd2a2e0d24e33aeb91292bb', 'ACTIVE', 'CORPORATE', NOW(), 'role-super-admin', NOW(), NOW())
+ON DUPLICATE KEY UPDATE `status`='ACTIVE', `role_id`='role-super-admin';
+
+INSERT INTO `user_profiles` (`id`, `user_id`, `first_name`, `last_name`, `kyc_tier`, `kyc_status`, `created_at`, `updated_at`) VALUES
+('prof-super-admin-01', 'usr-super-admin-01', 'Permanent Root', 'SuperAdmin', 'TIER_3', 'VERIFIED', NOW(), NOW())
+ON DUPLICATE KEY UPDATE `first_name`='Permanent Root', `last_name`='SuperAdmin';
+
+-- Support Admin (Dedicated Customer Desk & Inquiry Management)
+INSERT INTO `users` (`id`, `email`, `phone`, `password_hash`, `status`, `customer_tier`, `email_verified_at`, `role_id`, `created_at`, `updated_at`) VALUES
+('usr-support-admin-01', 'support@hambaktech.com.ng', '+2348000000008', 'pbkdf2$100000$66d14786f83f264742cd09f8545b1e67$cc00489f3ba99943f0d4909cfb5834cb360e4e780da39b3b8349ffefc5cdf8a21ad1536c6ef141c3cccee9bf52ecafae2f38858e5bd2a2e0d24e33aeb91292bb', 'ACTIVE', 'CORPORATE', NOW(), 'role-support-admin', NOW(), NOW())
+ON DUPLICATE KEY UPDATE `status`='ACTIVE', `role_id`='role-support-admin';
+
+INSERT INTO `user_profiles` (`id`, `user_id`, `first_name`, `last_name`, `kyc_tier`, `kyc_status`, `created_at`, `updated_at`) VALUES
+('prof-support-admin-01', 'usr-support-admin-01', 'Support', 'Admin', 'TIER_3', 'VERIFIED', NOW(), NOW())
+ON DUPLICATE KEY UPDATE `first_name`='Support', `last_name`='Admin';
 
 SET FOREIGN_KEY_CHECKS = 1;

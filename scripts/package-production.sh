@@ -48,8 +48,55 @@ mkdir -p "$STAGING_DIR/docs"
 echo "  -> Copying static frontend assets to public_html/..."
 cp -R "$ROOT_DIR/out/"* "$STAGING_DIR/public_html/"
 cp "$ROOT_DIR/.htaccess" "$STAGING_DIR/public_html/.htaccess"
-cp "$ROOT_DIR/api/index.php" "$STAGING_DIR/public_html/api/index.php"
+cp -R "$ROOT_DIR/api/"* "$STAGING_DIR/public_html/api/"
 cp "$ROOT_DIR/logo.png" "$STAGING_DIR/public_html/logo.png"
+
+echo "  -> Generating DirectoryIndex index.html mirrors for static subdirectories..."
+python3 -c "
+import os, shutil
+pub = '$STAGING_DIR/public_html'
+for root, dirs, files in os.walk(pub):
+    for d in dirs:
+        dir_path = os.path.join(root, d)
+        html_file = dir_path + '.html'
+        index_file = os.path.join(dir_path, 'index.html')
+        if os.path.exists(html_file):
+            shutil.copy2(html_file, index_file)
+            print(f'     ✓ Created index.html mirror for {os.path.relpath(dir_path, pub)}')
+# Guarantee login directory has signin page mirror
+login_dir = os.path.join(pub, 'login')
+signin_html = os.path.join(pub, 'signin.html')
+if os.path.exists(login_dir) and os.path.exists(signin_html):
+    shutil.copy2(signin_html, os.path.join(login_dir, 'index.html'))
+    print('     ✓ Mirrored signin.html to login/index.html')
+"
+
+echo "  -> Packaging instant cPanel extraction utility..."
+cat << 'EOF' > "$STAGING_DIR/public_html/extract-production.php"
+<?php
+declare(strict_types=1);
+header('Content-Type: application/json; charset=utf-8');
+$token = $_GET['token'] ?? '';
+if ($token !== 'hambaktech2026deploy') {
+    echo json_encode(['status' => 'READY', 'message' => 'HambakTech Deployment Unpacker is armed.']);
+    exit;
+}
+$zipPath = __DIR__ . '/hambaktech-production-cpanel.zip';
+if (!file_exists($zipPath)) {
+    http_response_code(404);
+    echo json_encode(['status' => 'ERROR', 'message' => 'Archive not found.']);
+    exit;
+}
+$zip = new ZipArchive();
+if ($zip->open($zipPath) === true) {
+    $zip->extractTo(__DIR__);
+    $zip->close();
+    echo json_encode(['status' => 'SUCCESS', 'message' => 'Extraction complete.']);
+} else {
+    http_response_code(500);
+    echo json_encode(['status' => 'ERROR', 'message' => 'Extraction failed.']);
+}
+EOF
 
 echo "  -> Copying PHP backend runtime engine..."
 cp "$ROOT_DIR/php-backend/autoload.php" "$STAGING_DIR/php-backend/autoload.php"
@@ -85,6 +132,7 @@ cp -R "$STAGING_DIR/php-backend" "$DIST_DIR/cpanel_deploy/"
 cp -R "$STAGING_DIR/storage" "$DIST_DIR/cpanel_deploy/"
 cp -R "$STAGING_DIR/database" "$DIST_DIR/cpanel_deploy/"
 cp -R "$STAGING_DIR/config" "$DIST_DIR/cpanel_deploy/"
+cp "$ROOT_DIR/config/production.env.template" "$DIST_DIR/cpanel_deploy/.env"
 
 python3 -c "
 import zipfile, os, sys

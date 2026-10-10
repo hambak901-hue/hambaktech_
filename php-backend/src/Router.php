@@ -78,6 +78,18 @@ class Router
             $normalizedPath = substr($normalizedPath, strlen('/api/index.php'));
         } elseif (str_starts_with($normalizedPath, '/index.php')) {
             $normalizedPath = substr($normalizedPath, strlen('/index.php'));
+        } elseif (str_starts_with($normalizedPath, '/api/app.php')) {
+            $normalizedPath = substr($normalizedPath, strlen('/api/app.php'));
+        } elseif (str_starts_with($normalizedPath, '/app.php')) {
+            $normalizedPath = substr($normalizedPath, strlen('/app.php'));
+        } elseif (str_starts_with($normalizedPath, '/api/live.php')) {
+            $normalizedPath = substr($normalizedPath, strlen('/api/live.php'));
+        } elseif (str_starts_with($normalizedPath, '/live.php')) {
+            $normalizedPath = substr($normalizedPath, strlen('/live.php'));
+        } elseif (str_starts_with($normalizedPath, '/api/live_v4.php')) {
+            $normalizedPath = substr($normalizedPath, strlen('/api/live_v4.php'));
+        } elseif (str_starts_with($normalizedPath, '/live_v4.php')) {
+            $normalizedPath = substr($normalizedPath, strlen('/live_v4.php'));
         }
 
         if ($normalizedPath === '') {
@@ -87,6 +99,15 @@ class Router
         // Canonical normalization: allow both /api/v1/* and /api/* to route identically
         if (str_starts_with($normalizedPath, '/api/v1/')) {
             $normalizedPath = '/api/' . substr($normalizedPath, strlen('/api/v1/'));
+        }
+
+        // Ensure canonical /api/ prefix so all registered routes match consistently
+        if (!str_starts_with($normalizedPath, '/api/')) {
+            if ($normalizedPath === '/' || $normalizedPath === '') {
+                $normalizedPath = '/api';
+            } else {
+                $normalizedPath = '/api/' . ltrim($normalizedPath, '/');
+            }
         }
 
         foreach ($this->routes as $route) {
@@ -118,7 +139,12 @@ class Router
             }
         }
 
-        Response::notFound("Endpoint not found for [{$method}] {$normalizedPath}");
+        Response::notFound("Endpoint not found for [{$method}] {$normalizedPath}", [
+            'total_routes' => count($this->routes),
+            'first_5' => array_slice(array_column($this->routes, 'path'), 0, 5),
+            'last_5' => array_slice(array_column($this->routes, 'path'), -5),
+            'has_rbac' => in_array('/api/system/rbac-audit-and-fix', array_column($this->routes, 'path')),
+        ]);
     }
 
     private function handleCors(): void

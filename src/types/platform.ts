@@ -12,12 +12,14 @@ export const PLATFORM_VERSION = "1.0.0";
 export type RoleSlug =
   | "customer"
   | "admin"
+  | "support_admin"
+  | "manager"
   | "agent"
   | "super_admin"
   | "instructor"
   | "staff"
-  | "manager"
   | "developer"
+  | "corporate"
   | "student";
 
 export type UserStatus = "ACTIVE" | "INACTIVE" | "SUSPENDED" | "PENDING_VERIFICATION";
@@ -338,6 +340,7 @@ export interface CourseRecord {
   id: string;
   categoryId?: string;
   categoryName?: string;
+  category?: string;
   instructorId?: string;
   instructorName?: string;
   instructorTitle?: string;
@@ -365,6 +368,7 @@ export interface CourseRecord {
 export interface AcademyEnrollment {
   id: string;
   enrollmentNumber?: string;
+  studentRegNumber?: string;
   userId: string;
   courseId: string;
   courseTitle: string;
@@ -373,18 +377,22 @@ export interface AcademyEnrollment {
   studentEmail: string;
   studentPhone?: string;
   cohort: string;
+  schedulePreference?: string;
+  studyMode?: string;
+  paymentStatus?: string;
   progressPercent: number;
-  status: "ENROLLED" | "IN_PROGRESS" | "COMPLETED" | "DROPPED" | "SUSPENDED";
-  completedModules: number[];
+  status: "ENROLLED" | "IN_PROGRESS" | "COMPLETED" | "DROPPED" | "SUSPENDED" | string;
+  completedModules?: number[];
   completedLessons?: string[];
-  certificateIssued: boolean;
+  certificateIssued?: boolean;
   certificateNumber?: string;
   certificateHash?: string;
   certificateDate?: string;
   hasIdCard?: boolean;
   idCardNumber?: string;
-  enrolledAt: string;
+  enrolledAt?: string;
   completedAt?: string;
+  createdAt?: string;
 }
 
 export interface CertificateRecord {
@@ -394,10 +402,12 @@ export interface CertificateRecord {
   enrollmentId: string;
   courseId?: string;
   studentName: string;
+  recipientName?: string;
   courseTitle: string;
   courseCode?: string;
   grade?: string;
   issuedAt: string;
+  issueDate?: string;
   issuedByName?: string;
   isRevoked: boolean;
   revokedReason?: string;
@@ -406,20 +416,27 @@ export interface CertificateRecord {
 
 export interface StudentIdCardRecord {
   id: string;
-  cardNumber: string; // HT-ID-YYYY-XXXX
+  cardNumber?: string; // HT-ID-YYYY-XXXX
+  idCardNumber?: string;
   enrollmentId: string;
   courseId?: string;
-  studentId: string;
+  courseTitle?: string;
+  studentId?: string;
   studentName: string;
-  studentEmail: string;
-  courseTitle: string;
-  courseCode: string;
-  cohort: string;
-  issueDate: string;
-  expiryDate: string;
+  studentEmail?: string;
+  studentPhone?: string;
+  cohort?: string;
+  isActive?: boolean;
+  isRevoked?: boolean;
+  issuedAt?: string;
   validUntil?: string;
-  qrCodeData: string;
-  status: "ACTIVE" | "EXPIRED" | "SUSPENDED";
+  qrCodeUrl?: string;
+  avatarUrl?: string;
+  courseCode?: string;
+  issueDate?: string;
+  expiryDate?: string;
+  qrCodeData?: string;
+  status?: "ACTIVE" | "EXPIRED" | "SUSPENDED" | string;
   bloodGroup?: string;
   emergencyContact?: string;
 }

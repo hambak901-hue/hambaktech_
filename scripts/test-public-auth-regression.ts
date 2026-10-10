@@ -233,7 +233,7 @@ async function runRegressionSuite() {
   let adminLogin: any = null;
   try {
     adminLogin = await login({
-      credential: "admin@hambaktech.com.ng",
+      credential: "operations-admin@hambaktech.com.ng",
       password: "Admin@123456",
       rememberMe: false,
     });

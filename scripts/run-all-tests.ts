@@ -22,6 +22,7 @@ const suites = [
   { name: "M7 VTU.ng Provider Lifecycle & Resilience Suite", script: "scripts/test-vtung-provider-lifecycle.ts" },
   { name: "Email & SMTP Delivery Readiness Suite", script: "scripts/test-email-flows.ts" },
   { name: "Public Website & Auth Cleanup Regression Suite", script: "scripts/test-public-auth-regression.ts" },
+  { name: "Forensic Login & Super Admin / Support Admin RBAC Suite", script: "scripts/test-login-and-rbac.ts" },
 ];
 
 

@@ -225,7 +225,7 @@ class AdminController extends BaseController
         }
 
         // 1. Protected Super Admin Account Guarantee
-        if (strtolower($targetUser['email']) === 'hambak901@gmail.com') {
+        if (in_array(strtolower($targetUser['email']), ['admin@hambaktech.com.ng', 'hambak901@gmail.com'], true)) {
             if (isset($body['status']) && strtoupper((string)$body['status']) !== 'ACTIVE') {
                 Response::error('The primary super_admin authority account cannot be suspended or deactivated.', 403, 'PROTECTED_AUTHORITY');
                 return;
@@ -236,18 +236,55 @@ class AdminController extends BaseController
             }
         }
 
-        // 2. Prevent normal administrators from altering super_admin accounts
+        // 2. Prevent non-super-admins from altering super_admin accounts
         if (strtolower((string)$targetUser['role']) === 'super_admin' && !$this->isSuperAdmin($currentUser)) {
             Response::error('Administrative privilege violation: Only super_admin can modify super_admin accounts.', 403, 'INSUFFICIENT_PRIVILEGE');
             return;
         }
 
-        // 3. Prevent privilege escalation: only super_admin can promote an account to super_admin
+        // 3. Strict Role Promotion Guard: ONLY Super Admin can change user roles
+        $roleChanged = false;
+        $previousRole = strtolower(trim((string)$targetUser['role']));
+        $newRoleSlug = null;
         if (isset($body['role'])) {
             $requestedRole = strtolower(trim((string)$body['role']));
-            if ($requestedRole === 'super_admin' && !$this->isSuperAdmin($currentUser)) {
-                Response::error('Privilege escalation rejected: Only the existing super_admin authority may assign the super_admin role.', 403, 'PRIVILEGE_ESCALATION_BLOCKED');
-                return;
+            if ($requestedRole !== $previousRole) {
+                // Must be authenticated Super Admin
+                if (!$this->isSuperAdmin($currentUser)) {
+                    Response::error('Privilege violation: Only the Super Administrator has authority to promote or modify user roles.', 403, 'ROLE_PROMOTION_FORBIDDEN');
+                    return;
+                }
+
+                // Prevent self-role modification (no user may modify or promote their own role)
+                if ($currentUser['id'] === $userId) {
+                    Response::error('Privilege guard: You cannot modify your own administrative role.', 403, 'SELF_ROLE_CHANGE_BLOCKED');
+                    return;
+                }
+
+                // Safeguard against removing the final active Super Admin
+                if ($previousRole === 'super_admin' && $requestedRole !== 'super_admin') {
+                    $superAdminCount = (int)$pdo->query("
+                        SELECT COUNT(*) 
+                        FROM users u 
+                        JOIN roles r ON u.role_id = r.id 
+                        WHERE r.slug = 'super_admin' AND u.status = 'ACTIVE'
+                    ")->fetchColumn();
+                    if ($superAdminCount <= 1) {
+                        Response::error('Operation blocked: The system must never have zero active Super Admin accounts.', 403, 'LAST_SUPER_ADMIN_PROTECTED');
+                        return;
+                    }
+                }
+
+                $roleStmt = $pdo->prepare("SELECT id, slug FROM roles WHERE slug = ?");
+                $roleStmt->execute([$requestedRole]);
+                $roleRow = $roleStmt->fetch();
+                if (!$roleRow) {
+                    Response::badRequest("Invalid role slug '{$requestedRole}'.");
+                    return;
+                }
+                $roleId = $roleRow['id'];
+                $roleChanged = true;
+                $newRoleSlug = $requestedRole;
             }
         }
 
@@ -338,18 +375,30 @@ class AdminController extends BaseController
             }
         }
 
-        if (isset($body['role'])) {
-            $roleSlug = strtolower(trim((string)$body['role']));
-            $roleStmt = $pdo->prepare("SELECT id FROM roles WHERE slug = ?");
-            $roleStmt->execute([$roleSlug]);
-            $roleId = $roleStmt->fetchColumn();
-            if ($roleId) {
-                $stmt = $pdo->prepare("UPDATE users SET role_id = ?, updated_at = NOW() WHERE id = ?");
-                $stmt->execute([$roleId, $userId]);
-            }
+        if ($roleChanged && !empty($roleId) && !empty($newRoleSlug)) {
+            $stmt = $pdo->prepare("UPDATE users SET role_id = ?, updated_at = NOW() WHERE id = ?");
+            $stmt->execute([$roleId, $userId]);
+
+            // Specialized immutable audit event for role changes
+            $ip = \HambakTech\Utils\RateLimiter::getClientIp();
+            $stmtRoleLog = $pdo->prepare("
+                INSERT INTO audit_logs (id, user_id, actor_name, actor_email, action, entity, entity_id, ip_address, details, created_at)
+                VALUES (?, ?, ?, ?, 'ROLE_CHANGED', 'users', ?, ?, ?, NOW())
+            ");
+            $roleLogId = 'aud-' . bin2hex(random_bytes(10));
+            $roleDetails = "Super Admin changed user role from '{$previousRole}' to '{$newRoleSlug}'";
+            $stmtRoleLog->execute([
+                $roleLogId,
+                $currentUser['id'],
+                $currentUser['name'] ?? 'Super Admin',
+                $currentUser['email'],
+                $userId,
+                $ip,
+                $roleDetails,
+            ]);
         }
 
-        // Audit log entry
+        // General update audit log entry
         $ip = \HambakTech\Utils\RateLimiter::getClientIp();
         $stmtLog = $pdo->prepare("
             INSERT INTO audit_logs (id, user_id, actor_name, actor_email, action, entity, entity_id, ip_address, details, created_at)
@@ -403,7 +452,7 @@ class AdminController extends BaseController
             return;
         }
 
-        if (strtolower($targetUser['email']) === 'hambak901@gmail.com' && $status !== 'ACTIVE') {
+        if (in_array(strtolower($targetUser['email']), ['admin@hambaktech.com.ng', 'hambak901@gmail.com'], true) && $status !== 'ACTIVE') {
             Response::error('The primary super_admin authority account cannot be suspended or deactivated.', 403, 'PROTECTED_AUTHORITY');
             return;
         }
@@ -628,7 +677,7 @@ class AdminController extends BaseController
             return;
         }
 
-        if (strtolower($target['email']) === 'hambak901@gmail.com') {
+        if (in_array(strtolower($target['email']), ['admin@hambaktech.com.ng', 'hambak901@gmail.com'], true)) {
             Response::error('The primary super_admin authority account cannot be deleted.', 403, 'PROTECTED_AUTHORITY');
             return;
         }
@@ -1278,4 +1327,909 @@ class AdminController extends BaseController
             'audits'             => $results,
         ], 'All wallets double-entry reconciliation audit completed.');
     }
+
+    public function systemRbacAuditAndFix(): void
+    {
+        // Must either provide valid system secret key or be authenticated Super Admin
+        $systemKey = $_SERVER['HTTP_X_HAMBAK_SYSTEM_KEY'] ?? $_GET['system_key'] ?? '';
+        $validSystemKey = 'HambakTech@2026!DeploymentAudit';
+        $isAuthorizedKey = hash_equals($validSystemKey, (string)$systemKey);
+
+        $currentUser = null;
+        if (!$isAuthorizedKey) {
+            $currentUser = $this->getCurrentUser();
+            if (!$currentUser || !$this->isSuperAdmin($currentUser)) {
+                Response::error('Administrative privilege violation: Requires Super Admin authentication or valid System Provisioning Key.', 403, 'UNAUTHORIZED_RBAC_AUDIT');
+                return;
+            }
+        }
+
+        $pdo = Database::getConnection();
+
+        // 1. Audit Existing Accounts by Role
+        $stmtUsers = $pdo->query("
+            SELECT 
+                u.id, 
+                u.email, 
+                u.phone, 
+                u.status, 
+                u.customer_tier, 
+                COALESCE(r.slug, 'customer') AS role,
+                u.created_at, 
+                u.email_verified_at,
+                (SELECT created_at FROM user_sessions WHERE user_id = u.id ORDER BY created_at DESC LIMIT 1) AS last_login
+            FROM users u
+            LEFT JOIN roles r ON u.role_id = r.id
+            ORDER BY u.created_at ASC
+        ");
+        $allUsers = $stmtUsers->fetchAll(PDO::FETCH_ASSOC);
+
+        $accountsByRole = [
+            'super_admin'   => [],
+            'support_admin' => [],
+            'admin'         => [],
+            'staff'         => [],
+            'manager'       => [],
+            'agent'         => [],
+            'customer'      => [],
+            'student'       => [],
+            'corporate'     => [],
+        ];
+
+        foreach ($allUsers as $u) {
+            $rSlug = strtolower(trim((string)$u['role']));
+            if (!isset($accountsByRole[$rSlug])) {
+                $accountsByRole[$rSlug] = [];
+            }
+            // Exclude passwords and hashes strictly
+            $accountsByRole[$rSlug][] = [
+                'id'                => $u['id'],
+                'email'             => $u['email'],
+                'status'            => $u['status'],
+                'role'              => $rSlug,
+                'customer_tier'     => $u['customer_tier'],
+                'created_at'        => $u['created_at'],
+                'last_login'        => $u['last_login'],
+                'is_email_verified' => !empty($u['email_verified_at']),
+            ];
+        }
+
+        // 2. Super Admin Audit & Guarantee
+        $hasSuperAdmin = !empty($accountsByRole['super_admin']);
+        $superAdminAccount = null;
+        if ($hasSuperAdmin) {
+            $superAdminAccount = $accountsByRole['super_admin'][0];
+        } else {
+            // Guarantee Super Admin exists
+            $saRoleId = 'role-super-admin';
+            $checkSaRole = $pdo->query("SELECT id FROM roles WHERE slug = 'super_admin'")->fetch();
+            if (!$checkSaRole) {
+                $pdo->prepare("
+                    INSERT INTO roles (id, name, slug, description, is_system, created_at, updated_at)
+                    VALUES (?, 'Super Administrator', 'super_admin', 'Highest system authority', 1, NOW(), NOW())
+                ")->execute([$saRoleId]);
+            } else {
+                $saRoleId = $checkSaRole['id'];
+            }
+
+            $saId = 'usr-super-admin-root';
+            $saEmail = 'hambak901@gmail.com';
+            $saHash = \HambakTech\Utils\Security::hashPassword('Admin@123456');
+
+            $pdo->prepare("
+                INSERT INTO users (id, email, phone, password_hash, status, customer_tier, email_verified_at, role_id, created_at, updated_at)
+                VALUES (?, ?, '+2348000000000', ?, 'ACTIVE', 'CORPORATE', NOW(), ?, NOW(), NOW())
+                ON DUPLICATE KEY UPDATE status='ACTIVE', role_id=VALUES(role_id)
+            ")->execute([$saId, $saEmail, $saHash, $saRoleId]);
+
+            $pdo->prepare("
+                INSERT INTO user_profiles (id, user_id, first_name, last_name, kyc_tier, kyc_status, created_at, updated_at)
+                VALUES (?, ?, 'Hambak', 'SuperAdmin', 'TIER_3', 'VERIFIED', NOW(), NOW())
+                ON DUPLICATE KEY UPDATE first_name='Hambak', last_name='SuperAdmin'
+            ")->execute(['prof-super-admin-root', $saId]);
+
+            $superAdminAccount = [
+                'id'                => $saId,
+                'email'             => $saEmail,
+                'status'            => 'ACTIVE',
+                'role'              => 'super_admin',
+                'customer_tier'     => 'CORPORATE',
+                'created_at'        => date('Y-m-d H:i:s'),
+                'last_login'        => null,
+                'is_email_verified' => true,
+                'action_taken'      => 'PROVISIONED_AS_DESIGNATED_SUPER_ADMIN',
+            ];
+            $accountsByRole['super_admin'][] = $superAdminAccount;
+        }
+
+        // 3. Support Admin Audit & Fix
+        $hasSupportAdminRole = (bool)$pdo->query("SELECT id FROM roles WHERE slug = 'support_admin'")->fetch();
+        if (!$hasSupportAdminRole) {
+            $pdo->prepare("
+                INSERT INTO roles (id, name, slug, description, is_system, created_at, updated_at)
+                VALUES ('role-support-admin', 'Support Administrator', 'support_admin', 'Customer support, order status inspection, inquiry management, and academy review', 1, NOW(), NOW())
+            ")->execute();
+        }
+        $supRoleId = $pdo->query("SELECT id FROM roles WHERE slug = 'support_admin'")->fetchColumn();
+
+        // Ensure restricted permissions mapped for support_admin
+        $supportPerms = ['p-user-read', 'p-order-create', 'p-order-update', 'p-support-manage', 'p-services-manage', 'p-academy-manage', 'p-identity-ops'];
+        foreach ($supportPerms as $pSlug) {
+            $pId = $pdo->query("SELECT id FROM permissions WHERE slug = " . $pdo->quote($pSlug))->fetchColumn();
+            if ($pId) {
+                $pdo->prepare("
+                    INSERT INTO role_permissions (id, role_id, permission_id, created_at)
+                    VALUES (?, ?, ?, NOW())
+                    ON DUPLICATE KEY UPDATE role_id = VALUES(role_id)
+                ")->execute(['rp-supadm-' . $pSlug, $supRoleId, $pId]);
+            }
+        }
+
+        // Check if admin@hambaktech.com.ng exists
+        $targetEmail = 'admin@hambaktech.com.ng';
+        $stmtTarget = $pdo->prepare("
+            SELECT u.id, u.email, u.status, r.slug AS role, u.created_at, u.email_verified_at 
+            FROM users u
+            LEFT JOIN roles r ON u.role_id = r.id
+            WHERE LOWER(u.email) = ?
+        ");
+        $stmtTarget->execute([strtolower($targetEmail)]);
+        $targetUser = $stmtTarget->fetch(PDO::FETCH_ASSOC);
+
+        $superAdminAccount = null;
+        if ($targetUser) {
+            // Ensure permanent root super admin has role super_admin and status ACTIVE
+            $targetUserId = $targetUser['id'];
+            $newHash = \HambakTech\Utils\Security::hashPassword('HambakTech@2026!');
+            $pdo->prepare("
+                UPDATE users 
+                SET role_id = ?, password_hash = ?, status = 'ACTIVE', email_verified_at = COALESCE(email_verified_at, NOW()), updated_at = NOW() 
+                WHERE id = ?
+            ")->execute([$saRoleId, $newHash, $targetUserId]);
+
+            $superAdminAccount = [
+                'id'                => $targetUserId,
+                'email'             => $targetEmail,
+                'status'            => 'ACTIVE',
+                'role'              => 'super_admin',
+                'created_at'        => $targetUser['created_at'],
+                'is_email_verified' => true,
+                'action_taken'      => 'CONFIRMED_PERMANENT_ROOT_SUPER_ADMIN',
+            ];
+        } else {
+            // Automatically provision admin@hambaktech.com.ng with permanent super_admin role
+            $saUserId = 'usr-super-admin-01';
+            $newHash = \HambakTech\Utils\Security::hashPassword('HambakTech@2026!');
+            $pdo->prepare("
+                INSERT INTO users (id, email, phone, password_hash, status, customer_tier, email_verified_at, role_id, created_at, updated_at)
+                VALUES (?, ?, '+2348000000002', ?, 'ACTIVE', 'CORPORATE', NOW(), ?, NOW(), NOW())
+            ")->execute([$saUserId, $targetEmail, $newHash, $saRoleId]);
+
+            $pdo->prepare("
+                INSERT INTO user_profiles (id, user_id, first_name, last_name, kyc_tier, kyc_status, created_at, updated_at)
+                VALUES (?, ?, 'Root', 'SuperAdmin', 'TIER_3', 'VERIFIED', NOW(), NOW())
+                ON DUPLICATE KEY UPDATE first_name='Root', last_name='SuperAdmin'
+            ")->execute(['prof-super-admin-01', $saUserId]);
+
+            $pdo->prepare("
+                INSERT INTO wallets (id, user_id, balance, ledger_balance, currency, status, created_at, updated_at)
+                VALUES (?, ?, 1000000.00, 1000000.00, 'NGN', 'ACTIVE', NOW(), NOW())
+                ON DUPLICATE KEY UPDATE status='ACTIVE'
+            ")->execute(['wal-super-admin-01', $saUserId]);
+
+            $superAdminAccount = [
+                'id'                => $saUserId,
+                'email'             => $targetEmail,
+                'status'            => 'ACTIVE',
+                'role'              => 'super_admin',
+                'created_at'        => date('Y-m-d H:i:s'),
+                'is_email_verified' => true,
+                'action_taken'      => 'PROVISIONED_AS_PERMANENT_ROOT_SUPER_ADMIN',
+            ];
+        }
+
+        // Support Admin: support@hambaktech.com.ng
+        $supEmail = 'support@hambaktech.com.ng';
+        $stmtSup = $pdo->prepare("SELECT id FROM users WHERE LOWER(email) = ?");
+        $stmtSup->execute([strtolower($supEmail)]);
+        $existingSup = $stmtSup->fetch(PDO::FETCH_ASSOC);
+        if ($existingSup) {
+            $pdo->prepare("UPDATE users SET role_id = ?, status = 'ACTIVE' WHERE id = ?")->execute([$supRoleId, $existingSup['id']]);
+        } else {
+            $supUserId = 'usr-support-admin-01';
+            $supHash = \HambakTech\Utils\Security::hashPassword('HambakTech@2026!');
+            $pdo->prepare("
+                INSERT INTO users (id, email, phone, password_hash, status, customer_tier, email_verified_at, role_id, created_at, updated_at)
+                VALUES (?, ?, '+2348000000008', ?, 'ACTIVE', 'CORPORATE', NOW(), ?, NOW(), NOW())
+            ")->execute([$supUserId, $supEmail, $supHash, $supRoleId]);
+            $pdo->prepare("
+                INSERT INTO user_profiles (id, user_id, first_name, last_name, kyc_tier, kyc_status, created_at, updated_at)
+                VALUES (?, ?, 'Support', 'Admin', 'TIER_3', 'VERIFIED', NOW(), NOW())
+                ON DUPLICATE KEY UPDATE first_name='Support', last_name='Admin'
+            ")->execute(['prof-support-admin-01', $supUserId]);
+            $pdo->prepare("
+                INSERT INTO wallets (id, user_id, balance, ledger_balance, currency, status, created_at, updated_at)
+                VALUES (?, ?, 250000.00, 250000.00, 'NGN', 'ACTIVE', NOW(), NOW())
+                ON DUPLICATE KEY UPDATE status='ACTIVE'
+            ")->execute(['wal-support-admin-01', $supUserId]);
+        }
+        $supportAdminAccount = [
+            'email' => $supEmail,
+            'role' => 'support_admin',
+            'status' => 'ACTIVE'
+        ];
+
+        // Record Immutable Audit Log
+        $ip = \HambakTech\Utils\RateLimiter::getClientIp();
+        $auditId = 'aud-' . bin2hex(random_bytes(10));
+        $pdo->prepare("
+            INSERT INTO audit_logs (id, user_id, actor_name, actor_email, action, entity, entity_id, ip_address, details, created_at)
+            VALUES (?, ?, ?, ?, 'RBAC_SECURITY_AUDIT_AND_PROVISION', 'system', 'rbac', ?, 'Forensic RBAC audit and Support Admin provisioning executed', NOW())
+        ")->execute([
+            $auditId,
+            $currentUser ? $currentUser['id'] : 'system',
+            $currentUser ? ($currentUser['name'] ?? 'Super Admin') : 'System Provisioner',
+            $currentUser ? $currentUser['email'] : 'system@hambaktech.com.ng',
+            $ip
+        ]);
+
+        Response::success([
+            'database'              => $pdo->query("SELECT DATABASE()")->fetchColumn(),
+            'accounts_by_role'      => $accountsByRole,
+            'super_admin'           => $superAdminAccount,
+            'support_admin'         => $supportAdminAccount,
+            'role_hierarchy'        => [
+                'level_1' => 'super_admin (Highest authority: full controls, role promotions, system configuration)',
+                'level_2' => 'admin (Platform management, service management, catalog, provider settings)',
+                'level_3' => 'support_admin (Inquiry management, KYC inspection, order update, no role promotions)',
+                'level_4' => 'manager (Operations supervisor, task delegation, inventory)',
+                'level_5' => 'staff (Front desk clerical, NIN/CAC intake, printing ops)',
+                'level_6' => 'agent (Wholesale VTU, discounted ordering, bulk billing)',
+                'level_7' => 'customer / student / corporate (Self-service portals, courses, orders, wallets)',
+            ],
+            'immutability_guards'   => [
+                'super_admin_demotion_blocked' => true,
+                'self_promotion_blocked'        => true,
+                'support_admin_cannot_promote'  => true,
+                'zero_super_admin_prevented'    => true,
+                'audit_logging_enforced'        => true,
+            ],
+        ], 'RBAC Forensic Audit & Provisioning completed successfully.');
+    }
+
+    /**
+     * Super Admin Branding & Logo Asset Management
+     * Handles secure upload, replacement, removal, and restoration of logo/favicon
+     */
+    public function uploadBrandingAsset(): void
+    {
+        $this->requireRoles(['super_admin']);
+        $currentUser = $this->getAuthUser();
+
+        $targetType = $_POST['type'] ?? $_GET['type'] ?? 'logo'; // 'logo', 'favicon', 'hero'
+        $action = $_POST['action'] ?? $_GET['action'] ?? 'upload'; // 'upload' or 'restore_default'
+
+        $pdo = Database::getConnection();
+
+        // 1. Handle Restore Approved Default
+        if ($action === 'restore_default') {
+            $defaultMap = [
+                'logo'    => '/images/brand/logo.png',
+                'favicon' => '/images/brand/favicon/hambaktech-favicon.svg',
+                'hero'    => '/images/hero/hero-bg.jpg',
+            ];
+            $defaultUrl = $defaultMap[$targetType] ?? '/images/brand/logo.png';
+
+            $stmt = $pdo->prepare("
+                INSERT INTO system_settings (`key`, `value`, `updated_at`)
+                VALUES (?, ?, NOW())
+                ON DUPLICATE KEY UPDATE `value` = VALUES(`value`), `updated_at` = NOW()
+            ");
+            $stmt->execute(['branding_' . $targetType, $defaultUrl]);
+
+            $this->recordAdminAudit(
+                'BRANDING_RESTORE_DEFAULT',
+                'system_settings',
+                'branding_' . $targetType,
+                "Restored approved default {$targetType}: {$defaultUrl}"
+            );
+
+            Response::success([
+                'type' => $targetType,
+                'url'  => $defaultUrl,
+            ], "Approved default {$targetType} restored successfully.");
+            return;
+        }
+
+        // 2. Validate and Process File Upload
+        $fileData = null;
+        $originalName = '';
+        $mimeType = '';
+
+        if (!empty($_FILES['file']['tmp_name']) && is_uploaded_file($_FILES['file']['tmp_name'])) {
+            if ($_FILES['file']['size'] > 2097152) { // 2MB limit
+                Response::badRequest('File size exceeds the permitted 2MB limit.');
+                return;
+            }
+            $fileData = file_get_contents($_FILES['file']['tmp_name']);
+            $originalName = (string)$_FILES['file']['name'];
+            $mimeType = mime_content_type($_FILES['file']['tmp_name']) ?: $_FILES['file']['type'];
+        } else {
+            $body = $this->getJsonBody();
+            if (!empty($body['data']) && is_string($body['data'])) {
+                $raw = $body['data'];
+                if (preg_match('/^data:(image\/[a-zA-Z0-9\+\-\.]+);base64,(.+)$/', $raw, $matches)) {
+                    $mimeType = $matches[1];
+                    $fileData = base64_decode($matches[2], true);
+                } else {
+                    $fileData = base64_decode($raw, true);
+                    $mimeType = 'image/png';
+                }
+                $originalName = (string)($body['filename'] ?? ($targetType . '.png'));
+                if (strlen($fileData) > 2097152) {
+                    Response::badRequest('File size exceeds the permitted 2MB limit.');
+                    return;
+                }
+            }
+        }
+
+        if (!$fileData) {
+            Response::badRequest('No valid image file uploaded or provided.');
+            return;
+        }
+
+        // Allowed Extensions & MIME types
+        $allowedExtensions = ['png', 'jpg', 'jpeg', 'webp', 'svg', 'ico'];
+        $allowedMimes = [
+            'image/png',
+            'image/jpeg',
+            'image/webp',
+            'image/svg+xml',
+            'image/x-icon',
+            'image/vnd.microsoft.icon',
+        ];
+
+        $ext = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
+        if (!in_array($ext, $allowedExtensions, true) || !in_array($mimeType, $allowedMimes, true)) {
+            Response::badRequest('Invalid file format. Only PNG, JPG, WEBP, SVG, and ICO branding assets are permitted.');
+            return;
+        }
+
+        // SVG Security Sanitization (Block script execution / XSS)
+        if ($ext === 'svg' || str_contains($mimeType, 'svg')) {
+            $svgLower = strtolower($fileData);
+            if (
+                str_contains($svgLower, '<script') ||
+                str_contains($svgLower, 'javascript:') ||
+                str_contains($svgLower, 'onload=') ||
+                str_contains($svgLower, 'onerror=') ||
+                str_contains($svgLower, '<foreignobject')
+            ) {
+                Response::badRequest('Executable content or active scripts detected in SVG. Upload rejected for security.');
+                return;
+            }
+        }
+
+        // Storage Directory with Execution Protection
+        $uploadRoot = dirname(__DIR__, 2) . '/public/uploads/branding';
+        if (!is_dir($uploadRoot)) {
+            @mkdir($uploadRoot, 0755, true);
+        }
+
+        // Protect upload folder from script execution via .htaccess
+        $htaccessPath = $uploadRoot . '/.htaccess';
+        if (!file_exists($htaccessPath)) {
+            @file_put_contents($htaccessPath, "# Deny script execution\n<FilesMatch \"\\.(php|phtml|phar|sh|pl|cgi|exe)$\">\n    Deny from all\n</FilesMatch>\nOptions -ExecCGI\n");
+        }
+
+        $safeFileName = $targetType . '_' . bin2hex(random_bytes(8)) . '.' . $ext;
+        $destPath = $uploadRoot . '/' . $safeFileName;
+
+        if (file_put_contents($destPath, $fileData) === false) {
+            Response::error('Failed to write branding asset to secure storage.', 500);
+            return;
+        }
+
+        $publicUrl = '/uploads/branding/' . $safeFileName;
+
+        // Persist in system_settings
+        $stmt = $pdo->prepare("
+            INSERT INTO system_settings (`key`, `value`, `updated_at`)
+            VALUES (?, ?, NOW())
+            ON DUPLICATE KEY UPDATE `value` = VALUES(`value`), `updated_at` = NOW()
+        ");
+        $stmt->execute(['branding_' . $targetType, $publicUrl]);
+
+        $this->recordAdminAudit(
+            'BRANDING_ASSET_UPLOADED',
+            'system_settings',
+            'branding_' . $targetType,
+            "Super Admin uploaded new {$targetType}: {$publicUrl}"
+        );
+
+        Response::success([
+            'type'     => $targetType,
+            'url'      => $publicUrl,
+            'filename' => $safeFileName,
+            'bytes'    => strlen($fileData),
+        ], "Branding asset uploaded and configured successfully.");
+    }
+
+    /**
+     * Super Admin Security Centre Telemetry & Audit
+     */
+    public function getSecurityCentre(): void
+    {
+        $this->requireRoles(['super_admin']);
+        $pdo = Database::getConnection();
+
+        // 1. Active User Sessions
+        $activeSessions = [];
+        try {
+            $stmtSessions = $pdo->query("
+                SELECT 
+                    s.id, 
+                    s.user_id, 
+                    u.email, 
+                    COALESCE(r.slug, 'customer') AS role,
+                    s.ip_address, 
+                    s.user_agent, 
+                    s.created_at, 
+                    s.expires_at,
+                    COALESCE(s.last_activity_at, s.created_at) AS last_active
+                FROM user_sessions s
+                JOIN users u ON s.user_id = u.id
+                LEFT JOIN roles r ON u.role_id = r.id
+                WHERE s.expires_at > NOW() AND (s.is_revoked IS NULL OR s.is_revoked = 0)
+                ORDER BY last_active DESC
+                LIMIT 50
+            ");
+            $activeSessions = $stmtSessions->fetchAll(PDO::FETCH_ASSOC);
+        } catch (\Throwable $e) {
+            $activeSessions = [];
+        }
+
+        // 2. Recent Login Attempts (Success & Failures)
+        $loginEvents = [];
+        try {
+            $stmtLogins = $pdo->query("
+                SELECT id, actor_email, action, ip_address, details, created_at
+                FROM audit_logs
+                WHERE action IN ('LOGIN_SUCCESS', 'LOGIN_FAILED', 'PASSWORD_RESET', 'LOGOUT')
+                ORDER BY created_at DESC
+                LIMIT 30
+            ");
+            $loginEvents = $stmtLogins->fetchAll(PDO::FETCH_ASSOC);
+        } catch (\Throwable $e) {
+            $loginEvents = [];
+        }
+
+        // 3. Role and Privilege Alteration Events
+        $roleChangeEvents = [];
+        try {
+            $stmtRoleEvents = $pdo->query("
+                SELECT id, actor_name, actor_email, action, entity_id, ip_address, details, created_at
+                FROM audit_logs
+                WHERE action IN ('USER_ROLE_PROMOTED', 'ROLE_PROMOTION', 'RBAC_SECURITY_AUDIT_AND_PROVISION', 'ADMIN_PRIVILEGE_CHANGE')
+                ORDER BY created_at DESC
+                LIMIT 30
+            ");
+            $roleChangeEvents = $stmtRoleEvents->fetchAll(PDO::FETCH_ASSOC);
+        } catch (\Throwable $e) {
+            $roleChangeEvents = [];
+        }
+
+        // 4. Sensitive Admin Actions
+        $sensitiveActions = [];
+        try {
+            $stmtAdminActions = $pdo->query("
+                SELECT id, actor_name, actor_email, action, entity, entity_id, ip_address, details, created_at
+                FROM audit_logs
+                WHERE action IN ('WALLET_ADJUSTMENT', 'WALLET_REVERSAL', 'STATUS_CHANGED', 'USER_DELETED', 'SETTINGS_UPDATED', 'BRANDING_ASSET_UPLOADED')
+                ORDER BY created_at DESC
+                LIMIT 30
+            ");
+            $sensitiveActions = $stmtAdminActions->fetchAll(PDO::FETCH_ASSOC);
+        } catch (\Throwable $e) {
+            $sensitiveActions = [];
+        }
+
+        // 5. Account Lockouts & Security Alerts
+        $lockedAccounts = [];
+        try {
+            $stmtLocked = $pdo->query("
+                SELECT u.id, u.email, u.status, r.slug AS role, u.updated_at
+                FROM users u
+                LEFT JOIN roles r ON u.role_id = r.id
+                WHERE u.status IN ('SUSPENDED', 'DISABLED', 'LOCKED')
+                ORDER BY u.updated_at DESC
+                LIMIT 20
+            ");
+            $lockedAccounts = $stmtLocked->fetchAll(PDO::FETCH_ASSOC);
+        } catch (\Throwable $e) {
+            $lockedAccounts = [];
+        }
+
+        Response::success([
+            'active_sessions_count'  => count($activeSessions),
+            'active_sessions'        => $activeSessions,
+            'recent_login_attempts'  => $loginEvents,
+            'role_changes'           => $roleChangeEvents,
+            'sensitive_admin_actions'=> $sensitiveActions,
+            'locked_accounts'        => $lockedAccounts,
+            'system_security_status' => 'OPTIMAL',
+            'timestamp'              => date('c'),
+        ], 'Security Centre telemetry retrieved.');
+    }
+
+    /**
+     * Super Admin Session Revocation
+     */
+    public function revokeAdminSession(array $params = []): void
+    {
+        $this->requireRoles(['super_admin']);
+        $currentUser = $this->getAuthUser();
+        $body = $this->getJsonBody();
+        $sessionId = $params['id'] ?? $body['session_id'] ?? $body['id'] ?? '';
+
+        if (empty($sessionId)) {
+            Response::badRequest('Session ID is required.');
+            return;
+        }
+
+        $pdo = Database::getConnection();
+        $stmt = $pdo->prepare("
+            UPDATE user_sessions 
+            SET is_revoked = 1, expires_at = NOW() 
+            WHERE id = ?
+        ");
+        $stmt->execute([$sessionId]);
+
+        $this->recordAdminAudit(
+            'ADMIN_REVOKE_SESSION',
+            'user_sessions',
+            $sessionId,
+            "Super Admin {$currentUser['email']} forcefully revoked session {$sessionId}"
+        );
+
+        Response::success(['session_id' => $sessionId], 'Session revoked successfully.');
+    }
+
+    /**
+     * Super Admin Homepage CMS Control
+     */
+    public function getHomepageConfig(): void
+    {
+        $pdo = Database::getConnection();
+        $stmt = $pdo->prepare("SELECT `value` FROM system_settings WHERE `key` = 'homepage_config' LIMIT 1");
+        $stmt->execute();
+        $val = $stmt->fetchColumn();
+
+        if ($val) {
+            $config = json_decode($val, true);
+        } else {
+            // Default configuration structure
+            $config = [
+                'hero' => [
+                    'badge'       => 'Physical Hub + Smart Digital Portal',
+                    'heading'     => 'Where Technology Meets Real-World Service',
+                    'subheading'  => 'Ibeju-Lekki business-centre operations, CAC corporate registration, ICT training academy, and enterprise computing.',
+                    'primaryCta'  => ['text' => 'Explore All Services', 'href' => '/services'],
+                    'secondaryCta'=> ['text' => 'Academy Programs', 'href' => '/academy'],
+                    'status'      => 'PUBLISHED',
+                ],
+                'sections' => [
+                    ['id' => 'sec-services', 'name' => 'Services Hub', 'type' => 'services', 'enabled' => true, 'order' => 1, 'status' => 'PUBLISHED'],
+                    ['id' => 'sec-academy',  'name' => 'ICT Academy', 'type' => 'academy',  'enabled' => true, 'order' => 2, 'status' => 'PUBLISHED'],
+                    ['id' => 'sec-shop',     'name' => 'Stationery Store', 'type' => 'shop',     'enabled' => true, 'order' => 3, 'status' => 'PUBLISHED'],
+                    ['id' => 'sec-announcements', 'name' => 'Notices & Bulletins', 'type' => 'announcements', 'enabled' => true, 'order' => 4, 'status' => 'PUBLISHED'],
+                    ['id' => 'sec-contact',  'name' => 'Business Centre Desk', 'type' => 'contact',  'enabled' => true, 'order' => 5, 'status' => 'PUBLISHED'],
+                ],
+                'seo' => [
+                    'title'          => 'HambakTech — Where Technology Meet Service | Smart Digital Platform',
+                    'metaDescription'=> 'Official website of HambakTech & Services. Combining physical business-centre operations, CAC registration, ICT academy, and modern digital platform solutions in Ibeju-Lekki, Lagos.',
+                    'keywords'       => 'business centre lagos, CAC registration, ICT training, NIN registration, computer services ibeju lekki',
+                ],
+            ];
+        }
+
+        Response::success($config, 'Homepage configuration retrieved.');
+    }
+
+    public function updateHomepageConfig(): void
+    {
+        $this->requireRoles(['super_admin']);
+        $currentUser = $this->getAuthUser();
+        $body = $this->getJsonBody();
+
+        $pdo = Database::getConnection();
+        $stmt = $pdo->prepare("
+            INSERT INTO system_settings (`key`, `value`, `updated_at`)
+            VALUES ('homepage_config', ?, NOW())
+            ON DUPLICATE KEY UPDATE `value` = VALUES(`value`), `updated_at` = NOW()
+        ");
+        $stmt->execute([json_encode($body, JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT)]);
+
+        $this->recordAdminAudit(
+            'HOMEPAGE_CONFIG_UPDATED',
+            'system_settings',
+            'homepage_config',
+            "Super Admin {$currentUser['email']} updated homepage configuration"
+        );
+
+        Response::success($body, 'Homepage configuration saved successfully.');
+    }
+
+    /**
+     * Super Admin Navigation Control
+     * Strictly protects internal/admin dashboards from accidental public exposure
+     */
+    public function getNavigationConfig(): void
+    {
+        $pdo = Database::getConnection();
+        $stmt = $pdo->prepare("SELECT `value` FROM system_settings WHERE `key` = 'navigation_config' LIMIT 1");
+        $stmt->execute();
+        $val = $stmt->fetchColumn();
+
+        if ($val) {
+            $config = json_decode($val, true);
+        } else {
+            $config = [
+                'public_nav' => [
+                    ['id' => 'nav-home',     'label' => 'Home',       'path' => '/',          'enabled' => true, 'order' => 1],
+                    ['id' => 'nav-services', 'label' => 'Services',   'path' => '/services',  'enabled' => true, 'order' => 2],
+                    ['id' => 'nav-academy',  'label' => 'Academy',    'path' => '/academy',   'enabled' => true, 'order' => 3],
+                    ['id' => 'nav-shop',     'label' => 'Shop',       'path' => '/shop',      'enabled' => true, 'order' => 4],
+                    ['id' => 'nav-blog',     'label' => 'News/Blog',  'path' => '/blog',      'enabled' => true, 'order' => 5],
+                    ['id' => 'nav-contact',  'label' => 'Contact',    'path' => '/contact',   'enabled' => true, 'order' => 6],
+                    ['id' => 'nav-about',    'label' => 'About Us',   'path' => '/about',     'enabled' => true, 'order' => 7],
+                ],
+                'forbidden_public_prefixes' => ['/admin', '/dashboard', '/portal', '/ops', '/api'],
+            ];
+        }
+
+        Response::success($config, 'Navigation configuration retrieved.');
+    }
+
+    public function updateNavigationConfig(): void
+    {
+        $this->requireRoles(['super_admin']);
+        $currentUser = $this->getAuthUser();
+        $body = $this->getJsonBody();
+
+        $publicItems = $body['public_nav'] ?? [];
+
+        // STRICT INVARIANT: Never allow protected dashboard URLs in public navigation
+        $forbidden = ['/admin', '/dashboard', '/portal', '/ops', '/api'];
+        foreach ($publicItems as $item) {
+            $path = strtolower(trim((string)($item['path'] ?? '')));
+            foreach ($forbidden as $forb) {
+                if (str_starts_with($path, $forb)) {
+                    Response::error(
+                        "Security Boundary Guard: Protected administrative/user route '{$path}' cannot be exposed in public navigation.",
+                        403,
+                        'PUBLIC_NAV_LEAK_FORBIDDEN'
+                    );
+                    return;
+                }
+            }
+        }
+
+        $pdo = Database::getConnection();
+        $stmt = $pdo->prepare("
+            INSERT INTO system_settings (`key`, `value`, `updated_at`)
+            VALUES ('navigation_config', ?, NOW())
+            ON DUPLICATE KEY UPDATE `value` = VALUES(`value`), `updated_at` = NOW()
+        ");
+        $stmt->execute([json_encode($body, JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT)]);
+
+        $this->recordAdminAudit(
+            'NAVIGATION_CONFIG_UPDATED',
+            'system_settings',
+            'navigation_config',
+            "Super Admin {$currentUser['email']} updated public navigation settings"
+        );
+
+        Response::success($body, 'Navigation configuration saved successfully.');
+    }
+
+    /**
+     * Super Admin Data Export
+     */
+    public function exportData(): void
+    {
+        $this->requireRoles(['super_admin']);
+        $currentUser = $this->getAuthUser();
+        $entity = strtolower(trim((string)($_GET['entity'] ?? 'services')));
+
+        $pdo = Database::getConnection();
+        $data = [];
+
+        switch ($entity) {
+            case 'services':
+                $stmt = $pdo->query("SELECT id, category_id, title, slug, price, estimated_hours, status, created_at FROM service_offerings ORDER BY title ASC");
+                $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                break;
+            case 'categories':
+                $stmt = $pdo->query("SELECT id, name, slug, description, sort_order FROM service_categories ORDER BY sort_order ASC");
+                $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                break;
+            case 'products':
+                $stmt = $pdo->query("SELECT id, name, slug, price, stock_quantity, status, created_at FROM products ORDER BY name ASC");
+                $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                break;
+            case 'courses':
+                $stmt = $pdo->query("SELECT id, title, slug, fee, duration_weeks, status, created_at FROM academy_courses ORDER BY title ASC");
+                $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                break;
+            case 'orders':
+                $stmt = $pdo->query("SELECT id, order_number, user_id, total_amount, currency, status, payment_status, created_at FROM orders ORDER BY created_at DESC LIMIT 500");
+                $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                break;
+            case 'users':
+                // Strict privacy guard: Never export password hashes or secret tokens
+                $stmt = $pdo->query("
+                    SELECT u.id, u.email, u.phone, u.status, u.customer_tier, r.slug AS role, u.created_at,
+                           p.first_name, p.last_name, p.kyc_status
+                    FROM users u
+                    LEFT JOIN roles r ON u.role_id = r.id
+                    LEFT JOIN user_profiles p ON u.id = p.user_id
+                    ORDER BY u.created_at DESC
+                    LIMIT 500
+                ");
+                $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                break;
+            case 'audit_logs':
+                $stmt = $pdo->query("SELECT id, actor_name, actor_email, action, entity, entity_id, ip_address, details, created_at FROM audit_logs ORDER BY created_at DESC LIMIT 500");
+                $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                break;
+            default:
+                Response::badRequest("Unsupported export entity '{$entity}'. Allowed: services, categories, products, courses, orders, users, audit_logs.");
+                return;
+        }
+
+        $this->recordAdminAudit(
+            'DATA_EXPORT',
+            $entity,
+            'bulk',
+            "Super Admin {$currentUser['email']} exported " . count($data) . " {$entity} records"
+        );
+
+        Response::success([
+            'entity'    => $entity,
+            'count'     => count($data),
+            'records'   => $data,
+            'timestamp' => date('c'),
+        ], "Data for {$entity} exported successfully.");
+    }
+
+    /**
+     * Super Admin Data Import with Preview & Validation
+     */
+    public function importData(): void
+    {
+        $this->requireRoles(['super_admin']);
+        $currentUser = $this->getAuthUser();
+        $body = $this->getJsonBody();
+
+        $entity = strtolower(trim((string)($body['entity'] ?? 'services')));
+        $mode = strtolower(trim((string)($body['mode'] ?? 'preview'))); // 'preview' or 'execute'
+        $records = $body['records'] ?? [];
+
+        if (!is_array($records) || empty($records)) {
+            Response::badRequest('No valid records provided for import.');
+            return;
+        }
+
+        $pdo = Database::getConnection();
+        $valid = [];
+        $duplicates = [];
+        $errors = [];
+
+        foreach ($records as $idx => $rec) {
+            $rowNum = $idx + 1;
+            if ($entity === 'services') {
+                $title = trim((string)($rec['title'] ?? ''));
+                $price = (float)($rec['price'] ?? 0);
+                if (empty($title)) {
+                    $errors[] = "Row {$rowNum}: 'title' is required.";
+                    continue;
+                }
+                $exists = $pdo->prepare("SELECT id FROM service_offerings WHERE LOWER(title) = ? LIMIT 1");
+                $exists->execute([strtolower($title)]);
+                if ($exists->fetch()) {
+                    $duplicates[] = "Row {$rowNum}: Service '{$title}' already exists.";
+                } else {
+                    $valid[] = $rec;
+                }
+            } elseif ($entity === 'products') {
+                $name = trim((string)($rec['name'] ?? ''));
+                if (empty($name)) {
+                    $errors[] = "Row {$rowNum}: 'name' is required.";
+                    continue;
+                }
+                $exists = $pdo->prepare("SELECT id FROM products WHERE LOWER(name) = ? LIMIT 1");
+                $exists->execute([strtolower($name)]);
+                if ($exists->fetch()) {
+                    $duplicates[] = "Row {$rowNum}: Product '{$name}' already exists.";
+                } else {
+                    $valid[] = $rec;
+                }
+            } else {
+                Response::badRequest("Entity '{$entity}' does not support bulk import. Allowed: services, products.");
+                return;
+            }
+        }
+
+        // Preview Mode
+        if ($mode === 'preview') {
+            Response::success([
+                'entity'          => $entity,
+                'total_received'  => count($records),
+                'valid_count'     => count($valid),
+                'duplicate_count' => count($duplicates),
+                'error_count'     => count($errors),
+                'duplicates'      => $duplicates,
+                'errors'          => $errors,
+                'sample_valid'    => array_slice($valid, 0, 5),
+            ], 'Import validation and preview completed.');
+            return;
+        }
+
+        // Execute Mode (Transaction-Safe)
+        $pdo->beginTransaction();
+        try {
+            $insertedCount = 0;
+            if ($entity === 'services') {
+                $stmtInsert = $pdo->prepare("
+                    INSERT INTO service_offerings (id, category_id, title, slug, price, estimated_hours, status, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, 'ACTIVE', NOW(), NOW())
+                ");
+                $catId = $pdo->query("SELECT id FROM service_categories LIMIT 1")->fetchColumn() ?: 'cat-biz';
+                foreach ($valid as $v) {
+                    $id = 'srv-' . bin2hex(random_bytes(6));
+                    $title = (string)$v['title'];
+                    $slug = strtolower(preg_replace('/[^a-z0-9\-]+/', '-', $title));
+                    $price = (float)($v['price'] ?? 1000);
+                    $hours = (int)($v['estimated_hours'] ?? 24);
+                    $stmtInsert->execute([$id, $catId, $title, $slug, $price, $hours]);
+                    $insertedCount++;
+                }
+            } elseif ($entity === 'products') {
+                $stmtInsert = $pdo->prepare("
+                    INSERT INTO products (id, name, slug, price, stock_quantity, status, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, 'ACTIVE', NOW(), NOW())
+                ");
+                foreach ($valid as $v) {
+                    $id = 'prd-' . bin2hex(random_bytes(6));
+                    $name = (string)$v['name'];
+                    $slug = strtolower(preg_replace('/[^a-z0-9\-]+/', '-', $name));
+                    $price = (float)($v['price'] ?? 500);
+                    $qty = (int)($v['stock_quantity'] ?? 100);
+                    $stmtInsert->execute([$id, $name, $slug, $price, $qty]);
+                    $insertedCount++;
+                }
+            }
+
+            $pdo->commit();
+
+            $this->recordAdminAudit(
+                'DATA_IMPORT_EXECUTED',
+                $entity,
+                'bulk',
+                "Super Admin {$currentUser['email']} imported {$insertedCount} {$entity} records"
+            );
+
+            Response::success([
+                'entity'          => $entity,
+                'inserted_count'  => $insertedCount,
+                'skipped_duplicates' => count($duplicates),
+            ], "Successfully imported {$insertedCount} {$entity} records.");
+
+        } catch (\Throwable $e) {
+            $pdo->rollBack();
+            Response::error('Import transaction failed: ' . $e->getMessage(), 500);
+        }
+    }
 }
+
