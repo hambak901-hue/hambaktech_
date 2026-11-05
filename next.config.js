@@ -2,7 +2,7 @@
 const isExport = process.env.NEXT_EXPORT === "true";
 
 const nextConfig = {
-  ...(isExport ? { output: "export" } : {}),
+  output: isExport ? "export" : "standalone",
   images: {
     unoptimized: true,
     remotePatterns: [
